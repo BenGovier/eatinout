@@ -1,0 +1,52 @@
+name: Build and deploy Node.js app to Azure Web App - eatinout-web (staging)
+
+on:
+  push:
+    branches:
+      - new-staging
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Setup Node
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4️⃣ Build Next.js
+      - name: Build project
+        run: npm run build
+
+      # 5️⃣ Debug: Check .next folder
+      - name: Check build output
+        run: ls -la .next
+
+      # 6️⃣ Copy public folder
+      - name: Copy public folder
+        run: cp -r public .next/standalone/
+
+      # 7️⃣ Copy Next static files (IMPORTANT FIX)
+      - name: Copy static folder
+        run: |
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/
+
+      # 8️⃣ Deploy standalone build
+      - name: Deploy to Azure Web App (staging slot)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'eatinout-web'
+          slot-name: 'staging'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D9056DBEC89D4A3A8CD05A2C8DF08A7B }}
+          package: .next/standalone
