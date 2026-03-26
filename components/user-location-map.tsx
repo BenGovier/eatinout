@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import L from "leaflet"
+import "leaflet.markercluster"
 import { cn } from "@/lib/utils"
 import { USER_LAT_LNG_SESSION_KEY } from "@/lib/user-location-session"
 
 import "leaflet/dist/leaflet.css"
+import "leaflet.markercluster/dist/MarkerCluster.css"
+import "leaflet.markercluster/dist/MarkerCluster.Default.css"
 
 type LatLng = { lat: number; lng: number }
 type RestaurantMarker = { id: string; name: string; lat: number; lng: number }
@@ -19,6 +22,14 @@ const USER_LOCATION_ICON = L.icon({
   iconSize: [36, 48],
   iconAnchor: [18, 48],
   popupAnchor: [0, -46],
+})
+
+const RESTAURANT_LOCATION_ICON = L.divIcon({
+  className: "restaurant-pin-icon",
+  html: `<div style="width:16px;height:16px;background:#DC3545;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 16],
+  popupAnchor: [0, -16],
 })
 
 function getStoredLatLng(): LatLng | null {
@@ -45,7 +56,7 @@ export default function UserLocationMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
-  const restaurantLayerRef = useRef<L.LayerGroup | null>(null)
+  const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null)
   const [coords, setCoords] = useState<LatLng>(BLACKPOOL_DEFAULT_VIEW_LAT_LNG);
 
   useEffect(() => {
@@ -108,7 +119,35 @@ export default function UserLocationMap({
 
       const marker = L.marker(center, { icon: USER_LOCATION_ICON }).addTo(map)
       marker.bindPopup(getStoredLatLng() ? "You are here" : "Explore this area")
-      restaurantLayerRef.current = L.layerGroup().addTo(map)
+      restaurantLayerRef.current = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        disableClusteringAtZoom: 17,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        iconCreateFunction: (cluster) => {
+          const count = cluster.getChildCount()
+          const size = count < 10 ? 36 : count < 100 ? 42 : 48
+          return L.divIcon({
+            html: `<div style="
+                width:${size}px;
+                height:${size}px;
+                border-radius:9999px;
+                background:rgba(220,53,69,0.85);
+                border:2px solid #ffffff;
+                box-shadow:0 2px 8px rgba(0,0,0,0.25);
+                color:#ffffff;
+                font-weight:700;
+                font-size:${count < 100 ? 13 : 12}px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+              ">${count}</div>`,
+            className: "restaurant-cluster-icon",
+            iconSize: [size, size],
+          })
+        },
+      })
+      map.addLayer(restaurantLayerRef.current)
 
       mapInstanceRef.current = map
       markerRef.current = marker
@@ -138,12 +177,8 @@ export default function UserLocationMap({
           Number.isFinite(restaurant.lng),
       )
       .forEach((restaurant) => {
-        const marker = L.circleMarker([restaurant.lat, restaurant.lng], {
-          radius: 6,
-          color: "#DC3545",
-          fillColor: "#DC3545",
-          fillOpacity: 0.9,
-          weight: 2,
+        const marker = L.marker([restaurant.lat, restaurant.lng], {
+          icon: RESTAURANT_LOCATION_ICON,
         })
         marker.bindPopup(restaurant.name || "Restaurant")
         marker.addTo(layer)
