@@ -41,6 +41,8 @@ type OfferData = {
 type Restaurant = {
   id: string;
   name: string;
+  lat?: number | null;
+  lng?: number | null;
   cuisine?: string;
   location: string;
   address?: string;
@@ -1323,10 +1325,27 @@ export default function RestaurantsPage() {
               className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04]
                 h-[min(38vh,240px)] min-h-[200px] sm:h-64 sm:min-h-[240px] md:h-72 lg:h-80"
             >
-              <UserLocationMap className="min-h-0" />
+              <UserLocationMap
+                className="min-h-0"
+                restaurants={pageState.restaurants
+                  .filter(
+                    (restaurant) =>
+                      typeof restaurant.lat === "number" &&
+                      Number.isFinite(restaurant.lat) &&
+                      typeof restaurant.lng === "number" &&
+                      Number.isFinite(restaurant.lng),
+                  )
+                  .map((restaurant) => ({
+                    id: restaurant.id,
+                    name: restaurant.name,
+                    lat: restaurant.lat as number,
+                    lng: restaurant.lng as number,
+                  }))}
+              />
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs">
-              Centered on your shared location. Open filters above to narrow results.
+              Centered on your shared location. Open filters above to narrow
+              results.
             </p>
           </div>
         </section>

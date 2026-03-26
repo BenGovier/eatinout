@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     // Cap in-memory load to prevent production memory spikes (Azure 4GB limit)
     const MAX_IN_MEMORY = 500;
     const restaurants = await Restaurant.find(query)
-      .select('name cuisine address city state zipCode area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
+      .select('name cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
       .sort({ createdAt: -1 })
       .limit(MAX_IN_MEMORY)
       .lean();
@@ -203,6 +203,8 @@ export async function GET(request: Request) {
         city: restaurant.city || "",
         state: restaurant.state || "",
         zipCode: restaurant.zipCode || "",
+        lat: restaurant.lat ?? null,
+        lng: restaurant.lng ?? null,
         addressLink: restaurant.addressLink || "",
         area: restaurant.area,
         rating: 4.5,

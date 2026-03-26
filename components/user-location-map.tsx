@@ -8,6 +8,7 @@ import { USER_LAT_LNG_SESSION_KEY } from "@/lib/user-location-session"
 import "leaflet/dist/leaflet.css"
 
 type LatLng = { lat: number; lng: number }
+type RestaurantMarker = { id: string; name: string; lat: number; lng: number }
 
 /** Default map center when the user has not shared location (Blackpool area). */
 const BLACKPOOL_DEFAULT_VIEW_LAT_LNG: LatLng = { lat: 53.8189, lng: -3.05446 }
@@ -35,13 +36,16 @@ function getStoredLatLng(): LatLng | null {
 export default function UserLocationMap({
   className,
   zoom = 13,
+  restaurants = [],
 }: {
   className?: string
   zoom?: number
+  restaurants?: RestaurantMarker[]
 }) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
+  const restaurantLayerRef = useRef<L.LayerGroup | null>(null)
   const [coords, setCoords] = useState<LatLng>(BLACKPOOL_DEFAULT_VIEW_LAT_LNG);
 
   useEffect(() => {
@@ -104,6 +108,7 @@ export default function UserLocationMap({
 
       const marker = L.marker(center, { icon: USER_LOCATION_ICON }).addTo(map)
       marker.bindPopup(getStoredLatLng() ? "You are here" : "Explore this area")
+      restaurantLayerRef.current = L.layerGroup().addTo(map)
 
       mapInstanceRef.current = map
       markerRef.current = marker
@@ -118,7 +123,37 @@ export default function UserLocationMap({
   }, [coords, tileUrl, usingMapTiler, zoom])
 
   useEffect(() => {
+    const map = mapInstanceRef.current
+    const layer = restaurantLayerRef.current
+    if (!map || !layer) return
+
+    layer.clearLayers()
+
+    restaurants
+      .filter(
+        (restaurant) =>
+          typeof restaurant.lat === "number" &&
+          Number.isFinite(restaurant.lat) &&
+          typeof restaurant.lng === "number" &&
+          Number.isFinite(restaurant.lng),
+      )
+      .forEach((restaurant) => {
+        const marker = L.circleMarker([restaurant.lat, restaurant.lng], {
+          radius: 6,
+          color: "#DC3545",
+          fillColor: "#DC3545",
+          fillOpacity: 0.9,
+          weight: 2,
+        })
+        marker.bindPopup(restaurant.name || "Restaurant")
+        marker.addTo(layer)
+      })
+  }, [restaurants])
+
+  useEffect(() => {
     return () => {
+      restaurantLayerRef.current?.clearLayers()
+      restaurantLayerRef.current = null
       markerRef.current?.remove()
       markerRef.current = null
       mapInstanceRef.current?.remove()
