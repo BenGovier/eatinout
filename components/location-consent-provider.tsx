@@ -1,12 +1,31 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import { usePathname } from "next/navigation"
 import { WelcomeLocationModal } from "@/components/welcome-location-modal"
 import {
   USER_LAT_LNG_SESSION_KEY,
   USER_LOCATION_STORAGE_EVENT,
 } from "@/lib/user-location-session"
+
+type LocationConsentContextValue = {
+  /** Opens the location consent modal (e.g. from map control). */
+  requestLocationModal: () => void
+}
+
+const LocationConsentContext =
+  createContext<LocationConsentContextValue | null>(null)
+
+export function useLocationConsent() {
+  return useContext(LocationConsentContext)
+}
 
 export default function LocationConsentProvider({
   children,
@@ -15,6 +34,10 @@ export default function LocationConsentProvider({
 }) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+
+  const requestLocationModal = useCallback(() => {
+    setIsOpen(true)
+  }, [])
 
   const syncOpenFromStorage = useCallback(() => {
     try {
@@ -40,11 +63,16 @@ export default function LocationConsentProvider({
     setIsOpen(false)
   }, [])
 
+  const contextValue = useMemo<LocationConsentContextValue>(
+    () => ({ requestLocationModal }),
+    [requestLocationModal],
+  )
+
   return (
-    <>
+    <LocationConsentContext.Provider value={contextValue}>
       {children}
       <WelcomeLocationModal isOpen={isOpen} onClose={handleClose} />
-    </>
+    </LocationConsentContext.Provider>
   )
 }
 

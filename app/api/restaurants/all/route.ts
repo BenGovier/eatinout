@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
+import {
+  DEFAULT_MAP_CENTER_LAT_LNG,
+  DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+  isRestaurantDistanceFilterMiles,
+} from "@/lib/constants";
 import connectToDatabase from "@/lib/mongodb";
 import Restaurant from "@/models/Restaurant";
 import Offer from "@/models/Offer";
@@ -9,6 +14,27 @@ import Tag from "@/models/Tag";
 
 function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const EARTH_RADIUS_MILES = 3958.8;
+
+function haversineDistanceMiles(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_MILES * c;
 }
 
 export async function GET(request: Request) {
@@ -27,6 +53,26 @@ export async function GET(request: Request) {
     const dineOut = searchParams.get('dineOut') === 'true';
     const days = searchParams.get('days');
     const mealTimes = searchParams.get('mealTimes');
+    const maxDistanceMilesRaw = searchParams.get('maxDistanceMiles');
+
+    let maxDistanceMiles: number = DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES;
+    if (maxDistanceMilesRaw) {
+      const parsed = parseInt(maxDistanceMilesRaw, 10);
+      if (isRestaurantDistanceFilterMiles(parsed)) {
+        maxDistanceMiles = parsed;
+      }
+    }
+
+    let originLat: number = DEFAULT_MAP_CENTER_LAT_LNG.lat;
+    let originLng: number = DEFAULT_MAP_CENTER_LAT_LNG.lng;
+    const userLatRaw = searchParams.get('userLat');
+    const userLngRaw = searchParams.get('userLng');
+    const ulat = userLatRaw != null ? parseFloat(userLatRaw) : NaN;
+    const ulng = userLngRaw != null ? parseFloat(userLngRaw) : NaN;
+    if (Number.isFinite(ulat) && Number.isFinite(ulng)) {
+      originLat = ulat;
+      originLng = ulng;
+    }
 
     const query: any = { status: "approved", hidden: { $ne: true } };
 
@@ -290,6 +336,20 @@ export async function GET(request: Request) {
         });
       }
     }
+
+    finalFormattedRestaurants = finalFormattedRestaurants.filter((restaurant: any) => {
+      const lat = restaurant.lat;
+      const lng = restaurant.lng;
+      if (
+        typeof lat !== "number" ||
+        typeof lng !== "number" ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        return false;
+      }
+      return haversineDistanceMiles(originLat, originLng, lat, lng) <= maxDistanceMiles;
+    });
 
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);

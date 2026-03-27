@@ -3,7 +3,15 @@ import { Search, SlidersHorizontal, X, Tag, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+} from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useScrollPreservation } from "@/hooks/use-scroll-preservation";
 import { FlavourSection } from "@/components/FlavourSection";
@@ -12,6 +20,18 @@ import { RestaurantCardSkeleton } from "@/components/restaurant-card-skeleton";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/auth-context";
+import {
+  DEFAULT_MAP_CENTER_LAT_LNG,
+  DEFAULT_MAP_LOCATION_LABEL,
+  DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+  RESTAURANT_DISTANCE_OPTIONS_MILES,
+  isRestaurantDistanceFilterMiles,
+  type RestaurantDistanceFilterMiles,
+} from "@/lib/constants";
+import {
+  USER_LAT_LNG_SESSION_KEY,
+  USER_LOCATION_STORAGE_EVENT,
+} from "@/lib/user-location-session";
 import dynamic from "next/dynamic";
 
 const UserLocationMap = dynamic(
@@ -63,6 +83,83 @@ type Restaurant = {
   deliveryAvailable: boolean;
 };
 
+type RestaurantsListPageResponse = {
+  success: boolean;
+  message?: string;
+  restaurants: Restaurant[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage?: boolean;
+    limit?: number;
+    totalRestaurants?: number;
+  };
+};
+
+type RestaurantsListFilters = {
+  area: string;
+  search: string;
+  categoryId: string;
+  dineIn: boolean;
+  dineOut: boolean;
+  days: string;
+  mealTimes: string;
+  maxDistanceMiles: RestaurantDistanceFilterMiles;
+  userLat: number;
+  userLng: number;
+};
+
+const RESTAURANTS_LIST_QUERY_KEY_ROOT = ["restaurants", "all"] as const;
+
+function buildRestaurantsListParams(
+  page: number,
+  f: RestaurantsListFilters,
+): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: "12",
+  });
+  if (f.area) params.append("area", f.area);
+  if (f.search) params.append("search", f.search);
+  if (f.categoryId) params.append("categoryId", f.categoryId);
+  if (f.dineIn) params.append("dineIn", "true");
+  if (f.dineOut) params.append("dineOut", "true");
+  if (f.days) params.append("days", f.days);
+  if (f.mealTimes) params.append("mealTimes", f.mealTimes);
+  params.append("maxDistanceMiles", String(f.maxDistanceMiles));
+  params.append("userLat", String(f.userLat));
+  params.append("userLng", String(f.userLng));
+  return params;
+}
+
+async function fetchRestaurantsListPage(
+  page: number,
+  f: RestaurantsListFilters,
+  signal?: AbortSignal,
+): Promise<RestaurantsListPageResponse> {
+  const params = buildRestaurantsListParams(page, f);
+  const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    signal,
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      (errorData as { message?: string }).message ||
+        `Server error: ${response.status}`,
+    );
+  }
+  const data = (await response.json()) as RestaurantsListPageResponse;
+  console.log(data.restaurants);
+
+  if (!data.success || !Array.isArray(data.restaurants)) {
+    throw new Error(data.message || "Invalid response format");
+  }
+  return data;
+}
+
 type AreaOption = {
   value: string;
   label: string;
@@ -89,18 +186,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-interface PageState {
-  restaurants: Restaurant[];
-  loading: boolean;
-  error: string | null;
-  isRestoringScroll: boolean;
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    hasNextPage: boolean;
-  };
-}
-
 interface FilterState {
   searchTerm: string;
   locationSearch: string;
@@ -112,6 +197,7 @@ interface FilterState {
   selectedDayValues: string[];
   selectedDining: string[];
   selectedMealTimes: string[];
+  maxDistanceMiles: RestaurantDistanceFilterMiles;
 }
 
 interface MetaState {
@@ -245,18 +331,6 @@ export default function RestaurantsPage() {
     [user],
   );
 
-  const [pageState, setPageState] = useState<PageState>({
-    restaurants: [],
-    loading: true,
-    error: null,
-    isRestoringScroll: false,
-    pagination: {
-      currentPage: 1,
-      totalPages: 1,
-      hasNextPage: false,
-    },
-  });
-
   const [filterState, setFilterState] = useState<FilterState>({
     searchTerm: "",
     locationSearch: "",
@@ -268,7 +342,18 @@ export default function RestaurantsPage() {
     selectedDayValues: [],
     selectedDining: [],
     selectedMealTimes: [],
+    maxDistanceMiles: DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
   });
+
+  const [userOrigin, setUserOrigin] = useState<{ lat: number; lng: number }>(
+    () => ({
+      lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
+      lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
+    }),
+  );
+
+  /** True when `userLatLng` in sessionStorage is a saved device location (not default center). */
+  const [isUserLocationShared, setIsUserLocationShared] = useState(false);
 
   const [uiState, setUIState] = useState<UIState>({
     showLocationDropdown: false,
@@ -301,16 +386,8 @@ export default function RestaurantsPage() {
 
   const debouncedSearchTerm = useDebounce(filterState.searchTerm, 500);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
-  const filtersRef = useRef({
-    selectedLocationId: "",
-    searchTerm: "",
-    selectedCuisineIds: [] as string[],
-    selectedDining: [] as string[],
-    selectedDayValues: [] as string[],
-    selectedMealTimes: [] as string[],
-  });
-  const fetchingRef = useRef<Set<string>>(new Set());
-  const skipFilterEffectRef = useRef(false);
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const scrollRestoreTargetPageRef = useRef<number | null>(null);
 
   const saveFilterState = useCallback(() => {
     const filterData = {
@@ -323,6 +400,7 @@ export default function RestaurantsPage() {
       selectedDayValues: filterState.selectedDayValues,
       selectedDining: filterState.selectedDining,
       selectedMealTimes: filterState.selectedMealTimes,
+      maxDistanceMiles: filterState.maxDistanceMiles,
       showFilters: uiState.showFilters,
     };
     sessionStorage.setItem("restaurantFilters", JSON.stringify(filterData));
@@ -344,6 +422,11 @@ export default function RestaurantsPage() {
           selectedDayValues: savedState.selectedDayValues || [],
           selectedDining: savedState.selectedDining || [],
           selectedMealTimes: savedState.selectedMealTimes || [],
+          maxDistanceMiles:
+            typeof savedState.maxDistanceMiles === "number" &&
+            isRestaurantDistanceFilterMiles(savedState.maxDistanceMiles)
+              ? savedState.maxDistanceMiles
+              : DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
         });
         setUIState((prev) => ({
           ...prev,
@@ -359,197 +442,173 @@ export default function RestaurantsPage() {
     sessionStorage.removeItem("restaurantFilters");
   }, []);
 
-  useEffect(() => {
-    filtersRef.current = {
-      selectedLocationId: filterState.selectedLocationId,
-      searchTerm: debouncedSearchTerm,
-      selectedCuisineIds: filterState.selectedCuisineIds,
-      selectedDining: filterState.selectedDining,
-      selectedDayValues: filterState.selectedDayValues,
-      selectedMealTimes: filterState.selectedMealTimes,
-    };
-  }, [
-    filterState.selectedLocationId,
-    debouncedSearchTerm,
-    filterState.selectedCuisineIds,
-    filterState.selectedDining,
-    filterState.selectedDayValues,
-    filterState.selectedMealTimes,
-  ]);
+  const restaurantsListFilters = useMemo<RestaurantsListFilters>(
+    () => ({
+      area:
+        filterState.selectedLocationId &&
+        filterState.selectedLocationId !== "all"
+          ? filterState.selectedLocationId
+          : "",
+      search: debouncedSearchTerm.trim(),
+      categoryId: filterState.selectedCuisineIds.join(","),
+      dineIn: filterState.selectedDining.includes("dine-in"),
+      dineOut: filterState.selectedDining.includes("takeaway"),
+      days: filterState.selectedDayValues.join(","),
+      mealTimes: filterState.selectedMealTimes.join(","),
+      maxDistanceMiles: filterState.maxDistanceMiles,
+      userLat: userOrigin.lat,
+      userLng: userOrigin.lng,
+    }),
+    [
+      filterState.selectedLocationId,
+      debouncedSearchTerm,
+      filterState.selectedCuisineIds,
+      filterState.selectedDining,
+      filterState.selectedDayValues,
+      filterState.selectedMealTimes,
+      filterState.maxDistanceMiles,
+      userOrigin.lat,
+      userOrigin.lng,
+    ],
+  );
 
-  const fetchRestaurants = useCallback(async (page = 1, reset = true) => {
-    const filters = filtersRef.current;
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: "12",
-    });
-
-    if (filters.selectedLocationId && filters.selectedLocationId !== "all") {
-      params.append("area", filters.selectedLocationId);
-    }
-    if (filters.searchTerm?.trim()) {
-      params.append("search", filters.searchTerm.trim());
-    }
-    if (filters.selectedCuisineIds.length > 0) {
-      params.append("categoryId", filters.selectedCuisineIds.join(","));
-    }
-    if (filters.selectedDining.includes("dine-in")) {
-      params.append("dineIn", "true");
-    }
-    if (filters.selectedDining.includes("takeaway")) {
-      params.append("dineOut", "true");
-    }
-    if (filters.selectedDayValues.length > 0) {
-      params.append("days", filters.selectedDayValues.join(","));
-    }
-    if (filters.selectedMealTimes.length > 0) {
-      params.append("mealTimes", filters.selectedMealTimes.join(","));
-    }
-
-    const requestKey = `${params.toString()}-${page}`;
-
-    if (fetchingRef.current.has(requestKey)) {
-      return;
-    }
-
-    try {
-      fetchingRef.current.add(requestKey);
-
-      if (reset) {
-        setPageState((prev) => ({ ...prev, loading: true, error: null }));
-      }
-
-      const response = await fetch(
-        `/api/restaurants/all?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          next: { revalidate: 60 },
-        },
+  const {
+    data: restaurantsQueryData,
+    error: restaurantsQueryError,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isPending,
+  } = useInfiniteQuery({
+    queryKey: [
+      ...RESTAURANTS_LIST_QUERY_KEY_ROOT,
+      restaurantsListFilters,
+    ] as const,
+    queryFn: async ({ pageParam, signal }) => {
+      return fetchRestaurantsListPage(
+        pageParam as number,
+        restaurantsListFilters,
+        signal,
       );
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination?.hasNextPage
+        ? lastPage.pagination.currentPage + 1
+        : undefined,
+    enabled: filtersHydrated,
+  });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Server error: ${response.status}`,
-        );
+  const restaurants = useMemo(
+    () => restaurantsQueryData?.pages.flatMap((p) => p.restaurants) ?? [],
+    [restaurantsQueryData],
+  );
+
+  const restaurantsListReportedPage = useMemo(() => {
+    const pages = restaurantsQueryData?.pages;
+    if (!pages?.length) return 1;
+    return pages[pages.length - 1].pagination.currentPage;
+  }, [restaurantsQueryData]);
+
+  const listErrorMessage =
+    restaurantsQueryError instanceof Error
+      ? restaurantsQueryError.message
+      : restaurantsQueryError
+        ? String(restaurantsQueryError)
+        : null;
+
+  const listLoadingInitial =
+    isPending || (isFetching && restaurants.length === 0);
+  const listLoadingMore = isFetchingNextPage;
+
+  useEffect(() => {
+    const readOrigin = () => {
+      try {
+        const raw = sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY);
+        if (!raw) {
+          setIsUserLocationShared(false);
+          setUserOrigin({
+            lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
+            lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
+          });
+          return;
+        }
+        const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown };
+        if (
+          typeof parsed.lat === "number" &&
+          typeof parsed.lng === "number" &&
+          Number.isFinite(parsed.lat) &&
+          Number.isFinite(parsed.lng)
+        ) {
+          setIsUserLocationShared(true);
+          setUserOrigin({ lat: parsed.lat, lng: parsed.lng });
+        } else {
+          setIsUserLocationShared(false);
+          setUserOrigin({
+            lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
+            lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
+          });
+        }
+      } catch {
+        setIsUserLocationShared(false);
+        setUserOrigin({
+          lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
+          lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
+        });
       }
+    };
 
-      const data = await response.json();
-
-      if (!data.success || !Array.isArray(data.restaurants)) {
-        throw new Error(data.message || "Invalid response format");
-      }
-
-      setPageState((prev) => ({
-        ...prev,
-        restaurants: reset
-          ? data.restaurants
-          : [...prev.restaurants, ...data.restaurants],
-        loading: false,
-        pagination: {
-          currentPage: data.pagination?.currentPage || page,
-          totalPages: data.pagination?.totalPages || 1,
-          hasNextPage: data.pagination?.hasNextPage || false,
-        },
-      }));
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setPageState((prev) => ({
-        ...prev,
-        error: errorMessage,
-        loading: false,
-        restaurants: reset ? [] : prev.restaurants,
-      }));
-    } finally {
-      fetchingRef.current.delete(requestKey);
-    }
+    readOrigin();
+    window.addEventListener(USER_LOCATION_STORAGE_EVENT, readOrigin);
+    return () =>
+      window.removeEventListener(USER_LOCATION_STORAGE_EVENT, readOrigin);
   }, []);
 
   useEffect(() => {
     restoreFilterState();
+    setFiltersHydrated(true);
   }, [restoreFilterState]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const initializePage = async () => {
-      const savedPageState = getSavedPageState();
-
-      if (savedPageState && savedPageState.currentPage > 1) {
-        if (!isMounted) return;
-        setPageState((prev) => ({ ...prev, isRestoringScroll: true }));
-
-        const pagesToLoad = Array.from(
-          { length: savedPageState.currentPage },
-          (_, i) => i + 1,
-        );
-        const batchSize = 3;
-
-        for (let i = 0; i < pagesToLoad.length; i += batchSize) {
-          if (!isMounted) break;
-          const batch = pagesToLoad.slice(i, i + batchSize);
-          await Promise.all(
-            batch.map((page) => fetchRestaurants(page, page === 1)),
-          );
-        }
-
-        if (isMounted) {
-          setPageState((prev) => ({ ...prev, isRestoringScroll: false }));
-        }
-      } else {
-        if (isMounted) {
-          fetchRestaurants(1, true);
-        }
-      }
-    };
-
-    initializePage();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchRestaurants, getSavedPageState]);
+  useLayoutEffect(() => {
+    const saved = getSavedPageState();
+    scrollRestoreTargetPageRef.current =
+      saved && saved.currentPage > 1 ? saved.currentPage : null;
+  }, [getSavedPageState]);
 
   useEffect(() => {
-    if (pageState.isRestoringScroll) {
-      skipFilterEffectRef.current = true;
+    const target = scrollRestoreTargetPageRef.current;
+    if (target == null || target <= 1) return;
+    if (!restaurantsQueryData?.pages.length) return;
+    const loadedCount = restaurantsQueryData.pages.length;
+    if (loadedCount >= target) {
+      scrollRestoreTargetPageRef.current = null;
       return;
     }
-
-    if (skipFilterEffectRef.current) {
-      skipFilterEffectRef.current = false;
+    if (!hasNextPage) {
+      scrollRestoreTargetPageRef.current = null;
       return;
     }
-
-    fetchRestaurants(1, true);
+    if (!isFetchingNextPage) {
+      void fetchNextPage();
+    }
   }, [
-    debouncedSearchTerm,
-    filterState.selectedLocationId,
-    filterState.selectedCuisineIds,
-    filterState.selectedDining,
-    filterState.selectedDayValues,
-    filterState.selectedMealTimes,
-    fetchRestaurants,
-    pageState.isRestoringScroll,
+    restaurantsQueryData?.pages.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    restaurantsQueryData,
   ]);
 
   const loadMoreRestaurants = useCallback(() => {
-    if (pageState.pagination.hasNextPage && !pageState.loading) {
-      fetchRestaurants(pageState.pagination.currentPage + 1, false);
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-  }, [
-    pageState.pagination.hasNextPage,
-    pageState.pagination.currentPage,
-    pageState.loading,
-    fetchRestaurants,
-  ]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (pageState.loading || !pageState.pagination.hasNextPage) return;
+      if (isFetchingNextPage || !hasNextPage) return;
 
       const scrollTop = window.scrollY;
       const windowHeight = window.innerHeight;
@@ -562,11 +621,7 @@ export default function RestaurantsPage() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [
-    pageState.loading,
-    pageState.pagination.hasNextPage,
-    loadMoreRestaurants,
-  ]);
+  }, [isFetchingNextPage, hasNextPage, loadMoreRestaurants]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -800,6 +855,13 @@ export default function RestaurantsPage() {
     }));
   }, []);
 
+  const setMaxDistanceMiles = useCallback(
+    (miles: RestaurantDistanceFilterMiles) => {
+      setFilterState((prev) => ({ ...prev, maxDistanceMiles: miles }));
+    },
+    [],
+  );
+
   const mapDaysToDisplay = useCallback((tags: string[]) => {
     return tags.map((tag) => DAY_MAP[tag.toLowerCase()] || tag).filter(Boolean);
   }, []);
@@ -857,8 +919,8 @@ export default function RestaurantsPage() {
       }
 
       saveScrollPosition({
-        currentPage: pageState.pagination.currentPage,
-        totalItems: pageState.restaurants.length,
+        currentPage: restaurantsListReportedPage,
+        totalItems: restaurants.length,
       });
       saveFilterState();
       const url = offerId
@@ -869,18 +931,18 @@ export default function RestaurantsPage() {
     [
       saveScrollPosition,
       saveFilterState,
-      pageState.pagination.currentPage,
-      pageState.restaurants.length,
+      restaurantsListReportedPage,
+      restaurants.length,
       router,
       user,
     ],
   );
 
   const visibleRestaurants = useMemo(() => {
-    return pageState.restaurants.filter(
+    return restaurants.filter(
       (restaurant) => (restaurant.offers?.length ?? 0) > 0,
     );
-  }, [pageState.restaurants]);
+  }, [restaurants]);
 
   const hasFilters = useMemo(() => {
     return !!(
@@ -889,6 +951,8 @@ export default function RestaurantsPage() {
       filterState.selectedDining.length > 0 ||
       filterState.selectedDayValues.length > 0 ||
       filterState.selectedMealTimes.length > 0 ||
+      filterState.maxDistanceMiles !==
+        DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES ||
       debouncedSearchTerm
     );
   }, [
@@ -897,6 +961,7 @@ export default function RestaurantsPage() {
     filterState.selectedDining.length,
     filterState.selectedDayValues.length,
     filterState.selectedMealTimes.length,
+    filterState.maxDistanceMiles,
     debouncedSearchTerm,
   ]);
 
@@ -1041,15 +1106,8 @@ export default function RestaurantsPage() {
       top: 0,
       behavior: "smooth",
     });
-    setPageState((prev) => ({
-      ...prev,
-      pagination: {
-        ...prev.pagination,
-        currentPage: 1,
-      },
-    }));
-    fetchRestaurants(1, true);
-  }, [filterState.selectedLocationId]);
+  }, [filterState.selectedLocationId, clearScrollPosition]);
+
   return (
     <>
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
@@ -1088,7 +1146,7 @@ export default function RestaurantsPage() {
                       showFilters: !prev.showFilters,
                     }))
                   }
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
                 >
                   <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
                   <span className="text-[#DC3545] font-medium">Filters</span>
@@ -1126,7 +1184,9 @@ export default function RestaurantsPage() {
             {(filterState.selectedMealTimes.length > 0 ||
               filterState.selectedCuisines.length > 0 ||
               filterState.selectedDays.length > 0 ||
-              filterState.selectedDining.length > 0) && (
+              filterState.selectedDining.length > 0 ||
+              filterState.maxDistanceMiles !==
+                DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) && (
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 {filterState.selectedMealTimes.map((mealTime) => (
                   <Badge
@@ -1164,6 +1224,12 @@ export default function RestaurantsPage() {
                     {dining === "dine-in" ? "Dine In" : "Takeaway"}
                   </Badge>
                 ))}
+                <Badge
+                  variant="secondary"
+                  className="bg-primary/10 text-primary border-primary/20"
+                >
+                  Within {filterState.maxDistanceMiles} mi
+                </Badge>
               </div>
             )}
 
@@ -1260,6 +1326,38 @@ export default function RestaurantsPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="text-sm font-semibold mb-2 block text-foreground">
+                  Distance from you
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Uses your shared location on the map when available; otherwise
+                  the default map area ({DEFAULT_MAP_LOCATION_LABEL}).
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {RESTAURANT_DISTANCE_OPTIONS_MILES.map((miles) => (
+                    <Button
+                      key={miles}
+                      type="button"
+                      variant={
+                        filterState.maxDistanceMiles === miles
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      onClick={() => setMaxDistanceMiles(miles)}
+                      className={
+                        filterState.maxDistanceMiles === miles
+                          ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
+                          : "rounded-2xl"
+                      }
+                    >
+                      {miles} mi
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => {
@@ -1285,6 +1383,8 @@ export default function RestaurantsPage() {
                       selectedDayValues: [],
                       selectedDining: [],
                       selectedMealTimes: [],
+                      maxDistanceMiles:
+                        DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
                     });
                     clearScrollPosition();
                     clearFilterState();
@@ -1322,12 +1422,12 @@ export default function RestaurantsPage() {
               </span>
             </div>
             <div
-              className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04]
+              className="relative z-0 isolate overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04]
                 h-[min(38vh,240px)] min-h-[200px] sm:h-64 sm:min-h-[240px] md:h-72 lg:h-80"
             >
               <UserLocationMap
                 className="min-h-0"
-                restaurants={pageState.restaurants
+                restaurants={visibleRestaurants
                   .filter(
                     (restaurant) =>
                       typeof restaurant.lat === "number" &&
@@ -1344,8 +1444,9 @@ export default function RestaurantsPage() {
               />
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs">
-              Centered on your shared location. Open filters above to narrow
-              results.
+              {isUserLocationShared
+                ? "Showing restaurants around you"
+                : `Showing restaurants around ${DEFAULT_MAP_LOCATION_LABEL}`}
             </p>
           </div>
         </section>
@@ -1381,6 +1482,15 @@ export default function RestaurantsPage() {
             {sectionTitle}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {listErrorMessage && (
+              <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {listErrorMessage}
+              </div>
+            )}
+            {listLoadingInitial &&
+              !listErrorMessage &&
+              restaurants.length === 0 &&
+              [1, 2, 3, 4, 5, 6].map((i) => <RestaurantCardSkeleton key={i} />)}
             {visibleRestaurants.map((restaurant) => {
               const location = Array.isArray(restaurant.area)
                 ? getAreaNames(restaurant.area, metaState.areas)
@@ -1581,7 +1691,8 @@ export default function RestaurantsPage() {
                 </div>
               );
             })}
-            {!pageState.loading &&
+            {!listLoadingInitial &&
+              !listErrorMessage &&
               hasFilters &&
               visibleRestaurants.length === 0 && (
                 <div className="col-span-full">
@@ -1610,6 +1721,8 @@ export default function RestaurantsPage() {
                             selectedDayValues: [],
                             selectedDining: [],
                             selectedMealTimes: [],
+                            maxDistanceMiles:
+                              DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
                           });
                           clearScrollPosition();
                           clearFilterState();
@@ -1624,7 +1737,7 @@ export default function RestaurantsPage() {
               )}
           </div>
 
-          {pageState.loading && pageState.restaurants.length > 0 && (
+          {listLoadingMore && restaurants.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               {[1, 2, 3].map((i) => (
                 <RestaurantCardSkeleton key={i} />
