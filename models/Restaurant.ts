@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document } from "mongoose";
+import { geoPointFromLatLng } from "@/lib/restaurant-geo";
 
 export interface IRestaurant extends Document {
   name: string;
@@ -9,6 +10,11 @@ export interface IRestaurant extends Document {
   zipCode: string;
   lat?: number;
   lng?: number;
+  /** GeoJSON Point for 2dsphere queries; [lng, lat]. */
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
   area: string[];
   phone: string;
   email: string;
@@ -59,6 +65,18 @@ const RestaurantSchema: Schema = new Schema(
 
     lat: { type: Number },
     lng: { type: Number },
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        required: true,
+      },
+      coordinates: {
+        type: [Number],
+        required: true,
+      },
+    },
 
     area: { type: mongoose.Schema.Types.Array, ref: "Area" },
 
@@ -131,6 +149,33 @@ const RestaurantSchema: Schema = new Schema(
   },
   { timestamps: true }
 );
+
+RestaurantSchema.index({ location: "2dsphere" });
+
+RestaurantSchema.pre("validate", function (next) {
+  const pt = geoPointFromLatLng(this.lat, this.lng);
+  if (pt) {
+    this.set("location", pt);
+  }
+  next();
+});
+
+/** Keep `location` in sync when using update operators (no full document validate). */
+function attachLocationToUpdate(this: mongoose.Query<unknown, unknown>) {
+  const raw = this.getUpdate() as mongoose.UpdateQuery<Record<string, unknown>>;
+  if (!raw || typeof raw !== "object") return;
+  const set = raw.$set;
+  if (!set || typeof set !== "object") return;
+  const plain = set as Record<string, unknown>;
+  const pt = geoPointFromLatLng(plain.lat, plain.lng);
+  if (pt) {
+    plain.location = pt;
+  }
+}
+
+RestaurantSchema.pre("findOneAndUpdate", attachLocationToUpdate);
+RestaurantSchema.pre("updateOne", attachLocationToUpdate);
+RestaurantSchema.pre("updateMany", attachLocationToUpdate);
 
 RestaurantSchema.index({ userId: 1 });
 RestaurantSchema.index({ status: 1 });

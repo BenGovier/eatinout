@@ -11,6 +11,7 @@ import { render } from "@react-email/render"
 import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegistrationEmail"
 import sendEmail from "@/lib/sendEmail"
 import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug"
+import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants"
 
 dotenv.config()
 export async function POST(req : any) {
@@ -71,6 +72,15 @@ export async function POST(req : any) {
     const slug = await generateUniqueRestaurantSlug(data.restaurantName ?? "")
 
     // Create restaurant record
+    const regLat =
+      typeof data.lat === "number" && Number.isFinite(data.lat)
+        ? data.lat
+        : DEFAULT_MAP_CENTER_LAT_LNG.lat
+    const regLng =
+      typeof data.lng === "number" && Number.isFinite(data.lng)
+        ? data.lng
+        : DEFAULT_MAP_CENTER_LAT_LNG.lng
+
     const restaurant = new Restaurant({
       name: data.restaurantName,
       slug,
@@ -81,6 +91,8 @@ export async function POST(req : any) {
       city: data.city,
       state: data.state,
       zipCode: data.zipCode,
+      lat: regLat,
+      lng: regLng,
       area: data.area,
       phone: data.phone,
       email: data.email,

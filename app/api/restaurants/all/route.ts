@@ -125,6 +125,14 @@ export async function GET(request: Request) {
     if (dineIn) query.dineIn = true;
     if (dineOut) query.dineOut = true;
 
+    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians)
+    const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
+    query.location = {
+      $geoWithin: {
+        $centerSphere: [[originLng, originLat], radiusRadians],
+      },
+    };
+
     // Cap in-memory load to prevent production memory spikes (Azure 4GB limit)
     const MAX_IN_MEMORY = 500;
     const restaurants = await Restaurant.find(query)
@@ -339,7 +347,8 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = finalFormattedRestaurants.flatMap(
+    // Attach display distance (already inside radius from DB geo query)
+    finalFormattedRestaurants = finalFormattedRestaurants.map(
       (restaurant: any) => {
         const lat = restaurant.lat;
         const lng = restaurant.lng;
@@ -349,7 +358,7 @@ export async function GET(request: Request) {
           !Number.isFinite(lat) ||
           !Number.isFinite(lng)
         ) {
-          return [];
+          return restaurant;
         }
         const miles = haversineDistanceMiles(
           originLat,
@@ -357,9 +366,8 @@ export async function GET(request: Request) {
           lat,
           lng,
         );
-        if (miles > maxDistanceMiles) return [];
         const distanceMiles = Math.round(miles * 10) / 10;
-        return [{ ...restaurant, distanceMiles }];
+        return { ...restaurant, distanceMiles };
       },
     );
 
