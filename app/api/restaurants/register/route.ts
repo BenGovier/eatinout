@@ -10,6 +10,7 @@ import dotenv from "dotenv"
 import { render } from "@react-email/render"
 import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegistrationEmail"
 import sendEmail from "@/lib/sendEmail"
+import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug"
 
 dotenv.config()
 export async function POST(req : any) {
@@ -67,9 +68,12 @@ export async function POST(req : any) {
 
     await user.save()
 
+    const slug = await generateUniqueRestaurantSlug(data.restaurantName ?? "")
+
     // Create restaurant record
     const restaurant = new Restaurant({
       name: data.restaurantName,
+      slug,
       description: data.description,
       cuisine: data.cuisine,
       priceRange: data.priceRange,

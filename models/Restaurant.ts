@@ -2,6 +2,7 @@ import mongoose, { Schema, type Document } from "mongoose";
 
 export interface IRestaurant extends Document {
   name: string;
+  slug: string;
   description: string;
   address: string;
   city: string;
@@ -50,6 +51,7 @@ export interface IRestaurant extends Document {
 const RestaurantSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
+    slug: { type: String, required: true },
     description: { type: String, required: true },
     address: { type: String, required: true },
     city: { type: String, required: true },

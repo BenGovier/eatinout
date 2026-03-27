@@ -60,6 +60,7 @@ type OfferData = {
 
 type Restaurant = {
   id: string;
+  slug: string;
   name: string;
   /** Miles from search origin (user or default); computed on API only. */
   distanceMiles?: number;
@@ -260,7 +261,7 @@ export default function RestaurantsPage() {
   const { saveScrollPosition, getSavedPageState, clearScrollPosition } =
     useScrollPreservation();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, authLoading } = useAuth();
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(
@@ -889,7 +890,21 @@ export default function RestaurantsPage() {
   );
 
   const handleRestaurantNavigate = useCallback(
-    async (restaurantId: string, offerId?: string) => {
+    async (restaurantPathSegment: string, offerId?: string) => {
+      if (authLoading) return;
+
+      const returnPath =
+        offerId != null && offerId !== ""
+          ? `/restaurant/${restaurantPathSegment}?offerId=${encodeURIComponent(offerId)}`
+          : `/restaurant/${restaurantPathSegment}`;
+
+      if (!user || !isAuthenticated) {
+        router.push(
+          `/sign-up?returnTo=${encodeURIComponent(returnPath)}`,
+        );
+        return;
+      }
+
       // Check if the user is a normal user without an active subscription
       if (
         user &&
@@ -905,10 +920,7 @@ export default function RestaurantsPage() {
           });
           const { url } = await response.json();
           if (response.ok && url) {
-            sessionStorage.setItem(
-              "redirectUrl",
-              `/restaurant/${restaurantId}`,
-            );
+            sessionStorage.setItem("redirectUrl", returnPath);
             window.location.replace(url);
           } else {
             toast.error("Failed to initiate checkout");
@@ -925,10 +937,7 @@ export default function RestaurantsPage() {
         totalItems: restaurants.length,
       });
       saveFilterState();
-      const url = offerId
-        ? `/restaurant/${restaurantId}?offerId=${offerId}`
-        : `/restaurant/${restaurantId}`;
-      router.push(url);
+      router.push(returnPath);
     },
     [
       saveScrollPosition,
@@ -937,6 +946,8 @@ export default function RestaurantsPage() {
       restaurants.length,
       router,
       user,
+      isAuthenticated,
+      authLoading,
     ],
   );
 
@@ -1440,6 +1451,8 @@ export default function RestaurantsPage() {
                   )
                   .map((restaurant) => ({
                     id: restaurant.id,
+                    slug:
+                      restaurant.slug?.trim() ? restaurant.slug : restaurant.id,
                     name: restaurant.name,
                     lat: restaurant.lat as number,
                     lng: restaurant.lng as number,
@@ -1526,7 +1539,11 @@ export default function RestaurantsPage() {
               return (
                 <div
                   key={restaurant.id}
-                  onClick={() => handleRestaurantNavigate(restaurant.id)}
+                  onClick={() =>
+                    handleRestaurantNavigate(
+                      restaurant.slug?.trim() || restaurant.id,
+                    )
+                  }
                   className="w-full"
                 >
                   <div className="w-full">

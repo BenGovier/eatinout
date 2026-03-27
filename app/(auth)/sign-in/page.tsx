@@ -20,7 +20,8 @@ export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromRestaurants = searchParams.get("fromRestaurants") === "true";
-  const redirectUrl = searchParams.get("redirect");
+  const redirectUrl =
+    searchParams.get("redirect") ?? searchParams.get("returnTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility

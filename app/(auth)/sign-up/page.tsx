@@ -19,7 +19,9 @@ import { useAuth } from "@/context/auth-context"
 function SignUpPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectUrl = searchParams.get("redirect")
+  /** Post-auth destination: `redirect` or `returnTo` (same meaning). */
+  const redirectUrl =
+    searchParams.get("redirect") ?? searchParams.get("returnTo")
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
   const { data: session, status }: any = useSession()
@@ -260,10 +262,9 @@ useEffect(() => {
       console.log('💳 Creating Stripe checkout with referral:', referral);
       
       // Ensure redirectUrl is stored before redirecting - get it fresh from searchParams
-      const currentRedirectUrl = redirectUrl || searchParams.get("redirect");
-      if (currentRedirectUrl) {
-        sessionStorage.setItem('redirectUrl', currentRedirectUrl);
-        console.log('✅ Stored redirectUrl before Stripe redirect:', currentRedirectUrl);
+      if (redirectUrl) {
+        sessionStorage.setItem('redirectUrl', redirectUrl);
+        console.log('✅ Stored redirectUrl before Stripe redirect:', redirectUrl);
       } else {
         console.log('⚠️ No redirectUrl available before Stripe redirect');
       }
@@ -281,10 +282,9 @@ useEffect(() => {
 
       if (response.ok && url) {
         // Final check - ensure redirectUrl is stored before navigation
-        const finalRedirectUrl = redirectUrl || searchParams.get("redirect");
-        if (finalRedirectUrl) {
-          sessionStorage.setItem('redirectUrl', finalRedirectUrl);
-          console.log('✅ Final check - stored redirectUrl:', finalRedirectUrl);
+        if (redirectUrl) {
+          sessionStorage.setItem('redirectUrl', redirectUrl);
+          console.log('✅ Final check - stored redirectUrl:', redirectUrl);
         }
         console.log('🚀 Redirecting to Stripe checkout...');
         window.location.replace(url);
@@ -360,10 +360,9 @@ useEffect(() => {
       });
 
       // Store redirect URL for use after payment success - store it multiple times to ensure it persists
-      const currentRedirectUrl = redirectUrl || searchParams.get("redirect");
-      if (currentRedirectUrl) {
-        sessionStorage.setItem('redirectUrl', currentRedirectUrl);
-        console.log('✅ Stored redirectUrl after signup:', currentRedirectUrl);
+      if (redirectUrl) {
+        sessionStorage.setItem('redirectUrl', redirectUrl);
+        console.log('✅ Stored redirectUrl after signup:', redirectUrl);
       } else {
         console.log('⚠️ No redirectUrl found in searchParams');
       }

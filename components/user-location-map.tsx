@@ -22,6 +22,8 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css"
 type LatLng = { lat: number; lng: number }
 type RestaurantMarker = {
   id: string
+  /** Public URL segment: `/restaurant/[slug]` */
+  slug: string
   name: string
   lat: number
   lng: number
@@ -33,6 +35,7 @@ type RestaurantMarker = {
 
 type MapPopoverState = {
   id: string
+  slug: string
   name: string
   imageUrl: string
   offerSummary: string
@@ -106,7 +109,8 @@ export default function UserLocationMap({
   className?: string
   zoom?: number
   restaurants?: RestaurantMarker[]
-  onViewDeal?: (restaurantId: string, offerId?: string) => void
+  /** First argument is URL segment: `slug` (fallback to id if missing). */
+  onViewDeal?: (restaurantPathSegment: string, offerId?: string) => void
 }) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
@@ -340,6 +344,7 @@ export default function UserLocationMap({
           L.DomEvent.stopPropagation(e.originalEvent)
           setMapPopover({
             id: restaurant.id,
+            slug: restaurant.slug,
             name: restaurant.name,
             imageUrl: restaurant.imageUrl,
             offerSummary: restaurant.offerSummary,
@@ -437,7 +442,10 @@ export default function UserLocationMap({
                   size="sm"
                   className="w-full rounded-lg bg-[#eb221c] font-semibold text-white hover:bg-[#eb221c]/90"
                   onClick={() => {
-                    onViewDeal?.(mapPopover.id, mapPopover.firstOfferId)
+                    onViewDeal?.(
+                      mapPopover.slug?.trim() || mapPopover.id,
+                      mapPopover.firstOfferId,
+                    )
                     setMapPopover(null)
                   }}
                 >
