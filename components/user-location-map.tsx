@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import {
-  USER_LAT_LNG_SESSION_KEY,
+  getStoredUserLatLng,
   USER_LOCATION_STORAGE_EVENT,
 } from "@/lib/user-location-session"
 
@@ -88,18 +88,6 @@ function formatDistanceMiles(miles?: number): string {
   return miles % 1 === 0 ? `${miles} mi` : `${miles.toFixed(1)} mi`
 }
 
-function getStoredLatLng(): LatLng | null {
-  try {
-    const raw = sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<LatLng>
-    if (typeof parsed.lat !== "number" || typeof parsed.lng !== "number") return null
-    return { lat: parsed.lat, lng: parsed.lng }
-  } catch {
-    return null
-  }
-}
-
 export default function UserLocationMap({
   className,
   zoom = 13,
@@ -140,7 +128,7 @@ export default function UserLocationMap({
     // keep retrying briefly so the map recenters without requiring a refresh.
     let intervalId: number | undefined
     const tick = () => {
-      const stored = getStoredLatLng()
+      const stored = getStoredUserLatLng()
       if (stored) {
         setCoords(stored)
         if (intervalId) window.clearInterval(intervalId)
@@ -163,7 +151,7 @@ export default function UserLocationMap({
 
   useEffect(() => {
     const onStorage = () => {
-      const stored = getStoredLatLng()
+      const stored = getStoredUserLatLng()
       if (!stored) return
       userRequestedRecenterRef.current = true
       setCoords(stored)
@@ -206,7 +194,7 @@ export default function UserLocationMap({
       }).addTo(map)
 
       const marker = L.marker(center, { icon: USER_LOCATION_ICON }).addTo(map)
-      marker.bindPopup(getStoredLatLng() ? "You are here" : "Explore this area")
+      marker.bindPopup(getStoredUserLatLng() ? "You are here" : "Explore this area")
       restaurantLayerRef.current = L.markerClusterGroup({
         maxClusterRadius: 50,
         disableClusteringAtZoom: 17,
@@ -261,7 +249,7 @@ export default function UserLocationMap({
     }
     markerRef.current?.setLatLng(center)
     markerRef.current?.setPopupContent(
-      getStoredLatLng() ? "You are here" : "Explore this area",
+      getStoredUserLatLng() ? "You are here" : "Explore this area",
     )
   }, [coords, tileUrl, usingMapTiler, zoom])
 
@@ -370,7 +358,7 @@ export default function UserLocationMap({
   }, [])
 
   const handleRecenterOnUser = () => {
-    const stored = getStoredLatLng()
+    const stored = getStoredUserLatLng()
     if (!stored) {
       locationConsent?.requestLocationModal()
       return

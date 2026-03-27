@@ -12,6 +12,17 @@ import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegis
 import sendEmail from "@/lib/sendEmail"
 import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug"
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants"
+import { geoPointFromLatLng } from "@/lib/restaurant-geo"
+
+/** Accept JSON numbers or numeric strings from the client. */
+function parseCoord(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number.parseFloat(v)
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
 
 dotenv.config()
 export async function POST(req : any) {
@@ -71,15 +82,16 @@ export async function POST(req : any) {
 
     const slug = await generateUniqueRestaurantSlug(data.restaurantName ?? "")
 
-    // Create restaurant record
+    // Create restaurant record — lat/lng/location from geocode on join-restaurant (or map defaults)
     const regLat =
-      typeof data.lat === "number" && Number.isFinite(data.lat)
-        ? data.lat
-        : DEFAULT_MAP_CENTER_LAT_LNG.lat
+      parseCoord(data.lat) ?? DEFAULT_MAP_CENTER_LAT_LNG.lat
     const regLng =
-      typeof data.lng === "number" && Number.isFinite(data.lng)
-        ? data.lng
-        : DEFAULT_MAP_CENTER_LAT_LNG.lng
+      parseCoord(data.lng) ?? DEFAULT_MAP_CENTER_LAT_LNG.lng
+    const location =
+      geoPointFromLatLng(regLat, regLng) ?? {
+        type: "Point" as const,
+        coordinates: [regLng, regLat] as [number, number],
+      }
 
     const restaurant = new Restaurant({
       name: data.restaurantName,
@@ -93,6 +105,7 @@ export async function POST(req : any) {
       zipCode: data.zipCode,
       lat: regLat,
       lng: regLng,
+      location,
       area: data.area,
       phone: data.phone,
       email: data.email,

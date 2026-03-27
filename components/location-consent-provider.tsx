@@ -27,7 +27,14 @@ export function useLocationConsent() {
   return useContext(LocationConsentContext)
 }
 
-const ALLOWED_ROUTE = "/restaurants"
+const RESTAURANTS_LIST_PATH = "/restaurants"
+const JOIN_RESTAURANT_PATH = "/join-restaurant"
+
+function isLocationModalRoute(pathname: string | null): boolean {
+  return (
+    pathname === RESTAURANTS_LIST_PATH || pathname === JOIN_RESTAURANT_PATH
+  )
+}
 
 export default function LocationConsentProvider({
   children,
@@ -37,26 +44,31 @@ export default function LocationConsentProvider({
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
-  const onRestaurantsListPage = pathname === ALLOWED_ROUTE
+  const onLocationModalRoute = isLocationModalRoute(pathname)
 
   const requestLocationModal = useCallback(() => {
-    if (pathname !== ALLOWED_ROUTE) return
+    if (!isLocationModalRoute(pathname)) return
     setIsOpen(true)
   }, [pathname])
 
   const syncOpenFromStorage = useCallback(() => {
     try {
-      if (pathname !== ALLOWED_ROUTE) {
+      if (!isLocationModalRoute(pathname)) {
         setIsOpen(false)
         return
       }
-      setIsOpen(!sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY))
+      // Auto-prompt only on the main restaurants list, not on join flow (button opens modal there).
+      if (pathname === RESTAURANTS_LIST_PATH) {
+        setIsOpen(!sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY))
+      } else {
+        setIsOpen(false)
+      }
     } catch {
       setIsOpen(false)
     }
   }, [pathname])
 
-  // On /restaurants only: offer the location modal when nothing is stored (and on storage events).
+  // On /restaurants: offer the location modal when nothing is stored (and on storage events).
   useEffect(() => {
     syncOpenFromStorage()
   }, [pathname, syncOpenFromStorage])
@@ -80,7 +92,7 @@ export default function LocationConsentProvider({
     <LocationConsentContext.Provider value={contextValue}>
       {children}
       <WelcomeLocationModal
-        isOpen={isOpen && onRestaurantsListPage}
+        isOpen={isOpen && onLocationModalRoute}
         onClose={handleClose}
       />
     </LocationConsentContext.Provider>
