@@ -337,19 +337,29 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = finalFormattedRestaurants.filter((restaurant: any) => {
-      const lat = restaurant.lat;
-      const lng = restaurant.lng;
-      if (
-        typeof lat !== "number" ||
-        typeof lng !== "number" ||
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng)
-      ) {
-        return false;
-      }
-      return haversineDistanceMiles(originLat, originLng, lat, lng) <= maxDistanceMiles;
-    });
+    finalFormattedRestaurants = finalFormattedRestaurants.flatMap(
+      (restaurant: any) => {
+        const lat = restaurant.lat;
+        const lng = restaurant.lng;
+        if (
+          typeof lat !== "number" ||
+          typeof lng !== "number" ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng)
+        ) {
+          return [];
+        }
+        const miles = haversineDistanceMiles(
+          originLat,
+          originLng,
+          lat,
+          lng,
+        );
+        if (miles > maxDistanceMiles) return [];
+        const distanceMiles = Math.round(miles * 10) / 10;
+        return [{ ...restaurant, distanceMiles }];
+      },
+    );
 
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);

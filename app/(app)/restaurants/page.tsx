@@ -61,6 +61,8 @@ type OfferData = {
 type Restaurant = {
   id: string;
   name: string;
+  /** Miles from search origin (user or default); computed on API only. */
+  distanceMiles?: number;
   lat?: number | null;
   lng?: number | null;
   cuisine?: string;
@@ -1427,6 +1429,7 @@ export default function RestaurantsPage() {
             >
               <UserLocationMap
                 className="min-h-0"
+                onViewDeal={handleRestaurantNavigate}
                 restaurants={visibleRestaurants
                   .filter(
                     (restaurant) =>
@@ -1440,6 +1443,14 @@ export default function RestaurantsPage() {
                     name: restaurant.name,
                     lat: restaurant.lat as number,
                     lng: restaurant.lng as number,
+                    distanceMiles: restaurant.distanceMiles,
+                    imageUrl: restaurant.imageUrl || "/placeholder.svg",
+                    offerSummary:
+                      restaurant.offers?.[0]?.title?.trim() ||
+                      (restaurant.dealsCount > 0
+                        ? `${restaurant.dealsCount} active deals`
+                        : "Special offers"),
+                    firstOfferId: restaurant.offers?.[0]?.id,
                   }))}
               />
             </div>
