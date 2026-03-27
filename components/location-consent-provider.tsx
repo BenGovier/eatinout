@@ -29,11 +29,19 @@ export function useLocationConsent() {
 
 const RESTAURANTS_LIST_PATH = "/restaurants"
 const JOIN_RESTAURANT_PATH = "/join-restaurant"
+const DASHBOARD_RESTAURANT_CREATE_PATH = "/dashboard/restaurant/create"
 
 function isLocationModalRoute(pathname: string | null): boolean {
-  return (
-    pathname === RESTAURANTS_LIST_PATH || pathname === JOIN_RESTAURANT_PATH
-  )
+  if (!pathname) return false
+  if (
+    pathname === RESTAURANTS_LIST_PATH ||
+    pathname === JOIN_RESTAURANT_PATH ||
+    pathname === DASHBOARD_RESTAURANT_CREATE_PATH
+  ) {
+    return true;
+  }
+  if (pathname.startsWith("/dashboard/restaurant/edit/")) return true
+  return false
 }
 
 export default function LocationConsentProvider({
