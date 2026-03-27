@@ -430,10 +430,9 @@ export default function RestaurantsPage() {
       selectedMealTimes: filterState.selectedMealTimes,
       maxDistanceMiles: filterState.maxDistanceMiles,
       listSort: filterState.listSort,
-      showFilters: uiState.showFilters,
     };
     sessionStorage.setItem("restaurantFilters", JSON.stringify(filterData));
-  }, [filterState, uiState.showFilters]);
+  }, [filterState]);
 
   const restoreFilterState = useCallback(() => {
     try {
@@ -460,9 +459,10 @@ export default function RestaurantsPage() {
             ? savedState.listSort
             : DEFAULT_RESTAURANT_LIST_SORT,
         });
+        // Keep filter panel closed on load; only filter values are restored.
         setUIState((prev) => ({
           ...prev,
-          showFilters: savedState.showFilters || false,
+          showFilters: false,
         }));
       }
     } catch (error) {
@@ -1211,8 +1211,15 @@ export default function RestaurantsPage() {
                       showFilters: !prev.showFilters,
                     }))
                   }
-                  className="flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                  aria-label={hasFilters ? "Filters (filters applied)" : "Filters"}
+                  className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
                 >
+                  {hasFilters && (
+                    <span
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                      aria-hidden
+                    />
+                  )}
                   <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
                   <span className="text-[#DC3545] font-medium">Filters</span>
                 </Button>
