@@ -27,6 +27,8 @@ export function useLocationConsent() {
   return useContext(LocationConsentContext)
 }
 
+const ALLOWED_ROUTE = "/restaurants"
+
 export default function LocationConsentProvider({
   children,
 }: {
@@ -35,20 +37,26 @@ export default function LocationConsentProvider({
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
+  const onRestaurantsListPage = pathname === ALLOWED_ROUTE
+
   const requestLocationModal = useCallback(() => {
+    if (pathname !== ALLOWED_ROUTE) return
     setIsOpen(true)
-  }, [])
+  }, [pathname])
 
   const syncOpenFromStorage = useCallback(() => {
     try {
+      if (pathname !== ALLOWED_ROUTE) {
+        setIsOpen(false)
+        return
+      }
       setIsOpen(!sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY))
     } catch {
       setIsOpen(false)
     }
-  }, [])
+  }, [pathname])
 
-  // Whenever there is no stored location, the app should offer the location modal
-  // (including after client navigation or when storage is cleared on sign-out).
+  // On /restaurants only: offer the location modal when nothing is stored (and on storage events).
   useEffect(() => {
     syncOpenFromStorage()
   }, [pathname, syncOpenFromStorage])
@@ -71,7 +79,10 @@ export default function LocationConsentProvider({
   return (
     <LocationConsentContext.Provider value={contextValue}>
       {children}
-      <WelcomeLocationModal isOpen={isOpen} onClose={handleClose} />
+      <WelcomeLocationModal
+        isOpen={isOpen && onRestaurantsListPage}
+        onClose={handleClose}
+      />
     </LocationConsentContext.Provider>
   )
 }

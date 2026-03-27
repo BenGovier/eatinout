@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const sortBy = searchParams.get('sortBy')?.trim() || 'closest';
 
     const areaFilter = searchParams.get('area');
     const search = searchParams.get('search');
@@ -365,8 +366,17 @@ export async function GET(request: Request) {
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);
 
-    // Sort ALL restaurants by pinning status BEFORE pagination
-    const sortedRestaurants = sortRestaurantsByPinning(cleanedRestaurants, areaFilter);
+    // Sort before pagination (closest first). `sortBy` reserved for future options; only `closest` today.
+    let sortedRestaurants: typeof cleanedRestaurants;
+    switch (sortBy) {
+      case 'closest':
+      default:
+        sortedRestaurants = [...cleanedRestaurants].sort(
+          (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
+            (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
+            (b.distanceMiles ?? Number.POSITIVE_INFINITY),
+        );
+    }
 
     // Calculate pagination after sorting
     const totalFilteredRestaurants = sortedRestaurants.length;
@@ -500,133 +510,4 @@ function sortOffersByPinning(offers: any[]): any[] {
 
   // Return pinned offers first (newest pinned → older pinned), then non-pinned (newest → oldest)
   return [...pinnedOffers, ...nonPinnedOffers];
-}
-
-// Helper function to sort restaurants by pinning status
-function sortRestaurantsByPinning(
-  restaurants: any[],
-  areaFilter: string | null
-): any[] {
-  const homePinned: any[] = []
-  const areaPinned: any[] = []
-  const areaMatchedNonPinned: any[] = []
-  const regular: any[] = []
-
-  restaurants.forEach((restaurant) => {
-
-    /* ===============================
-       🟢 CASE 1: AREA FILTER APPLIED
-       =============================== */
-    if (areaFilter) {
-      // 1️⃣ AREA PINNED
-      const areaPin = Array.isArray(restaurant.areaPins)
-        ? restaurant.areaPins.find(
-          (p: any) =>
-            p.areaId === areaFilter && p.priority !== null
-        )
-        : null
-
-      if (areaPin) {
-        areaPinned.push(restaurant)
-        return
-      }
-
-      // 2️⃣ AREA MATCHED BUT NOT PINNED
-      if (
-        Array.isArray(restaurant.area) &&
-        restaurant.area.map(String).includes(areaFilter)
-      ) {
-        areaMatchedNonPinned.push(restaurant)
-        return
-      }
-
-      // 3️⃣ REGULAR
-      regular.push(restaurant)
-      return
-    }
-
-    /* ===============================
-       🟢 CASE 2: NO AREA FILTER
-       (HOME PAGE LOGIC – UNCHANGED)
-       =============================== */
-    const homePin = restaurant.homePin || {}
-
-    if (homePin.isPinned === true && homePin.priority !== null) {
-      homePinned.push(restaurant)
-      return
-    }
-
-    regular.push(restaurant)
-  })
-
-  /* ===============================
-     🔽 SORTING
-     =============================== */
-
-  // 🔵 AREA PIN SORT (TOP PRIORITY WHEN AREA FILTER)
-  areaPinned.sort((a, b) => {
-    const pinA = a.areaPins.find((p: any) => p.areaId === areaFilter)
-    const pinB = b.areaPins.find((p: any) => p.areaId === areaFilter)
-
-    const prioA = pinA?.priority ?? 999
-    const prioB = pinB?.priority ?? 999
-    if (prioA !== prioB) return prioA - prioB
-
-    const dateA = pinA?.pinnedAt
-      ? new Date(pinA.pinnedAt).getTime()
-      : 0
-    const dateB = pinB?.pinnedAt
-      ? new Date(pinB.pinnedAt).getTime()
-      : 0
-
-    return dateB - dateA
-  })
-
-  // 🔵 AREA MATCH (NON PINNED)
-  areaMatchedNonPinned.sort((a, b) => {
-    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-    return dB - dA
-  })
-
-  // 🔵 HOME PIN (ONLY WHEN NO AREA FILTER)
-  homePinned.sort((a, b) => {
-    const pA = a.homePin?.priority ?? 999
-    const pB = b.homePin?.priority ?? 999
-    if (pA !== pB) return pA - pB
-
-    const dA = a.homePin?.pinnedAt
-      ? new Date(a.homePin.pinnedAt).getTime()
-      : 0
-    const dB = b.homePin?.pinnedAt
-      ? new Date(b.homePin.pinnedAt).getTime()
-      : 0
-
-    return dB - dA
-  })
-
-  // 🔵 REGULAR
-  regular.sort((a, b) => {
-    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-    return dB - dA
-  })
-
-  console.log(
-    `📌 SORT → area:${areaPinned.length}, areaMatch:${areaMatchedNonPinned.length}, home:${homePinned.length}, regular:${regular.length}`
-  )
-
-  /* ===============================
-     🔚 FINAL RETURN ORDER
-     =============================== */
-  return areaFilter
-    ? [
-      ...areaPinned,
-      ...areaMatchedNonPinned,
-      ...regular,
-    ]
-    : [
-      ...homePinned,
-      ...regular,
-    ]
 }

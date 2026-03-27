@@ -1,8 +1,22 @@
 "use client";
-import { Search, SlidersHorizontal, X, Tag, Heart } from "lucide-react";
+import {
+  Search,
+  SlidersHorizontal,
+  X,
+  Tag,
+  Heart,
+  ArrowDownWideNarrow,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   useState,
   useEffect,
@@ -100,6 +114,13 @@ type RestaurantsListPageResponse = {
   };
 };
 
+const DEFAULT_RESTAURANT_LIST_SORT = "closest" as const;
+type RestaurantListSort = typeof DEFAULT_RESTAURANT_LIST_SORT;
+
+function isRestaurantListSort(v: unknown): v is RestaurantListSort {
+  return v === DEFAULT_RESTAURANT_LIST_SORT;
+}
+
 type RestaurantsListFilters = {
   area: string;
   search: string;
@@ -111,6 +132,7 @@ type RestaurantsListFilters = {
   maxDistanceMiles: RestaurantDistanceFilterMiles;
   userLat: number;
   userLng: number;
+  sortBy: RestaurantListSort;
 };
 
 const RESTAURANTS_LIST_QUERY_KEY_ROOT = ["restaurants", "all"] as const;
@@ -133,6 +155,7 @@ function buildRestaurantsListParams(
   params.append("maxDistanceMiles", String(f.maxDistanceMiles));
   params.append("userLat", String(f.userLat));
   params.append("userLng", String(f.userLng));
+  params.append("sortBy", f.sortBy);
   return params;
 }
 
@@ -201,6 +224,7 @@ interface FilterState {
   selectedDining: string[];
   selectedMealTimes: string[];
   maxDistanceMiles: RestaurantDistanceFilterMiles;
+  listSort: RestaurantListSort;
 }
 
 interface MetaState {
@@ -346,6 +370,7 @@ export default function RestaurantsPage() {
     selectedDining: [],
     selectedMealTimes: [],
     maxDistanceMiles: DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+    listSort: DEFAULT_RESTAURANT_LIST_SORT,
   });
 
   const [userOrigin, setUserOrigin] = useState<{ lat: number; lng: number }>(
@@ -404,6 +429,7 @@ export default function RestaurantsPage() {
       selectedDining: filterState.selectedDining,
       selectedMealTimes: filterState.selectedMealTimes,
       maxDistanceMiles: filterState.maxDistanceMiles,
+      listSort: filterState.listSort,
       showFilters: uiState.showFilters,
     };
     sessionStorage.setItem("restaurantFilters", JSON.stringify(filterData));
@@ -430,6 +456,9 @@ export default function RestaurantsPage() {
             isRestaurantDistanceFilterMiles(savedState.maxDistanceMiles)
               ? savedState.maxDistanceMiles
               : DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+          listSort: isRestaurantListSort(savedState.listSort)
+            ? savedState.listSort
+            : DEFAULT_RESTAURANT_LIST_SORT,
         });
         setUIState((prev) => ({
           ...prev,
@@ -461,6 +490,7 @@ export default function RestaurantsPage() {
       maxDistanceMiles: filterState.maxDistanceMiles,
       userLat: userOrigin.lat,
       userLng: userOrigin.lng,
+      sortBy: filterState.listSort,
     }),
     [
       filterState.selectedLocationId,
@@ -470,6 +500,7 @@ export default function RestaurantsPage() {
       filterState.selectedDayValues,
       filterState.selectedMealTimes,
       filterState.maxDistanceMiles,
+      filterState.listSort,
       userOrigin.lat,
       userOrigin.lng,
     ],
@@ -1127,8 +1158,8 @@ export default function RestaurantsPage() {
         <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative min-w-[200px] flex-1">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
                   <Input
                     type="text"
@@ -1151,6 +1182,27 @@ export default function RestaurantsPage() {
                   )}
                 </div>
 
+                <Select
+                  value={filterState.listSort}
+                  onValueChange={(v) =>
+                    setFilterState((prev) => ({
+                      ...prev,
+                      listSort: v as RestaurantListSort,
+                    }))
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="Sort restaurants"
+                    className="h-auto w-[152px] shrink-0 gap-2 rounded-xl border border-gray-200 px-3 py-3 text-[#DC3545] hover:border-[#DC3545] focus:ring-[#DC3545]"
+                  >
+                    <ArrowDownWideNarrow className="h-5 w-5 shrink-0" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="closest">Closest</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <Button
                   variant="outline"
                   onClick={() =>
@@ -1159,7 +1211,7 @@ export default function RestaurantsPage() {
                       showFilters: !prev.showFilters,
                     }))
                   }
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                  className="flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
                 >
                   <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
                   <span className="text-[#DC3545] font-medium">Filters</span>
@@ -1398,6 +1450,7 @@ export default function RestaurantsPage() {
                       selectedMealTimes: [],
                       maxDistanceMiles:
                         DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                      listSort: DEFAULT_RESTAURANT_LIST_SORT,
                     });
                     clearScrollPosition();
                     clearFilterState();
@@ -1751,6 +1804,7 @@ export default function RestaurantsPage() {
                             selectedMealTimes: [],
                             maxDistanceMiles:
                               DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                            listSort: DEFAULT_RESTAURANT_LIST_SORT,
                           });
                           clearScrollPosition();
                           clearFilterState();
