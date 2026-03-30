@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "fill-geo-db": "node scripts/restaurant-postcodes-from-db.mjs",
+    "export-restaurants": "node scripts/export-restaurants-to-json.mjs"
   },
   "dependencies": {
     "@auth/core": "latest",

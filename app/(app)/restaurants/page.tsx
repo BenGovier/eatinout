@@ -143,7 +143,7 @@ function buildRestaurantsListParams(
 ): URLSearchParams {
   const params = new URLSearchParams({
     page: String(page),
-    limit: "12",
+    limit: "40",
   });
   if (f.area) params.append("area", f.area);
   if (f.search) params.append("search", f.search);
