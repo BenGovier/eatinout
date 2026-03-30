@@ -11,6 +11,21 @@ export function notifyUserLocationStorageChanged(): void {
   window.dispatchEvent(new Event(USER_LOCATION_STORAGE_EVENT))
 }
 
+/** Writes coordinates to session and notifies listeners (restaurants list, map, modals). */
+export function persistUserLatLng(lat: number, lng: number): void {
+  if (typeof window === "undefined") return
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+  try {
+    window.sessionStorage.setItem(
+      USER_LAT_LNG_SESSION_KEY,
+      JSON.stringify({ lat, lng }),
+    )
+  } catch {
+    // ignore (private mode, quota, etc.)
+  }
+  notifyUserLocationStorageChanged()
+}
+
 export function clearUserLocationFromSessionStorage(): void {
   if (typeof window === "undefined") return
   try {

@@ -12,6 +12,7 @@ import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import {
   getStoredUserLatLng,
+  persistUserLatLng,
   USER_LOCATION_STORAGE_EVENT,
 } from "@/lib/user-location-session"
 
@@ -106,6 +107,8 @@ export default function UserLocationMap({
   const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null)
   /** When true, next coords sync uses flyTo instead of setView (user-initiated). */
   const userRequestedRecenterRef = useRef(false)
+  /** Map pick updates storage+coords; skip flyTo so the view stays where the user clicked. */
+  const skipFlyOnNextStorageSyncRef = useRef(false)
   const locationConsent = useLocationConsent()
   const [coords, setCoords] = useState<LatLng>({
     lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
@@ -153,6 +156,11 @@ export default function UserLocationMap({
     const onStorage = () => {
       const stored = getStoredUserLatLng()
       if (!stored) return
+      if (skipFlyOnNextStorageSyncRef.current) {
+        skipFlyOnNextStorageSyncRef.current = false
+        setCoords(stored)
+        return
+      }
       userRequestedRecenterRef.current = true
       setCoords(stored)
     }
@@ -193,7 +201,10 @@ export default function UserLocationMap({
           : "© OpenStreetMap contributors",
       }).addTo(map)
 
-      const marker = L.marker(center, { icon: USER_LOCATION_ICON }).addTo(map)
+      const marker = L.marker(center, {
+        icon: USER_LOCATION_ICON,
+        interactive: false,
+      }).addTo(map)
       marker.bindPopup(getStoredUserLatLng() ? "You are here" : "Explore this area")
       restaurantLayerRef.current = L.markerClusterGroup({
         maxClusterRadius: 50,
@@ -225,8 +236,11 @@ export default function UserLocationMap({
       })
       map.addLayer(restaurantLayerRef.current)
 
-      map.on("click", () => {
+      map.on("click", (e: LeafletMouseEvent) => {
         setMapPopover(null)
+        const { lat, lng } = e.latlng
+        skipFlyOnNextStorageSyncRef.current = true
+        persistUserLatLng(lat, lng)
       })
 
       mapInstanceRef.current = map

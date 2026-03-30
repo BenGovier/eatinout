@@ -1491,7 +1491,7 @@ export default function RestaurantsPage() {
                 Explore nearby
               </h2>
               <span className="hidden text-xs text-gray-500 sm:inline">
-                Pan &amp; zoom the map
+                Pan, zoom, or click to search from a point
               </span>
             </div>
             <div
@@ -1529,8 +1529,8 @@ export default function RestaurantsPage() {
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs">
               {isUserLocationShared
-                ? "Showing restaurants around you"
-                : `Showing restaurants around ${DEFAULT_MAP_LOCATION_LABEL}`}
+                ? "Showing restaurants near the pin. Tap the map to move it."
+                : `Showing restaurants around ${DEFAULT_MAP_LOCATION_LABEL}. Tap the map to pick a spot.`}
             </p>
           </div>
         </section>
