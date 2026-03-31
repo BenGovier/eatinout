@@ -21,7 +21,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
 
-  const isPublicRestaurantPage = pathname?.startsWith("/restaurant/");
+  /** Guest-accessible consumer pages (no sign-in required). */
+  const isPublicRestaurantPage =
+    pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
