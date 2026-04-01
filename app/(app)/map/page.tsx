@@ -929,45 +929,13 @@ export default function RestaurantsPage() {
           ? `/restaurant/${restaurantPathSegment}?offerId=${encodeURIComponent(offerId)}`
           : `/restaurant/${restaurantPathSegment}`;
 
-      if (!user || !isAuthenticated) {
-        router.push(
-          `/sign-up?returnTo=${encodeURIComponent(returnPath)}`,
-        );
-        return;
+      if (user && isAuthenticated) {
+        saveScrollPosition({
+          currentPage: restaurantsListReportedPage,
+          totalItems: restaurants.length,
+        });
+        saveFilterState();
       }
-
-      // Check if the user is a normal user without an active subscription
-      if (
-        user &&
-        user.role === "user" &&
-        (user.subscriptionStatus === "inactive" ||
-          user.subscriptionStatus === "cancelled")
-      ) {
-        try {
-          const response = await fetch("/api/payment/create-checkout-session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: user.email }),
-          });
-          const { url } = await response.json();
-          if (response.ok && url) {
-            sessionStorage.setItem("redirectUrl", returnPath);
-            window.location.replace(url);
-          } else {
-            toast.error("Failed to initiate checkout");
-          }
-        } catch (error) {
-          console.error("Stripe Checkout error:", error);
-          toast.error("Failed to redirect to payment.");
-        }
-        return;
-      }
-
-      saveScrollPosition({
-        currentPage: restaurantsListReportedPage,
-        totalItems: restaurants.length,
-      });
-      saveFilterState();
       router.push(returnPath);
     },
     [

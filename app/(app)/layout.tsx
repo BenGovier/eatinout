@@ -23,7 +23,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   /** Guest-accessible consumer pages (no sign-in required). */
   const isPublicRestaurantPage =
-    pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
+    pathname?.startsWith("/restaurant/") ||
+    pathname === "/restaurants" ||
+    pathname === "/map";
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
