@@ -5,6 +5,7 @@ import L from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
   getStoredUserLatLng,
@@ -86,11 +87,7 @@ export default function JoinRestaurantLocationMap({
     };
   }, [syncUserGpsFromStorage]);
 
-  const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
-  const usingMapTiler = !!mapTilerKey;
-  const tileUrl = usingMapTiler
-    ? `https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=${mapTilerKey}`
-    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const { tileUrl, usingMapTiler } = getMapTilerLeafletTileConfig();
 
   useEffect(() => {
     const el = containerRef.current;
