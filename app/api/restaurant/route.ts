@@ -8,7 +8,8 @@ import { Category } from "@/models/Categories";
 import Area from "@/models/Area";
 import Stripe from "stripe";
 import Tag from "@/models/Tag";
-
+import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug";
+import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -194,6 +195,15 @@ export async function POST(request: Request) {
     data.dineOut = data.dineOut !== undefined ? data.dineOut : false;
     data.deliveryAvailable = data.deliveryAvailable !== undefined ? data.deliveryAvailable : false;
 
+    data.slug = await generateUniqueRestaurantSlug(data.name ?? "");
+
+    if (typeof data.lat !== "number" || !Number.isFinite(data.lat)) {
+      data.lat = DEFAULT_MAP_CENTER_LAT_LNG.lat;
+    }
+    if (typeof data.lng !== "number" || !Number.isFinite(data.lng)) {
+      data.lng = DEFAULT_MAP_CENTER_LAT_LNG.lng;
+    }
+
     const newRestaurant = new Restaurant(data);
     await newRestaurant.save();
 
@@ -275,18 +285,26 @@ export async function PUT(request: Request) {
       restaurantId,
       menuPdfUrls, // array
       searchTags = [],
+      slug: _clientSlug,
       ...rest
     } = data;
 
+    const setPayload: Record<string, unknown> = {
+      ...rest,
+      menuPdfUrls: Array.isArray(menuPdfUrls) ? menuPdfUrls : [],
+      searchTags,
+    };
+
+    if (typeof rest.name === "string" && rest.name.trim()) {
+      setPayload.slug = await generateUniqueRestaurantSlug(
+        rest.name,
+        restaurantId,
+      );
+    }
+
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
       restaurantId,
-      {
-        $set: {
-          ...rest,
-          menuPdfUrls: Array.isArray(menuPdfUrls) ? menuPdfUrls : [],
-          searchTags,
-        },
-      },
+      { $set: setPayload },
       { new: true, runValidators: true }
     );
 

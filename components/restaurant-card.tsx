@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 
 interface Restaurant {
   id: string
+  slug?: string
   name: string
   cuisine: string
   location: string
@@ -26,6 +27,7 @@ interface RestaurantCardProps {
 }
 
 export function RestaurantCard({ restaurant, onNavigate }: RestaurantCardProps) {
+  const pathSegment = restaurant.slug?.trim() || restaurant.id
   const handleClick = (href: string) => {
     if (onNavigate) {
       onNavigate(href)
@@ -40,7 +42,7 @@ export function RestaurantCard({ restaurant, onNavigate }: RestaurantCardProps) 
       <Card className="overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
         <div className="relative h-48 w-full flex-shrink-0">
           <button
-            onClick={() => handleClick(`/restaurant/${restaurant.id}`)}
+            onClick={() => handleClick(`/restaurant/${pathSegment}`)}
             className="block w-full h-full cursor-pointer"
           >
             <Image
@@ -93,7 +95,7 @@ export function RestaurantCard({ restaurant, onNavigate }: RestaurantCardProps) 
           <div className="mt-auto">
             {restaurant.dealsCount === 0 ? (
               <Button
-                onClick={() => handleClick(`/restaurant/${restaurant.id}`)}
+                onClick={() => handleClick(`/restaurant/${pathSegment}`)}
                 variant="outline"
                 className="w-full text-white hover:text-white bg-red-600 hover:bg-red-600"
               >
@@ -101,7 +103,7 @@ export function RestaurantCard({ restaurant, onNavigate }: RestaurantCardProps) 
               </Button>
             ) : restaurant.offerNames.length === 1 ? (
               <Button
-                onClick={() => handleClick(`/restaurant/${restaurant.id}`)}
+                onClick={() => handleClick(`/restaurant/${pathSegment}`)}
                 variant="outline"
                 className="w-full text-white hover:text-white bg-red-600 hover:bg-red-600 h-10 overflow-hidden"
                 title={restaurant.offerNames[0]}
@@ -115,7 +117,7 @@ export function RestaurantCard({ restaurant, onNavigate }: RestaurantCardProps) 
                 {restaurant.offerNames.map((name, index) => (
                   <Button
                     key={index}
-                    onClick={() => handleClick(`/restaurant/${restaurant.id}`)}
+                    onClick={() => handleClick(`/restaurant/${pathSegment}`)}
                     variant="outline"
                     className={`text-white hover:text-white bg-red-600 hover:bg-red-700 h-10 overflow-hidden w-full`}
                     title={name}
