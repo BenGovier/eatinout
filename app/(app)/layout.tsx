@@ -13,6 +13,10 @@ import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
 import { signOut } from "next-auth/react";
 
+/** When not `"false"`, `/restaurants` and `/map` are guest-accessible (see NEXT_PUBLIC_RESTAURANTS_PAGE_PUBLIC). */
+const isRestaurantsBrowsePublic =
+  process.env.NEXT_PUBLIC_RESTAURANTS_PAGE_PUBLIC !== "false";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,8 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   /** Guest-accessible consumer pages (no sign-in required). */
   const isPublicRestaurantPage =
     pathname?.startsWith("/restaurant/") ||
-    pathname === "/restaurants" ||
-    pathname === "/map";
+    (isRestaurantsBrowsePublic &&
+      (pathname === "/restaurants" || pathname === "/map"));
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
