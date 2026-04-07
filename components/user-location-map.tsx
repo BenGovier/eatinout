@@ -1,50 +1,51 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
-import Image from "next/image"
-import { LocateFixed } from "lucide-react"
-import L, { type LeafletMouseEvent } from "leaflet"
-import "leaflet.markercluster"
-import { useLocationConsent } from "@/components/location-consent-provider"
-import { Button } from "@/components/ui/button"
-import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import { LocateFixed } from "lucide-react";
+import L, { type LeafletMouseEvent } from "leaflet";
+import "leaflet.markercluster";
+import { useLocationConsent } from "@/components/location-consent-provider";
+import { Button } from "@/components/ui/button";
+import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
+import { cn } from "@/lib/utils";
 import {
   getStoredUserLatLng,
   persistUserLatLng,
   USER_LOCATION_STORAGE_EVENT,
-} from "@/lib/user-location-session"
+} from "@/lib/user-location-session";
 
-import "leaflet/dist/leaflet.css"
-import "leaflet.markercluster/dist/MarkerCluster.css"
-import "leaflet.markercluster/dist/MarkerCluster.Default.css"
+import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
-type LatLng = { lat: number; lng: number }
+type LatLng = { lat: number; lng: number };
 type RestaurantMarker = {
-  id: string
+  id: string;
   /** Public URL segment: `/restaurant/[slug]` */
-  slug: string
-  name: string
-  lat: number
-  lng: number
-  distanceMiles?: number
-  imageUrl: string
-  offerSummary: string
-  firstOfferId?: string
-}
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+  distanceMiles?: number;
+  imageUrl: string;
+  offerSummary: string;
+  firstOfferId?: string;
+};
 
 type MapPopoverState = {
-  id: string
-  slug: string
-  name: string
-  imageUrl: string
-  offerSummary: string
-  distanceMiles?: number
-  lat: number
-  lng: number
-  firstOfferId?: string
-}
+  id: string;
+  slug: string;
+  name: string;
+  imageUrl: string;
+  offerSummary: string;
+  distanceMiles?: number;
+  lat: number;
+  lng: number;
+  firstOfferId?: string;
+};
 
 /** Tip of pin is at bottom center (anchor point on the map). */
 const USER_LOCATION_ICON = L.icon({
@@ -52,27 +53,27 @@ const USER_LOCATION_ICON = L.icon({
   iconSize: [36, 48],
   iconAnchor: [18, 48],
   popupAnchor: [0, -46],
-})
+});
 
 function restaurantMarkerIcon(distanceMiles: number | undefined): L.DivIcon {
   const hasMiles =
     typeof distanceMiles === "number" &&
     Number.isFinite(distanceMiles) &&
-    distanceMiles >= 0
+    distanceMiles >= 0;
   const label = hasMiles
     ? `${distanceMiles % 1 === 0 ? String(distanceMiles) : distanceMiles.toFixed(1)} mi`
-    : ""
+    : "";
   const html = hasMiles
     ? `<div style="display:flex;flex-direction:column;align-items:center;margin:0;padding:0;pointer-events:auto;">
         <div style="background:#fff;border:1px solid #DC3545;color:#DC3545;font-size:10px;font-weight:700;line-height:1.2;padding:2px 6px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,0.2);white-space:nowrap;">${label}</div>
         <div style="width:0;height:0;margin-top:1px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #DC3545;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));"></div>
       </div>`
-    : `<div style="width:16px;height:16px;background:#DC3545;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`
+    : `<div style="width:16px;height:16px;background:#DC3545;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
 
-  const w = hasMiles ? 56 : 16
-  const h = hasMiles ? 34 : 16
-  const ax = hasMiles ? Math.round(w / 2) : 8
-  const ay = h
+  const w = hasMiles ? 56 : 16;
+  const h = hasMiles ? 34 : 16;
+  const ax = hasMiles ? Math.round(w / 2) : 8;
+  const ay = h;
 
   return L.divIcon({
     className: "restaurant-pin-icon",
@@ -80,13 +81,13 @@ function restaurantMarkerIcon(distanceMiles: number | undefined): L.DivIcon {
     iconSize: [w, h],
     iconAnchor: [ax, ay],
     popupAnchor: [0, ay + 4],
-  })
+  });
 }
 
 function formatDistanceMiles(miles?: number): string {
   if (typeof miles !== "number" || !Number.isFinite(miles) || miles < 0)
-    return ""
-  return miles % 1 === 0 ? `${miles} mi` : `${miles.toFixed(1)} mi`
+    return "";
+  return miles % 1 === 0 ? `${miles} mi` : `${miles.toFixed(1)} mi`;
 }
 
 export default function UserLocationMap({
@@ -95,96 +96,92 @@ export default function UserLocationMap({
   restaurants = [],
   onViewDeal,
 }: {
-  className?: string
-  zoom?: number
-  restaurants?: RestaurantMarker[]
+  className?: string;
+  zoom?: number;
+  restaurants?: RestaurantMarker[];
   /** First argument is URL segment: `slug` (fallback to id if missing). */
-  onViewDeal?: (restaurantPathSegment: string, offerId?: string) => void
+  onViewDeal?: (restaurantPathSegment: string, offerId?: string) => void;
 }) {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null)
-  const mapInstanceRef = useRef<L.Map | null>(null)
-  const markerRef = useRef<L.Marker | null>(null)
-  const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null)
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+  const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   /** When true, next coords sync uses flyTo instead of setView (user-initiated). */
-  const userRequestedRecenterRef = useRef(false)
+  const userRequestedRecenterRef = useRef(false);
   /** Map pick updates storage+coords; skip flyTo so the view stays where the user clicked. */
-  const skipFlyOnNextStorageSyncRef = useRef(false)
-  const locationConsent = useLocationConsent()
+  const skipFlyOnNextStorageSyncRef = useRef(false);
+  const locationConsent = useLocationConsent();
   const [coords, setCoords] = useState<LatLng>({
     lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
     lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
-  })
-  const [mapPopover, setMapPopover] = useState<MapPopoverState | null>(null)
+  });
+  const [mapPopover, setMapPopover] = useState<MapPopoverState | null>(null);
   /** Viewport coordinates (px) for marker anchor; popover is portaled with `position: fixed`. */
   const [popoverAnchor, setPopoverAnchor] = useState<{
-    left: number
-    top: number
-  } | null>(null)
-  const [portalReady, setPortalReady] = useState(false)
+    left: number;
+    top: number;
+  } | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => {
-    setPortalReady(true)
-  }, [])
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     // Read once immediately; if the consent modal updates sessionStorage later,
     // keep retrying briefly so the map recenters without requiring a refresh.
-    let intervalId: number | undefined
+    let intervalId: number | undefined;
     const tick = () => {
-      const stored = getStoredUserLatLng()
+      const stored = getStoredUserLatLng();
       if (stored) {
-        setCoords(stored)
-        if (intervalId) window.clearInterval(intervalId)
+        setCoords(stored);
+        if (intervalId) window.clearInterval(intervalId);
       }
-    }
+    };
 
-    tick()
-    intervalId = window.setInterval(tick, 1000)
+    tick();
+    intervalId = window.setInterval(tick, 1000);
 
     // Stop polling after a short window to avoid unnecessary work.
     const timeoutId = window.setTimeout(() => {
-      if (intervalId) window.clearInterval(intervalId)
-    }, 20_000)
+      if (intervalId) window.clearInterval(intervalId);
+    }, 20_000);
 
     return () => {
-      if (intervalId) window.clearInterval(intervalId)
-      window.clearTimeout(timeoutId)
-    }
-  }, [])
+      if (intervalId) window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const onStorage = () => {
-      const stored = getStoredUserLatLng()
-      if (!stored) return
+      const stored = getStoredUserLatLng();
+      if (!stored) return;
       if (skipFlyOnNextStorageSyncRef.current) {
-        skipFlyOnNextStorageSyncRef.current = false
-        setCoords(stored)
-        return
+        skipFlyOnNextStorageSyncRef.current = false;
+        setCoords(stored);
+        return;
       }
-      userRequestedRecenterRef.current = true
-      setCoords(stored)
-    }
-    window.addEventListener(USER_LOCATION_STORAGE_EVENT, onStorage)
+      userRequestedRecenterRef.current = true;
+      setCoords(stored);
+    };
+    window.addEventListener(USER_LOCATION_STORAGE_EVENT, onStorage);
     return () =>
-      window.removeEventListener(USER_LOCATION_STORAGE_EVENT, onStorage)
-  }, [])
+      window.removeEventListener(USER_LOCATION_STORAGE_EVENT, onStorage);
+  }, []);
 
-  const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY
-  const usingMapTiler = !!mapTilerKey
-  const tileUrl = usingMapTiler
-    ? `https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=${mapTilerKey}`
-    : `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+  const { tileUrl, usingMapTiler } = getMapTilerLeafletTileConfig();
 
   useEffect(() => {
-    if (!mapContainerRef.current) return
+    if (!mapContainerRef.current) return;
 
-    const container = mapContainerRef.current
-    const center = L.latLng(coords.lat, coords.lng)
+    const container = mapContainerRef.current;
+    const center = L.latLng(coords.lat, coords.lng);
 
     if (!mapInstanceRef.current) {
       // Defensive cleanup for React dev re-mounts/Fast Refresh.
       if ((container as any)._leaflet_id) {
-        (container as any)._leaflet_id = null
+        (container as any)._leaflet_id = null;
       }
 
       const map = L.map(container, {
@@ -193,27 +190,25 @@ export default function UserLocationMap({
         scrollWheelZoom: true,
         dragging: true,
         doubleClickZoom: true,
-      })
+      });
 
-      L.tileLayer(tileUrl, {
-        attribution: usingMapTiler
-          ? "© MapTiler © OpenStreetMap contributors"
-          : "© OpenStreetMap contributors",
-      }).addTo(map)
+      L.tileLayer(tileUrl, {}).addTo(map);
 
       const marker = L.marker(center, {
         icon: USER_LOCATION_ICON,
         interactive: false,
-      }).addTo(map)
-      marker.bindPopup(getStoredUserLatLng() ? "You are here" : "Explore this area")
+      }).addTo(map);
+      marker.bindPopup(
+        getStoredUserLatLng() ? "You are here" : "Explore this area",
+      );
       restaurantLayerRef.current = L.markerClusterGroup({
         maxClusterRadius: 50,
         disableClusteringAtZoom: 17,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         iconCreateFunction: (cluster) => {
-          const count = cluster.getChildCount()
-          const size = count < 10 ? 36 : count < 100 ? 42 : 48
+          const count = cluster.getChildCount();
+          const size = count < 10 ? 36 : count < 100 ? 42 : 48;
           return L.divIcon({
             html: `<div style="
                 width:${size}px;
@@ -231,104 +226,104 @@ export default function UserLocationMap({
               ">${count}</div>`,
             className: "restaurant-cluster-icon",
             iconSize: [size, size],
-          })
+          });
         },
-      })
-      map.addLayer(restaurantLayerRef.current)
+      });
+      map.addLayer(restaurantLayerRef.current);
 
       map.on("click", (e: LeafletMouseEvent) => {
-        setMapPopover(null)
-        const { lat, lng } = e.latlng
-        skipFlyOnNextStorageSyncRef.current = true
-        persistUserLatLng(lat, lng)
-      })
+        setMapPopover(null);
+        const { lat, lng } = e.latlng;
+        skipFlyOnNextStorageSyncRef.current = true;
+        persistUserLatLng(lat, lng);
+      });
 
-      mapInstanceRef.current = map
-      markerRef.current = marker
+      mapInstanceRef.current = map;
+      markerRef.current = marker;
       if (userRequestedRecenterRef.current) {
-        userRequestedRecenterRef.current = false
-        const z = Math.max(map.getZoom(), zoom)
-        map.flyTo(center, z, { duration: 1.15 })
+        userRequestedRecenterRef.current = false;
+        const z = Math.max(map.getZoom(), zoom);
+        map.flyTo(center, z, { duration: 1.15 });
       }
-      return
+      return;
     }
 
-    const map = mapInstanceRef.current
+    const map = mapInstanceRef.current;
     if (userRequestedRecenterRef.current) {
-      userRequestedRecenterRef.current = false
-      const z = Math.max(map.getZoom(), zoom)
-      map.flyTo(center, z, { duration: 1.15 })
+      userRequestedRecenterRef.current = false;
+      const z = Math.max(map.getZoom(), zoom);
+      map.flyTo(center, z, { duration: 1.15 });
     } else {
-      map.setView(center, map.getZoom())
+      map.setView(center, map.getZoom());
     }
-    markerRef.current?.setLatLng(center)
+    markerRef.current?.setLatLng(center);
     markerRef.current?.setPopupContent(
       getStoredUserLatLng() ? "You are here" : "Explore this area",
-    )
-  }, [coords, tileUrl, usingMapTiler, zoom])
+    );
+  }, [coords, tileUrl, usingMapTiler, zoom]);
 
   useEffect(() => {
     if (!mapPopover) {
-      setPopoverAnchor(null)
-      return
+      setPopoverAnchor(null);
+      return;
     }
-    const map = mapInstanceRef.current
-    if (!map) return
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
     const sync = () => {
-      const mapEl = map.getContainer()
-      const rect = mapEl.getBoundingClientRect()
+      const mapEl = map.getContainer();
+      const rect = mapEl.getBoundingClientRect();
       const p = map.latLngToContainerPoint(
         L.latLng(mapPopover.lat, mapPopover.lng),
-      )
-      const anchorLeft = rect.left + p.x
-      const anchorTop = rect.top + p.y
-      const cardW = Math.min(window.innerWidth * 0.92, 260)
-      const margin = 8
+      );
+      const anchorLeft = rect.left + p.x;
+      const anchorTop = rect.top + p.y;
+      const cardW = Math.min(window.innerWidth * 0.92, 260);
+      const margin = 8;
       const clampedLeft = Math.min(
         Math.max(anchorLeft, cardW / 2 + margin),
         window.innerWidth - cardW / 2 - margin,
-      )
-      const minAnchorTop = 96
+      );
+      const minAnchorTop = 96;
       const clampedTop = Math.min(
         Math.max(anchorTop, minAnchorTop),
         window.innerHeight - 32,
-      )
-      setPopoverAnchor({ left: clampedLeft, top: clampedTop })
-    }
+      );
+      setPopoverAnchor({ left: clampedLeft, top: clampedTop });
+    };
 
-    sync()
-    map.on("moveend", sync)
-    map.on("zoomend", sync)
-    window.addEventListener("scroll", sync, true)
-    window.addEventListener("resize", sync)
+    sync();
+    map.on("moveend", sync);
+    map.on("zoomend", sync);
+    window.addEventListener("scroll", sync, true);
+    window.addEventListener("resize", sync);
     return () => {
-      map.off("moveend", sync)
-      map.off("zoomend", sync)
-      window.removeEventListener("scroll", sync, true)
-      window.removeEventListener("resize", sync)
-    }
-  }, [mapPopover])
+      map.off("moveend", sync);
+      map.off("zoomend", sync);
+      window.removeEventListener("scroll", sync, true);
+      window.removeEventListener("resize", sync);
+    };
+  }, [mapPopover]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMapPopover(null)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
+      if (e.key === "Escape") setMapPopover(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
-    const map = mapInstanceRef.current
-    const layer = restaurantLayerRef.current
-    if (!map || !layer) return
+    const map = mapInstanceRef.current;
+    const layer = restaurantLayerRef.current;
+    if (!map || !layer) return;
 
-    layer.clearLayers()
+    layer.clearLayers();
     setMapPopover((prev) => {
-      if (!prev) return null
-      const stillHere = restaurants.some((r) => r.id === prev.id)
-      return stillHere ? prev : null
-    })
+      if (!prev) return null;
+      const stillHere = restaurants.some((r) => r.id === prev.id);
+      return stillHere ? prev : null;
+    });
 
     restaurants
       .filter(
@@ -341,9 +336,9 @@ export default function UserLocationMap({
       .forEach((restaurant) => {
         const marker = L.marker([restaurant.lat, restaurant.lng], {
           icon: restaurantMarkerIcon(restaurant.distanceMiles),
-        })
+        });
         marker.on("click", (e: LeafletMouseEvent) => {
-          L.DomEvent.stopPropagation(e.originalEvent)
+          L.DomEvent.stopPropagation(e.originalEvent);
           setMapPopover({
             id: restaurant.id,
             slug: restaurant.slug,
@@ -354,46 +349,45 @@ export default function UserLocationMap({
             lat: restaurant.lat,
             lng: restaurant.lng,
             firstOfferId: restaurant.firstOfferId,
-          })
-        })
-        marker.addTo(layer)
-      })
-  }, [restaurants])
+          });
+        });
+        marker.addTo(layer);
+      });
+  }, [restaurants]);
 
   useEffect(() => {
     return () => {
-      restaurantLayerRef.current?.clearLayers()
-      restaurantLayerRef.current = null
-      markerRef.current?.remove()
-      markerRef.current = null
-      mapInstanceRef.current?.remove()
-      mapInstanceRef.current = null
-    }
-  }, [])
+      restaurantLayerRef.current?.clearLayers();
+      restaurantLayerRef.current = null;
+      markerRef.current?.remove();
+      markerRef.current = null;
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
 
   const handleRecenterOnUser = () => {
-    const stored = getStoredUserLatLng()
+    const stored = getStoredUserLatLng();
     if (!stored) {
-      locationConsent?.requestLocationModal()
-      return
+      locationConsent?.requestLocationModal();
+      return;
     }
 
-    const map = mapInstanceRef.current
-    const matchesState =
-      coords.lat === stored.lat && coords.lng === stored.lng
+    const map = mapInstanceRef.current;
+    const matchesState = coords.lat === stored.lat && coords.lng === stored.lng;
 
     if (map && matchesState) {
-      const center = L.latLng(stored.lat, stored.lng)
-      const z = Math.max(map.getZoom(), zoom)
-      map.flyTo(center, z, { duration: 1.15 })
-      markerRef.current?.setLatLng(center)
-      markerRef.current?.setPopupContent("You are here")
-      return
+      const center = L.latLng(stored.lat, stored.lng);
+      const z = Math.max(map.getZoom(), zoom);
+      map.flyTo(center, z, { duration: 1.15 });
+      markerRef.current?.setLatLng(center);
+      markerRef.current?.setPopupContent("You are here");
+      return;
     }
 
-    userRequestedRecenterRef.current = true
-    setCoords(stored)
-  }
+    userRequestedRecenterRef.current = true;
+    setCoords(stored);
+  };
 
   const popoverLayer =
     portalReady && mapPopover && popoverAnchor
@@ -447,8 +441,8 @@ export default function UserLocationMap({
                     onViewDeal?.(
                       mapPopover.slug?.trim() || mapPopover.id,
                       mapPopover.firstOfferId,
-                    )
-                    setMapPopover(null)
+                    );
+                    setMapPopover(null);
                   }}
                 >
                   View deal
@@ -458,34 +452,31 @@ export default function UserLocationMap({
           </>,
           document.body,
         )
-      : null
+      : null;
 
   return (
     <>
       {popoverLayer}
       <div
-        className={cn(
-          "relative z-0 isolate h-full min-h-0 w-full",
-          className,
+        className={cn("relative z-0 isolate h-full min-h-0 w-full", className)}
+      >
+        {!usingMapTiler && (
+          <div className="absolute top-2 left-2 z-10 rounded-lg bg-white/90 border border-gray-200 px-2 py-1 text-[11px] text-gray-700 shadow">
+            Set `NEXT_PUBLIC_MAPTILER_API_KEY` to use MapTiler tiles (optional:
+            `NEXT_PUBLIC_MAPTILER_MAP_ID` for a custom Cloud map)
+          </div>
         )}
-      >
-      {!usingMapTiler && (
-        <div className="absolute top-2 left-2 z-10 rounded-lg bg-white/90 border border-gray-200 px-2 py-1 text-[11px] text-gray-700 shadow">
-          Set `NEXT_PUBLIC_MAPTILER_API_KEY` to use MapTiler tiles
-        </div>
-      )}
-      <div ref={mapContainerRef} className="h-full w-full" />
-      <button
-        type="button"
-        onClick={handleRecenterOnUser}
-        className="pointer-events-auto absolute bottom-2 right-2 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50 md:bottom-3 md:right-3"
-        aria-label="Center map on your location"
-        title="Your location"
-      >
-        <LocateFixed className="h-5 w-5" aria-hidden />
-      </button>
+        <div ref={mapContainerRef} className="h-full w-full" />
+        <button
+          type="button"
+          onClick={handleRecenterOnUser}
+          className="pointer-events-auto absolute bottom-2 right-2 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50 md:bottom-3 md:right-3"
+          aria-label="Center map on your location"
+          title="Your location"
+        >
+          <LocateFixed className="h-5 w-5" aria-hidden />
+        </button>
       </div>
     </>
-  )
+  );
 }
-
