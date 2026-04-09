@@ -48,7 +48,13 @@ import {
 } from "@/lib/user-location-session";
 import dynamic from "next/dynamic";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useIsMobile } from "@/components/ui/use-mobile";
+import { cn } from "@/lib/utils";
 
 const UserLocationMap = dynamic(
   () => import("@/components/user-location-map"),
@@ -293,6 +299,14 @@ export default function RestaurantsPage() {
   const router = useRouter();
   const { user, isAuthenticated, authLoading } = useAuth();
   const isMobile = useIsMobile();
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsNarrowViewport(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const mobileDrawerScrollRef = useRef<HTMLDivElement>(null);
   const [mobileDrawerSnap, setMobileDrawerSnap] = useState<number | string | null>(
     MOBILE_RESTAURANTS_DRAWER_PEEK,
@@ -1185,6 +1199,306 @@ export default function RestaurantsPage() {
     });
   }, [filterState.selectedLocationId, clearScrollPosition]);
 
+  function buildFiltersPanel(compact: boolean) {
+    const sectionLabel = cn(
+      "font-semibold text-foreground",
+      compact ? "mb-1.5 block text-xs" : "mb-2 block text-sm",
+    );
+
+    return (
+      <div
+        className={cn(
+          compact ? "space-y-2" : "space-y-4 md:space-y-6",
+        )}
+      >
+        {filterState.selectedLocation && (
+          <div
+            className={cn("flex items-center gap-2", compact ? "pt-0" : "pt-2")}
+          >
+            <Badge
+              variant="secondary"
+              className="bg-primary/10 text-primary border-primary/20"
+            >
+              {filterState.selectedLocation}
+            </Badge>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterState((prev) => ({
+                  ...prev,
+                  selectedLocation: "",
+                  selectedLocationId: "",
+                }));
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {(filterState.selectedMealTimes.length > 0 ||
+          filterState.selectedCuisines.length > 0 ||
+          filterState.selectedDays.length > 0 ||
+          filterState.selectedDining.length > 0 ||
+          filterState.maxDistanceMiles !==
+            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) && (
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2",
+              compact ? "gap-1.5 pt-1" : "pt-2",
+            )}
+          >
+            {filterState.selectedMealTimes.map((mealTime) => (
+              <Badge
+                key={mealTime}
+                variant="secondary"
+                className={cn(
+                  "bg-primary/10 text-primary border-primary/20",
+                  compact && "max-w-[11rem] truncate py-0 text-[10px]",
+                )}
+              >
+                {mealTime}
+              </Badge>
+            ))}
+            {filterState.selectedCuisines.map((cuisine) => (
+              <Badge
+                key={cuisine}
+                variant="secondary"
+                className={cn(
+                  "bg-primary/10 text-primary border-primary/20",
+                  compact && "max-w-[9rem] truncate py-0 text-[10px]",
+                )}
+              >
+                {cuisine}
+              </Badge>
+            ))}
+            {filterState.selectedDays.map((day) => (
+              <Badge
+                key={day}
+                variant="secondary"
+                className="bg-primary/10 text-primary border-primary/20"
+              >
+                {day}
+              </Badge>
+            ))}
+            {filterState.selectedDining.map((dining) => (
+              <Badge
+                key={dining}
+                variant="secondary"
+                className="bg-primary/10 text-primary border-primary/20"
+              >
+                {dining === "dine-in" ? "Dine In" : "Takeaway"}
+              </Badge>
+            ))}
+            <Badge
+              variant="secondary"
+              className="bg-primary/10 text-primary border-primary/20"
+            >
+              Within {filterState.maxDistanceMiles} mi
+            </Badge>
+          </div>
+        )}
+
+        <div
+          className={cn(
+            compact ? "space-y-3 pb-1 pt-2" : "space-y-4 pb-4 pt-4 md:pt-5",
+          )}
+        >
+          <div>
+            <span className={sectionLabel}>Days Available</span>
+            <div className={cn("flex flex-wrap gap-2", compact && "gap-1.5")}>
+              {DAYS_AVAILABLE.map((day) => (
+                <Button
+                  key={day.value}
+                  type="button"
+                  variant={
+                    filterState.selectedDayValues.includes(day.value)
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  onClick={() => toggleDay(day.value, day.label)}
+                  className={cn(
+                    filterState.selectedDayValues.includes(day.value)
+                      ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
+                      : "rounded-2xl",
+                    compact && "h-8 px-2.5 text-xs",
+                  )}
+                >
+                  {day.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className={sectionLabel}>Dine In or Out</span>
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-2",
+                compact && "gap-1.5",
+              )}
+            >
+              <Button
+                type="button"
+                variant={
+                  filterState.selectedDining.includes("dine-in")
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() => toggleDining("dine-in")}
+                className={cn(
+                  filterState.selectedDining.includes("dine-in")
+                    ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
+                    : "rounded-2xl",
+                  compact && "h-9 text-xs",
+                )}
+              >
+                Dine In
+              </Button>
+              <Button
+                type="button"
+                variant={
+                  filterState.selectedDining.includes("takeaway")
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() => toggleDining("takeaway")}
+                className={cn(
+                  filterState.selectedDining.includes("takeaway")
+                    ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
+                    : "rounded-2xl ",
+                  compact && "h-9 text-xs",
+                )}
+              >
+                Takeaway
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <span className={sectionLabel}>Meal Time</span>
+            <div className={cn("flex flex-col gap-2", compact && "gap-1.5")}>
+              {MEAL_TIMES.map((mealTime) => (
+                <Button
+                  key={mealTime}
+                  type="button"
+                  variant={
+                    filterState.selectedMealTimes.includes(mealTime)
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  onClick={() => toggleMealTime(mealTime)}
+                  className={cn(
+                    filterState.selectedMealTimes.includes(mealTime)
+                      ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
+                      : "rounded-2xl",
+                    compact
+                      ? "h-auto justify-start py-1.5 text-left text-[11px] leading-snug"
+                      : "",
+                  )}
+                >
+                  {mealTime}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className={sectionLabel}>Distance from you</span>
+            {!compact && (
+              <p className="text-muted-foreground mb-2 text-xs">
+                Uses your shared location on the map when available; otherwise
+                the default map area ({DEFAULT_MAP_LOCATION_LABEL}).
+              </p>
+            )}
+            <div className={cn("flex flex-wrap gap-2", compact && "gap-1.5")}>
+              {RESTAURANT_DISTANCE_OPTIONS_MILES.map((miles) => (
+                <Button
+                  key={miles}
+                  type="button"
+                  variant={
+                    filterState.maxDistanceMiles === miles ? "default" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => setMaxDistanceMiles(miles)}
+                  className={cn(
+                    filterState.maxDistanceMiles === miles
+                      ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
+                      : "rounded-2xl",
+                    compact && "h-8 min-w-[2.75rem] px-2 text-xs",
+                  )}
+                >
+                  {miles} mi
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className={cn("flex gap-2", compact ? "pt-1" : "pt-2")}
+          >
+            <Button
+              type="button"
+              onClick={() => {
+                setUIState((prev) => ({ ...prev, showFilters: false }));
+                clearScrollPosition();
+                saveFilterState();
+              }}
+              className={cn(
+                "flex-1 rounded-2xl bg-primary text-white hover:bg-primary/90",
+                compact ? "h-9 text-sm" : "",
+              )}
+            >
+              Apply Filters
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFilterState({
+                  searchTerm: "",
+                  locationSearch: "",
+                  selectedLocation: "",
+                  selectedLocationId: "",
+                  selectedCuisines: [],
+                  selectedCuisineIds: [],
+                  selectedDays: [],
+                  selectedDayValues: [],
+                  selectedDining: [],
+                  selectedMealTimes: [],
+                  maxDistanceMiles:
+                    DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                  listSort: DEFAULT_RESTAURANT_LIST_SORT,
+                });
+                clearScrollPosition();
+                clearFilterState();
+              }}
+              className={cn("flex-1 rounded-2xl", compact ? "h-9 text-sm" : "")}
+            >
+              Reset
+            </Button>
+            {!compact && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setUIState((prev) => ({ ...prev, showFilters: false }))
+                }
+                className="flex-shrink-0"
+              >
+                ✕
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderPostMapContent = () => (
     <>
       <FlavourSection
@@ -1541,28 +1855,79 @@ export default function RestaurantsPage() {
                       </SelectContent>
                     </Select>
 
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setUIState((prev) => ({
-                          ...prev,
-                          showFilters: !prev.showFilters,
-                        }))
-                      }
-                      aria-label={
-                        hasFilters ? "Filters (filters applied)" : "Filters"
-                      }
-                      className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors max-md:min-w-0 max-md:flex-1 max-md:bg-white max-md:shadow-md max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
-                    >
-                      {hasFilters && (
-                        <span
-                          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                          aria-hidden
-                        />
-                      )}
-                      <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                      <span className="text-[#DC3545] font-medium">Filters</span>
-                    </Button>
+                    <div className="contents md:contents">
+                      <div className="contents md:hidden">
+                        <Popover
+                          open={uiState.showFilters && isNarrowViewport}
+                          onOpenChange={(open) =>
+                            setUIState((prev) => ({
+                              ...prev,
+                              showFilters: open,
+                            }))
+                          }
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              aria-label={
+                                hasFilters
+                                  ? "Filters (filters applied)"
+                                  : "Filters"
+                              }
+                              aria-expanded={uiState.showFilters}
+                              className="relative flex h-full min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50 max-md:flex-1 md:hidden"
+                            >
+                              {hasFilters && (
+                                <span
+                                  className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                                  aria-hidden
+                                />
+                              )}
+                              <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
+                              <span className="font-medium text-[#DC3545]">
+                                Filters
+                              </span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="end"
+                            side="bottom"
+                            sideOffset={10}
+                            className="z-[85] w-[min(calc(100vw-1rem),18.5rem)] max-h-[min(74dvh,26rem)] overflow-y-auto border border-gray-200 bg-[#FFFBF7] p-3 shadow-lg md:hidden"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                          >
+                            {buildFiltersPanel(true)}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          setUIState((prev) => ({
+                            ...prev,
+                            showFilters: !prev.showFilters,
+                          }))
+                        }
+                        aria-label={
+                          hasFilters ? "Filters (filters applied)" : "Filters"
+                        }
+                        aria-expanded={uiState.showFilters}
+                        className="relative hidden h-auto shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-[#DC3545] md:inline-flex md:w-[152px]"
+                      >
+                        {hasFilters && (
+                          <span
+                            className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                            aria-hidden
+                          />
+                        )}
+                        <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
+                        <span className="font-medium text-[#DC3545]">
+                          Filters
+                        </span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1571,255 +1936,8 @@ export default function RestaurantsPage() {
         </section>
 
         {uiState.showFilters && (
-          <div className="space-y-4 border-b border-gray-100 bg-white px-4 pb-6 md:space-y-6 max-md:fixed max-md:inset-0 max-md:z-[65] max-md:overflow-y-auto max-md:border-0 max-md:pt-[13rem]">
-            {filterState.selectedLocation && (
-              <div className="flex items-center gap-2 pt-2">
-                <Badge
-                  variant="secondary"
-                  className="bg-primary/10 text-primary border-primary/20"
-                >
-                  {filterState.selectedLocation}
-                </Badge>
-                <button
-                  onClick={() => {
-                    setFilterState((prev) => ({
-                      ...prev,
-                      selectedLocation: "",
-                      selectedLocationId: "",
-                    }));
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {(filterState.selectedMealTimes.length > 0 ||
-              filterState.selectedCuisines.length > 0 ||
-              filterState.selectedDays.length > 0 ||
-              filterState.selectedDining.length > 0 ||
-              filterState.maxDistanceMiles !==
-                DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) && (
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                {filterState.selectedMealTimes.map((mealTime) => (
-                  <Badge
-                    key={mealTime}
-                    variant="secondary"
-                    className="bg-primary/10 text-primary border-primary/20"
-                  >
-                    {mealTime}
-                  </Badge>
-                ))}
-                {filterState.selectedCuisines.map((cuisine) => (
-                  <Badge
-                    key={cuisine}
-                    variant="secondary"
-                    className="bg-primary/10 text-primary border-primary/20"
-                  >
-                    {cuisine}
-                  </Badge>
-                ))}
-                {filterState.selectedDays.map((day) => (
-                  <Badge
-                    key={day}
-                    variant="secondary"
-                    className="bg-primary/10 text-primary border-primary/20"
-                  >
-                    {day}
-                  </Badge>
-                ))}
-                {filterState.selectedDining.map((dining) => (
-                  <Badge
-                    key={dining}
-                    variant="secondary"
-                    className="bg-primary/10 text-primary border-primary/20"
-                  >
-                    {dining === "dine-in" ? "Dine In" : "Takeaway"}
-                  </Badge>
-                ))}
-                <Badge
-                  variant="secondary"
-                  className="bg-primary/10 text-primary border-primary/20"
-                >
-                  Within {filterState.maxDistanceMiles} mi
-                </Badge>
-              </div>
-            )}
-
-            <div className="space-y-4 pt-4 md:pt-5 pb-4">
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">
-                  Days Available
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS_AVAILABLE.map((day) => (
-                    <Button
-                      key={day.value}
-                      variant={
-                        filterState.selectedDayValues.includes(day.value)
-                          ? "default"
-                          : "outline"
-                      }
-                      size="sm"
-                      onClick={() => toggleDay(day.value, day.label)}
-                      className={
-                        filterState.selectedDayValues.includes(day.value)
-                          ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                          : "rounded-2xl"
-                      }
-                    >
-                      {day.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">
-                  Dine In or Out
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={
-                      filterState.selectedDining.includes("dine-in")
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => toggleDining("dine-in")}
-                    className={
-                      filterState.selectedDining.includes("dine-in")
-                        ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                        : "rounded-2xl"
-                    }
-                  >
-                    Dine In
-                  </Button>
-                  <Button
-                    variant={
-                      filterState.selectedDining.includes("takeaway")
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => toggleDining("takeaway")}
-                    className={
-                      filterState.selectedDining.includes("takeaway")
-                        ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                        : "rounded-2xl "
-                    }
-                  >
-                    Takeaway
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">
-                  Meal Time
-                </label>
-                <div className="flex flex-col gap-2">
-                  {MEAL_TIMES.map((mealTime) => (
-                    <Button
-                      key={mealTime}
-                      variant={
-                        filterState.selectedMealTimes.includes(mealTime)
-                          ? "default"
-                          : "outline"
-                      }
-                      size="sm"
-                      onClick={() => toggleMealTime(mealTime)}
-                      className={
-                        filterState.selectedMealTimes.includes(mealTime)
-                          ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                          : "rounded-2xl"
-                      }
-                    >
-                      {mealTime}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">
-                  Distance from you
-                </label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Uses your shared location on the map when available; otherwise
-                  the default map area ({DEFAULT_MAP_LOCATION_LABEL}).
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {RESTAURANT_DISTANCE_OPTIONS_MILES.map((miles) => (
-                    <Button
-                      key={miles}
-                      type="button"
-                      variant={
-                        filterState.maxDistanceMiles === miles
-                          ? "default"
-                          : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setMaxDistanceMiles(miles)}
-                      className={
-                        filterState.maxDistanceMiles === miles
-                          ? "bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                          : "rounded-2xl"
-                      }
-                    >
-                      {miles} mi
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={() => {
-                    setUIState((prev) => ({ ...prev, showFilters: false }));
-                    clearScrollPosition();
-                    saveFilterState();
-                  }}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                >
-                  Apply Filters
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setFilterState({
-                      searchTerm: "",
-                      locationSearch: "",
-                      selectedLocation: "",
-                      selectedLocationId: "",
-                      selectedCuisines: [],
-                      selectedCuisineIds: [],
-                      selectedDays: [],
-                      selectedDayValues: [],
-                      selectedDining: [],
-                      selectedMealTimes: [],
-                      maxDistanceMiles:
-                        DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-                      listSort: DEFAULT_RESTAURANT_LIST_SORT,
-                    });
-                    clearScrollPosition();
-                    clearFilterState();
-                  }}
-                  className="flex-1 rounded-2xl"
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    setUIState((prev) => ({ ...prev, showFilters: false }))
-                  }
-                  className="flex-shrink-0"
-                >
-                  ✕
-                </Button>
-              </div>
-            </div>
+          <div className="hidden border-b border-gray-100 bg-white px-4 pb-6 md:block">
+            {buildFiltersPanel(false)}
           </div>
         )}
 
