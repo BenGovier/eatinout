@@ -16,10 +16,10 @@ import {
 import "leaflet/dist/leaflet.css";
 
 const RESTAURANT_PIN = L.icon({
-  iconUrl: "/images/map-marker-user.svg",
-  iconSize: [36, 48],
-  iconAnchor: [18, 48],
-  popupAnchor: [0, -46],
+  iconUrl: "/Marker.svg",
+  iconSize: [36, 51],
+  iconAnchor: [18, 51],
+  popupAnchor: [0, -49],
 });
 
 /** Pill + pin for shared GPS; only used when not the default map centre. */

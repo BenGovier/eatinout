@@ -55,34 +55,13 @@ const USER_LOCATION_ICON = L.icon({
   popupAnchor: [0, -46],
 });
 
-function restaurantMarkerIcon(distanceMiles: number | undefined): L.DivIcon {
-  const hasMiles =
-    typeof distanceMiles === "number" &&
-    Number.isFinite(distanceMiles) &&
-    distanceMiles >= 0;
-  const label = hasMiles
-    ? `${distanceMiles % 1 === 0 ? String(distanceMiles) : distanceMiles.toFixed(1)} mi`
-    : "";
-  const html = hasMiles
-    ? `<div style="display:flex;flex-direction:column;align-items:center;margin:0;padding:0;pointer-events:auto;">
-        <div style="background:#fff;border:1px solid #DC3545;color:#DC3545;font-size:10px;font-weight:700;line-height:1.2;padding:2px 6px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,0.2);white-space:nowrap;">${label}</div>
-        <div style="width:0;height:0;margin-top:1px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #DC3545;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));"></div>
-      </div>`
-    : `<div style="width:16px;height:16px;background:#DC3545;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
-
-  const w = hasMiles ? 56 : 16;
-  const h = hasMiles ? 34 : 16;
-  const ax = hasMiles ? Math.round(w / 2) : 8;
-  const ay = h;
-
-  return L.divIcon({
-    className: "restaurant-pin-icon",
-    html,
-    iconSize: [w, h],
-    iconAnchor: [ax, ay],
-    popupAnchor: [0, ay + 4],
-  });
-}
+/** Restaurant pins on the map (`public/Marker.svg`); distance is shown in the popover, not on the pin. */
+const RESTAURANT_MAP_ICON = L.icon({
+  iconUrl: "/Marker.svg",
+  iconSize: [36, 51],
+  iconAnchor: [18, 51],
+  popupAnchor: [0, -49],
+});
 
 function formatDistanceMiles(miles?: number): string {
   if (typeof miles !== "number" || !Number.isFinite(miles) || miles < 0)
@@ -206,28 +185,7 @@ export default function UserLocationMap({
         disableClusteringAtZoom: 17,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
-        iconCreateFunction: (cluster) => {
-          const count = cluster.getChildCount();
-          const size = count < 10 ? 36 : count < 100 ? 42 : 48;
-          return L.divIcon({
-            html: `<div style="
-                width:${size}px;
-                height:${size}px;
-                border-radius:9999px;
-                background:rgba(220,53,69,0.85);
-                border:2px solid #ffffff;
-                box-shadow:0 2px 8px rgba(0,0,0,0.25);
-                color:#ffffff;
-                font-weight:700;
-                font-size:${count < 100 ? 13 : 12}px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-              ">${count}</div>`,
-            className: "restaurant-cluster-icon",
-            iconSize: [size, size],
-          });
-        },
+        iconCreateFunction: () => RESTAURANT_MAP_ICON,
       });
       map.addLayer(restaurantLayerRef.current);
 
@@ -335,7 +293,7 @@ export default function UserLocationMap({
       )
       .forEach((restaurant) => {
         const marker = L.marker([restaurant.lat, restaurant.lng], {
-          icon: restaurantMarkerIcon(restaurant.distanceMiles),
+          icon: RESTAURANT_MAP_ICON,
         });
         marker.on("click", (e: LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(e.originalEvent);
