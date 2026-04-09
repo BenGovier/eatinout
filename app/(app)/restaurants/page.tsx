@@ -47,6 +47,8 @@ import {
   USER_LOCATION_STORAGE_EVENT,
 } from "@/lib/user-location-session";
 import dynamic from "next/dynamic";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { useIsMobile } from "@/components/ui/use-mobile";
 
 const UserLocationMap = dynamic(
   () => import("@/components/user-location-map"),
@@ -136,6 +138,10 @@ type RestaurantsListFilters = {
 };
 
 const RESTAURANTS_LIST_QUERY_KEY_ROOT = ["restaurants", "all"] as const;
+
+/** Mobile map drawer snap fractions (vaul: fraction of viewport height). */
+const MOBILE_RESTAURANTS_DRAWER_PEEK = 0.26;
+const MOBILE_RESTAURANTS_DRAWER_EXPANDED = 0.9;
 
 function buildRestaurantsListParams(
   page: number,
@@ -286,6 +292,33 @@ export default function RestaurantsPage() {
     useScrollPreservation();
   const router = useRouter();
   const { user, isAuthenticated, authLoading } = useAuth();
+  const isMobile = useIsMobile();
+  const mobileDrawerScrollRef = useRef<HTMLDivElement>(null);
+  const [mobileDrawerSnap, setMobileDrawerSnap] = useState<number | string | null>(
+    MOBILE_RESTAURANTS_DRAWER_PEEK,
+  );
+
+  const isMobileDrawerExpandedForInnerScroll = useMemo(() => {
+    if (typeof mobileDrawerSnap !== "number") return false;
+    return mobileDrawerSnap >= MOBILE_RESTAURANTS_DRAWER_EXPANDED - 0.02;
+  }, [mobileDrawerSnap]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const el = mobileDrawerScrollRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (isMobileDrawerExpandedForInnerScroll) return;
+      if (e.deltaY < 0) {
+        e.preventDefault();
+        setMobileDrawerSnap(MOBILE_RESTAURANTS_DRAWER_EXPANDED);
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [isMobile, isMobileDrawerExpandedForInnerScroll]);
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(
@@ -1152,84 +1185,393 @@ export default function RestaurantsPage() {
     });
   }, [filterState.selectedLocationId, clearScrollPosition]);
 
-  return (
+  const renderPostMapContent = () => (
     <>
-      <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative min-w-[200px] flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                  <Input
-                    type="text"
-                    placeholder="Search restaurant/food type"
-                    value={filterState.searchTerm}
-                    onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent"
-                  />
-                  {filterState.searchTerm && (
-                    <button
+      <FlavourSection
+        cuisineTypes={metaState.cuisineTypes}
+        selectedCuisineIds={filterState.selectedCuisineIds}
+        onCuisineClick={toggleCuisine}
+        isLoading={metaState.cuisineTypesLoading}
+      />
+
+      {shouldShowCarousels && (
+        <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
+          <AuthCarouselList
+            areaId={filterState.selectedLocationId || undefined}
+            getAreaNames={getAreaNames}
+            areas={metaState.areas}
+            onNavigate={handleRestaurantNavigate}
+            favorites={favorites}
+            onHeartClick={handleHeartClick}
+            searchTerm={debouncedSearchTerm}
+            selectedCuisineIds={filterState.selectedCuisineIds}
+            selectedDining={filterState.selectedDining}
+            selectedDayValues={filterState.selectedDayValues}
+            selectedMealTimes={filterState.selectedMealTimes}
+          />
+        </div>
+      )}
+
+      <section className="px-4 py-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          {sectionTitle}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {listErrorMessage && (
+            <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {listErrorMessage}
+            </div>
+          )}
+          {listLoadingInitial &&
+            !listErrorMessage &&
+            restaurants.length === 0 &&
+            [1, 2, 3, 4, 5, 6].map((i) => <RestaurantCardSkeleton key={i} />)}
+          {visibleRestaurants.map((restaurant) => {
+            const location = Array.isArray(restaurant.area)
+              ? getAreaNames(restaurant.area, metaState.areas)
+              : restaurant.location;
+
+            const offers =
+              restaurant.offers?.map((offer) => ({
+                discount: offer.title,
+                unlimited: !offer.totalCodes,
+                remainingCount: offer.totalCodes
+                  ? offer.totalCodes - (offer.codesRedeemed || 0)
+                  : undefined,
+              })) || [];
+            //Helper: Check if coming soon (0 or undefined)
+            const heroOffer = offers[0];
+            const isHeroComingSoon =
+              heroOffer &&
+              !heroOffer.unlimited &&
+              (typeof heroOffer.remainingCount !== "number" ||
+                heroOffer.remainingCount <= 0);
+
+            return (
+              <div
+                key={restaurant.id}
+                onClick={() =>
+                  handleRestaurantNavigate(
+                    restaurant.slug?.trim() || restaurant.id,
+                  )
+                }
+                className="w-full"
+              >
+                <div className="w-full">
+                  <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
+                    <div className="relative h-[130px] w-full overflow-hidden">
+                      <Image
+                        src={restaurant.imageUrl || "/placeholder.svg"}
+                        alt={restaurant.name}
+                        fill
+                        className="object-cover"
+                        loading="lazy"
+                        quality={75}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+
+                      <div className="absolute top-2 left-0 flex items-stretch">
+                        <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
+                          {/* {offers[0].discount} */}
+                          {heroOffer?.discount}
+                        </div>
+                        {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
+                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
+                              {offers[0].remainingCount} left!
+                            </div>
+                          )} */}
+                        {!heroOffer?.unlimited &&
+                          (heroOffer?.remainingCount &&
+                          heroOffer.remainingCount > 0 ? (
+                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
+                              {heroOffer.remainingCount} left!
+                            </div>
+                          ) : (
+                            <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
+                              More coming soon
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-1.5 relative">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">
+                          {restaurant.name}
+                        </h3>
+                        {/* Line ~1119 ke aas paas - Update heart button */}
+                        <button
+                          className={`transition-colors flex-shrink-0 ${
+                            favorites.has(restaurant.id)
+                              ? "text-[#eb221c]"
+                              : "text-gray-300 hover:text-[#eb221c]"
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleHeartClick(
+                              e,
+                              restaurant.id,
+                              restaurant.name,
+                            );
+                          }}
+                          disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
+                          aria-label={
+                            favorites.has(restaurant.id)
+                              ? "Remove from favourites"
+                              : "Add to favourites"
+                          }
+                        >
+                          {favoritesLoading.has(restaurant.id) ? (
+                            // ✅ Loading spinner
+                            <svg
+                              className="animate-spin h-4 w-4 text-[#eb221c]"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                          ) : (
+                            <Heart
+                              className={`h-4 w-4 ${
+                                favorites.has(restaurant.id)
+                                  ? "fill-[#eb221c]"
+                                  : ""
+                              }`}
+                            />
+                          )}
+                        </button>
+                      </div>
+
+                      <p className="text-gray-500 text-xs flex items-center gap-1">
+                        <span className="inline-block w-3 h-3 text-gray-400">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                        </span>
+                        {restaurant.city}
+                        <span className="text-gray-400">·</span>
+                        {restaurant.zipCode}
+                      </p>
+
+                      {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
+                          <div className="flex items-center gap-1.5">
+                            {offers.map((offer, index) => (
+                              
+                              <div
+                                key={index}
+                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
+                              >
+                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
+                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
+                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
+                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                    {offer.remainingCount} left
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div> */}
+                      <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
+                        <div className="flex items-center gap-1.5">
+                          {offers.map((offer, index) => {
+                            const isComingSoon =
+                              !offer.unlimited &&
+                              (typeof offer.remainingCount !== "number" ||
+                                offer.remainingCount <= 0);
+
+                            return (
+                              <div
+                                key={index}
+                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
+                              >
+                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
+                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
+                                  {offer.discount}
+                                </span>
+                                {!offer.unlimited &&
+                                  (offer.remainingCount &&
+                                  offer.remainingCount > 0 ? (
+                                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                      {offer.remainingCount} left
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-orange-500 whitespace-nowrap">
+                                      More coming soon
+                                    </span>
+                                  ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {!listLoadingInitial &&
+            !listErrorMessage &&
+            hasFilters &&
+            visibleRestaurants.length === 0 && (
+              <div className="col-span-full">
+                <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
+                    <Search className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    No matches found
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Try changing your search or clearing a filter.
+                  </p>
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      variant="outline"
                       onClick={() => {
-                        setFilterState((prev) => ({ ...prev, searchTerm: "" }));
+                        setFilterState({
+                          searchTerm: "",
+                          locationSearch: "",
+                          selectedLocation: "",
+                          selectedLocationId: "",
+                          selectedCuisines: [],
+                          selectedCuisineIds: [],
+                          selectedDays: [],
+                          selectedDayValues: [],
+                          selectedDining: [],
+                          selectedMealTimes: [],
+                          maxDistanceMiles:
+                            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                          listSort: DEFAULT_RESTAURANT_LIST_SORT,
+                        });
+                        clearScrollPosition();
                         clearFilterState();
                       }}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      aria-label="Clear search"
+                      className="rounded-full"
                     >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
+                      Clear filters
+                    </Button>
+                  </div>
                 </div>
+              </div>
+            )}
+        </div>
 
-                <Select
-                  value={filterState.listSort}
-                  onValueChange={(v) =>
-                    setFilterState((prev) => ({
-                      ...prev,
-                      listSort: v as RestaurantListSort,
-                    }))
-                  }
-                >
-                  <SelectTrigger
-                    aria-label="Sort restaurants"
-                    className="h-auto w-[152px] shrink-0 gap-2 rounded-xl border border-gray-200 px-3 py-3 text-[#DC3545] hover:border-[#DC3545] focus:ring-[#DC3545]"
-                  >
-                    <ArrowDownWideNarrow className="h-5 w-5 shrink-0" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="closest">Closest</SelectItem>
-                  </SelectContent>
-                </Select>
+        {listLoadingMore && restaurants.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {[1, 2, 3].map((i) => (
+              <RestaurantCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
 
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setUIState((prev) => ({
-                      ...prev,
-                      showFilters: !prev.showFilters,
-                    }))
-                  }
-                  aria-label={hasFilters ? "Filters (filters applied)" : "Filters"}
-                  className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
-                >
-                  {hasFilters && (
-                    <span
-                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                      aria-hidden
+  return (
+    <>
+      <main className="min-h-screen bg-[#FFFBF7] pb-20 max-md:min-h-[100dvh] max-md:pb-0">
+        <section className="z-30 border-b border-gray-100 bg-white py-8 md:sticky md:top-16 max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 max-md:z-[55] max-md:border-0 max-md:bg-transparent max-md:py-3 max-md:shadow-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="max-md:pointer-events-none">
+            <div className="container mx-auto px-4 max-md:pointer-events-auto">
+              <div className="mx-auto max-w-2xl space-y-4 max-md:max-w-none max-md:space-y-2">
+                <div className="flex flex-wrap items-center gap-3 max-md:flex-col max-md:items-stretch">
+                  <div className="relative min-w-[200px] w-full flex-1 max-md:min-w-0">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
+                    <Input
+                      type="text"
+                      placeholder="Search restaurant/food type"
+                      value={filterState.searchTerm}
+                      onChange={handleSearchChange}
+                      className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent max-md:bg-white max-md:shadow-md max-md:transition-colors max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
                     />
-                  )}
-                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                  <span className="text-[#DC3545] font-medium">Filters</span>
-                </Button>
+                    {filterState.searchTerm && (
+                      <button
+                        onClick={() => {
+                          setFilterState((prev) => ({ ...prev, searchTerm: "" }));
+                          clearFilterState();
+                        }}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex w-full min-w-0 flex-wrap items-center gap-3 md:contents max-md:flex-nowrap max-md:gap-2">
+                    <Select
+                      value={filterState.listSort}
+                      onValueChange={(v) =>
+                        setFilterState((prev) => ({
+                          ...prev,
+                          listSort: v as RestaurantListSort,
+                        }))
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="Sort restaurants"
+                        className="h-auto w-[152px] shrink-0 gap-2 rounded-xl border border-gray-200 px-3 py-3 text-[#DC3545] hover:border-[#DC3545] focus:ring-[#DC3545] max-md:min-w-0 max-md:flex-1 max-md:bg-white max-md:shadow-md max-md:transition-colors max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
+                      >
+                        <ArrowDownWideNarrow className="h-5 w-5 shrink-0" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[80]">
+                        <SelectItem value="closest">Closest</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setUIState((prev) => ({
+                          ...prev,
+                          showFilters: !prev.showFilters,
+                        }))
+                      }
+                      aria-label={
+                        hasFilters ? "Filters (filters applied)" : "Filters"
+                      }
+                      className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 h-full rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors max-md:min-w-0 max-md:flex-1 max-md:bg-white max-md:shadow-md max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
+                    >
+                      {hasFilters && (
+                        <span
+                          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                          aria-hidden
+                        />
+                      )}
+                      <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
+                      <span className="text-[#DC3545] font-medium">Filters</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {uiState.showFilters && (
-          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
+          <div className="space-y-4 border-b border-gray-100 bg-white px-4 pb-6 md:space-y-6 max-md:fixed max-md:inset-0 max-md:z-[65] max-md:overflow-y-auto max-md:border-0 max-md:pt-[13rem]">
             {filterState.selectedLocation && (
               <div className="flex items-center gap-2 pt-2">
                 <Badge
@@ -1482,11 +1824,11 @@ export default function RestaurantsPage() {
         )}
 
         <section
-          className="w-full border-b border-gray-100 bg-[#FFFBF7] py-4 sm:py-5 md:py-6"
+          className="w-full border-b border-gray-100 bg-[#FFFBF7] py-4 sm:py-5 md:py-6 max-md:fixed max-md:inset-0 max-md:z-0 max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:py-0"
           aria-label="Map near you"
         >
-          <div className="mx-auto w-full max-w-6xl px-4">
-            <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3">
+          <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 max-md:h-full max-md:max-w-none max-md:px-0">
+            <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3 max-md:hidden">
               <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
                 Explore nearby
               </h2>
@@ -1495,11 +1837,10 @@ export default function RestaurantsPage() {
               </span>
             </div>
             <div
-              className="relative z-0 isolate overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04]
-                h-[min(38vh,240px)] min-h-[200px] sm:h-64 sm:min-h-[240px] md:h-72 lg:h-80"
+              className="relative z-0 isolate h-[min(38vh,240px)] min-h-[200px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04] sm:h-64 sm:min-h-[240px] md:h-72 lg:h-80 max-md:h-full max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:ring-0 max-md:shadow-none"
             >
               <UserLocationMap
-                className="min-h-0"
+                className="min-h-0 max-md:h-full"
                 onViewDeal={handleRestaurantNavigate}
                 restaurants={visibleRestaurants
                   .filter(
@@ -1527,7 +1868,7 @@ export default function RestaurantsPage() {
                   }))}
               />
             </div>
-            <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs">
+            <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs max-md:hidden">
               {isUserLocationShared
                 ? "Showing restaurants near the pin. Tap the map to move it."
                 : `Showing restaurants around ${DEFAULT_MAP_LOCATION_LABEL}. Tap the map to pick a spot.`}
@@ -1535,305 +1876,48 @@ export default function RestaurantsPage() {
           </div>
         </section>
 
-        <FlavourSection
-          cuisineTypes={metaState.cuisineTypes}
-          selectedCuisineIds={filterState.selectedCuisineIds}
-          onCuisineClick={toggleCuisine}
-          isLoading={metaState.cuisineTypesLoading}
-        />
+        {!isMobile && renderPostMapContent()}
 
-        {/* Conditionally render AuthCarouselList */}
-        {shouldShowCarousels && (
-          <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
-            <AuthCarouselList
-              areaId={filterState.selectedLocationId || undefined}
-              getAreaNames={getAreaNames}
-              areas={metaState.areas}
-              onNavigate={handleRestaurantNavigate}
-              favorites={favorites}
-              onHeartClick={handleHeartClick}
-              searchTerm={debouncedSearchTerm}
-              selectedCuisineIds={filterState.selectedCuisineIds}
-              selectedDining={filterState.selectedDining}
-              selectedDayValues={filterState.selectedDayValues}
-              selectedMealTimes={filterState.selectedMealTimes}
-            />
-          </div>
-        )}
-
-        <section className="px-4 py-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            {sectionTitle}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {listErrorMessage && (
-              <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                {listErrorMessage}
-              </div>
-            )}
-            {listLoadingInitial &&
-              !listErrorMessage &&
-              restaurants.length === 0 &&
-              [1, 2, 3, 4, 5, 6].map((i) => <RestaurantCardSkeleton key={i} />)}
-            {visibleRestaurants.map((restaurant) => {
-              const location = Array.isArray(restaurant.area)
-                ? getAreaNames(restaurant.area, metaState.areas)
-                : restaurant.location;
-
-              const offers =
-                restaurant.offers?.map((offer) => ({
-                  discount: offer.title,
-                  unlimited: !offer.totalCodes,
-                  remainingCount: offer.totalCodes
-                    ? offer.totalCodes - (offer.codesRedeemed || 0)
-                    : undefined,
-                })) || [];
-              //Helper: Check if coming soon (0 or undefined)
-              const heroOffer = offers[0];
-              const isHeroComingSoon =
-                heroOffer &&
-                !heroOffer.unlimited &&
-                (typeof heroOffer.remainingCount !== "number" ||
-                  heroOffer.remainingCount <= 0);
-
-              return (
+        {isMobile && (
+          <Drawer
+            open
+            onOpenChange={() => undefined}
+            dismissible={false}
+            modal={false}
+            shouldScaleBackground={false}
+            noBodyStyles
+            snapPoints={[
+              MOBILE_RESTAURANTS_DRAWER_PEEK,
+              MOBILE_RESTAURANTS_DRAWER_EXPANDED,
+            ]}
+            activeSnapPoint={mobileDrawerSnap}
+            setActiveSnapPoint={setMobileDrawerSnap}
+          >
+            <DrawerContent
+              className="border-[#FFFBF7] bg-[#FFFBF7] px-0 pt-0 [&>div:first-child]:bg-gray-400/80"
+            >
+              <div className="flex max-h-[calc(90dvh-1.5rem)] flex-col overflow-hidden">
+                <p className="sr-only">
+                  Restaurant list, cuisines and carousels. Drag the handle up
+                  for more.
+                </p>
                 <div
-                  key={restaurant.id}
-                  onClick={() =>
-                    handleRestaurantNavigate(
-                      restaurant.slug?.trim() || restaurant.id,
-                    )
+                  ref={mobileDrawerScrollRef}
+                  className={
+                    isMobileDrawerExpandedForInnerScroll
+                      ? "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]"
+                      : "min-h-0 flex-1 overflow-y-hidden overscroll-none pb-[calc(1rem+env(safe-area-inset-bottom))]"
                   }
-                  className="w-full"
+                  {...(isMobileDrawerExpandedForInnerScroll
+                    ? { "data-vaul-no-drag": true }
+                    : {})}
                 >
-                  <div className="w-full">
-                    <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
-                      <div className="relative h-[130px] w-full overflow-hidden">
-                        <Image
-                          src={restaurant.imageUrl || "/placeholder.svg"}
-                          alt={restaurant.name}
-                          fill
-                          className="object-cover"
-                          loading="lazy"
-                          quality={75}
-                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        />
-
-                        <div className="absolute top-2 left-0 flex items-stretch">
-                          <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                            {/* {offers[0].discount} */}
-                            {heroOffer?.discount}
-                          </div>
-                          {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
-                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                              {offers[0].remainingCount} left!
-                            </div>
-                          )} */}
-                          {!heroOffer?.unlimited &&
-                            (heroOffer?.remainingCount &&
-                            heroOffer.remainingCount > 0 ? (
-                              <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                {heroOffer.remainingCount} left!
-                              </div>
-                            ) : (
-                              <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                More coming soon
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      <div className="p-3 space-y-1.5 relative">
-                        <div className="flex items-start justify-between">
-                          <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">
-                            {restaurant.name}
-                          </h3>
-                          {/* Line ~1119 ke aas paas - Update heart button */}
-                          <button
-                            className={`transition-colors flex-shrink-0 ${
-                              favorites.has(restaurant.id)
-                                ? "text-[#eb221c]"
-                                : "text-gray-300 hover:text-[#eb221c]"
-                            }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleHeartClick(
-                                e,
-                                restaurant.id,
-                                restaurant.name,
-                              );
-                            }}
-                            disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
-                            aria-label={
-                              favorites.has(restaurant.id)
-                                ? "Remove from favourites"
-                                : "Add to favourites"
-                            }
-                          >
-                            {favoritesLoading.has(restaurant.id) ? (
-                              // ✅ Loading spinner
-                              <svg
-                                className="animate-spin h-4 w-4 text-[#eb221c]"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                              </svg>
-                            ) : (
-                              <Heart
-                                className={`h-4 w-4 ${
-                                  favorites.has(restaurant.id)
-                                    ? "fill-[#eb221c]"
-                                    : ""
-                                }`}
-                              />
-                            )}
-                          </button>
-                        </div>
-
-                        <p className="text-gray-500 text-xs flex items-center gap-1">
-                          <span className="inline-block w-3 h-3 text-gray-400">
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                              <circle cx="12" cy="10" r="3" />
-                            </svg>
-                          </span>
-                          {restaurant.city}
-                          <span className="text-gray-400">·</span>
-                          {restaurant.zipCode}
-                        </p>
-
-                        {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => (
-                              
-                              <div
-                                key={index}
-                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                    {offer.remainingCount} left
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div> */}
-                        <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => {
-                              const isComingSoon =
-                                !offer.unlimited &&
-                                (typeof offer.remainingCount !== "number" ||
-                                  offer.remainingCount <= 0);
-
-                              return (
-                                <div
-                                  key={index}
-                                  className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                >
-                                  <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                  <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                    {offer.discount}
-                                  </span>
-                                  {!offer.unlimited &&
-                                    (offer.remainingCount &&
-                                    offer.remainingCount > 0 ? (
-                                      <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                        {offer.remainingCount} left
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                        More coming soon
-                                      </span>
-                                    ))}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  {renderPostMapContent()}
                 </div>
-              );
-            })}
-            {!listLoadingInitial &&
-              !listErrorMessage &&
-              hasFilters &&
-              visibleRestaurants.length === 0 && (
-                <div className="col-span-full">
-                  <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
-                      <Search className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      No matches found
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Try changing your search or clearing a filter.
-                    </p>
-                    <div className="mt-4 flex justify-center">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setFilterState({
-                            searchTerm: "",
-                            locationSearch: "",
-                            selectedLocation: "",
-                            selectedLocationId: "",
-                            selectedCuisines: [],
-                            selectedCuisineIds: [],
-                            selectedDays: [],
-                            selectedDayValues: [],
-                            selectedDining: [],
-                            selectedMealTimes: [],
-                            maxDistanceMiles:
-                              DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-                            listSort: DEFAULT_RESTAURANT_LIST_SORT,
-                          });
-                          clearScrollPosition();
-                          clearFilterState();
-                        }}
-                        className="rounded-full"
-                      >
-                        Clear filters
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-          </div>
-
-          {listLoadingMore && restaurants.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-              {[1, 2, 3].map((i) => (
-                <RestaurantCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
-        </section>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        )}
       </main>
     </>
   );

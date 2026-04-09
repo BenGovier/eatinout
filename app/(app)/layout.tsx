@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
 import { signOut } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 /** When not `"false"`, `/restaurants` and `/map` are guest-accessible (see NEXT_PUBLIC_RESTAURANTS_PAGE_PUBLIC). */
 const isRestaurantsBrowsePublic =
@@ -116,7 +117,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
       <WalletProvider>
         <div className="flex flex-col min-h-screen">
-          <header className="sticky top-0 z-50 w-full border-b bg-background">
+          <header
+            className={cn(
+              "sticky top-0 z-50 w-full border-b bg-background",
+              (pathname === "/restaurants" || pathname === "/map") &&
+                "hidden md:block",
+            )}
+          >
             <div className="container flex h-16 items-center justify-between px-4">
               <div className="flex items-center justify-between w-full md:w-auto md:justify-start space-x-4">
                 <Logo href="/restaurants" />

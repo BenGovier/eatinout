@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { LocateFixed } from "lucide-react";
+import { LocateFixed, Minus, Plus } from "lucide-react";
 import L, { type LeafletMouseEvent } from "leaflet";
 import "leaflet.markercluster";
 import { useLocationConsent } from "@/components/location-consent-provider";
@@ -166,6 +166,7 @@ export default function UserLocationMap({
       const map = L.map(container, {
         center,
         zoom,
+        zoomControl: false,
         scrollWheelZoom: true,
         dragging: true,
         doubleClickZoom: true,
@@ -324,6 +325,14 @@ export default function UserLocationMap({
     };
   }, []);
 
+  const handleZoomIn = () => {
+    mapInstanceRef.current?.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    mapInstanceRef.current?.zoomOut();
+  };
+
   const handleRecenterOnUser = () => {
     const stored = getStoredUserLatLng();
     if (!stored) {
@@ -425,15 +434,43 @@ export default function UserLocationMap({
           </div>
         )}
         <div ref={mapContainerRef} className="h-full w-full" />
-        <button
-          type="button"
-          onClick={handleRecenterOnUser}
-          className="pointer-events-auto absolute bottom-2 right-2 z-[1000] flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50 md:bottom-3 md:right-3"
-          aria-label="Center map on your location"
-          title="Your location"
+        <div
+          className={cn(
+            "pointer-events-none absolute z-[1200] flex flex-col gap-2",
+            /* Mobile: sit in the visible band below search tools and above the bottom drawer peek (~26vh). */
+            "right-3 top-[calc(8rem+env(safe-area-inset-top))] max-md:bottom-[calc(28dvh+env(safe-area-inset-bottom,0px))] max-md:justify-start",
+            /* Desktop: classic bottom-right stack. */
+            "md:bottom-3 md:right-3 md:top-auto md:justify-end",
+          )}
         >
-          <LocateFixed className="h-5 w-5" aria-hidden />
-        </button>
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <Plus className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <Minus className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={handleRecenterOnUser}
+            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+            aria-label="Center map on your location"
+            title="Your location"
+          >
+            <LocateFixed className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
       </div>
     </>
   );
