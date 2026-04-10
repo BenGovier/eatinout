@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "patch-package",
     "dev": "next dev",
     "build": "next build",
     "start": "node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "fill-geo-db": "node scripts/restaurant-postcodes-from-db.mjs",
+    "export-restaurants": "node scripts/export-restaurants-to-json.mjs"
   },
   "dependencies": {
     "@auth/core": "latest",
@@ -64,10 +67,11 @@
     "jose": "latest",
     "jsonwebtoken": "latest",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lodash": "^4.17.21",
     "lucide-react": "^0.454.0",
     "mongoose": "latest",
-    "next": "15.2.4",
+    "next": "15.2.8",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.4",
     "nodemailer": "latest",
@@ -98,11 +102,13 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.9",
     "@types/leaflet": "^1.9.21",
+    "@types/leaflet.markercluster": "^1.5.6",
     "@types/node": "^22",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
+    "patch-package": "^8.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

@@ -3,8 +3,90 @@ import Stripe from "stripe";
 import connectToDatabase from "@/lib/mongodb";
 import Voucher from "@/models/Voucher";
 import { verifyAdminToken } from "@/lib/auth-admin";
+import { resolveStripeCouponCheckoutName } from "@/lib/stripe-coupon-display-name";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+type ValidatedCouponDuration =
+  | { ok: true; duration: "once" | "repeating" | "forever"; durationInMonths?: number }
+  | { ok: false; message: string };
+
+function validateCouponDuration(data: {
+  duration?: unknown;
+  durationInMonths?: unknown;
+}): ValidatedCouponDuration {
+  const d = data.duration;
+  if (d !== "once" && d !== "repeating" && d !== "forever") {
+    return {
+      ok: false,
+      message: 'duration is required and must be "once", "repeating", or "forever"',
+    };
+  }
+  if (d === "repeating") {
+    const n = Number(data.durationInMonths);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+      return {
+        ok: false,
+        message: "durationInMonths is required for repeating duration (positive whole number)",
+      };
+    }
+    return { ok: true, duration: d, durationInMonths: n };
+  }
+  return { ok: true, duration: d };
+}
+
+type ValidatedDuration = Extract<ValidatedCouponDuration, { ok: true }>;
+
+/** Persist only schema fields; sanitizes 0/invalid validityDays so Mongoose min validators don’t drop saves. */
+function buildVoucherFieldsFromAdminPayload(
+  data: Record<string, unknown>,
+  durationCheck: ValidatedDuration,
+  opts: {
+    code: string;
+    stripeCouponId: string;
+    stripePromotionCodeId: string;
+    calculatedPercentOff: number;
+    currentUses: number;
+    stripeCouponName?: string | null;
+  },
+) {
+  const rawValidity = data.validityDays;
+  const vd =
+    rawValidity != null && rawValidity !== ""
+      ? Number(rawValidity)
+      : NaN;
+  const validityDays =
+    Number.isFinite(vd) && vd >= 1 ? Math.floor(vd) : null;
+
+  const expiryRaw = data.expiryDate;
+  const expiryParsed =
+    expiryRaw != null && String(expiryRaw).trim()
+      ? new Date(String(expiryRaw))
+      : null;
+  const expiryDate =
+    expiryParsed && !isNaN(expiryParsed.getTime()) ? expiryParsed : null;
+
+  return {
+    code: opts.code,
+    discountType: data.discountType as "percentage" | "fixed",
+    discountValue: Number(data.discountValue),
+    maxUses: Math.max(1, Number(data.maxUses) || 1),
+    currentUses: opts.currentUses,
+    expiryDate,
+    validityDays,
+    isActive: data.isActive !== false,
+    description: String(data.description ?? ""),
+    stripeCouponId: opts.stripeCouponId,
+    stripePromotionCodeId: opts.stripePromotionCodeId,
+    stripeCouponName: opts.stripeCouponName ?? null,
+    calculatedPercentOff: opts.calculatedPercentOff,
+    duration: durationCheck.duration,
+    durationInMonths:
+      durationCheck.duration === "repeating"
+        ? durationCheck.durationInMonths!
+        : null,
+  };
+}
 
 // GET: Fetch all vouchers
 export async function GET(req: Request) {
@@ -43,7 +125,7 @@ export async function GET(req: Request) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean(); // Optimize: Return plain JavaScript objects instead of Mongoose documents
+      .lean({ virtuals: true }); // Include resolvedExpiry virtual + all schema paths
 
     // Fetch Stripe promo codes (all of them for now, can optimize later)
     const stripePromoCodes = await stripe.promotionCodes.list({ limit: 100 });
@@ -95,17 +177,27 @@ export async function GET(req: Request) {
       });
     }
 
-    // Merge Stripe `times_redeemed` into `currentUses`
+    // Merge Stripe redemption count + coupon duration when DB predates those fields
     const enrichedVouchers = vouchers.map((voucher: any) => {
       const matchedPromo = voucher.stripePromotionCodeId
         ? promoCodeMap.get(voucher.stripePromotionCodeId)
         : null;
+
+      const coupon = matchedPromo?.coupon;
+      const stripeDur = coupon?.duration as string | undefined;
+      const stripeMonths = coupon?.duration_in_months as number | undefined | null;
 
       return {
         ...voucher, // Already plain object due to .lean()
         currentUses: matchedPromo
           ? matchedPromo.times_redeemed
           : voucher.currentUses,
+        duration: voucher.duration ?? stripeDur ?? "once",
+        durationInMonths:
+          voucher.durationInMonths ??
+          (stripeDur === "repeating" && stripeMonths != null
+            ? stripeMonths
+            : null),
       };
     });
 
@@ -179,6 +271,19 @@ export async function POST(req: Request) {
     }
     percentOff = Math.min(percentOff, 100);
 
+    const durationCheck = validateCouponDuration({
+      duration: data.duration,
+      durationInMonths: data.durationInMonths,
+    });
+    if (!durationCheck.ok) {
+      return NextResponse.json(
+        { success: false, message: durationCheck.message },
+        { status: 400 },
+      );
+    }
+
+    const validatedDuration = durationCheck as ValidatedDuration;
+
     // Resolve expiry
     let expiresAtUnix: number | undefined;
     if (data.validityDays) {
@@ -188,32 +293,40 @@ export async function POST(req: Request) {
       expiresAtUnix = Math.floor(new Date(data.expiryDate).getTime() / 1000);
     }
 
+    const upperCode = data.code.toUpperCase();
+    const couponName = resolveStripeCouponCheckoutName(upperCode, null);
+
     // Create Stripe coupon
     const coupon = await stripe.coupons.create({
+      name: couponName,
       percent_off: percentOff,
-      duration: data.duration || "once",
-      ...(data.duration === "repeating" && data.durationInMonths
-        ? { duration_in_months: data.durationInMonths }
+      duration: durationCheck.duration,
+      ...(durationCheck.duration === "repeating" && durationCheck.durationInMonths
+        ? { duration_in_months: durationCheck.durationInMonths }
         : {}),
     });
 
     // Create Stripe promotion code safely
     const promotionCode = await stripe.promotionCodes.create({
       coupon: coupon.id,
-      code: data.code.toUpperCase(),
+      code: upperCode,
       ...(data.maxUses ? { max_redemptions: data.maxUses } : {}),
       ...(expiresAtUnix ? { expires_at: expiresAtUnix } : {}),
     });
 
-    // Save voucher in DB
-    const voucher = new Voucher({
-      ...data,
-      code: data.code.toUpperCase(),
-      currentUses: 0,
-      stripeCouponId: coupon.id,
-      stripePromotionCodeId: promotionCode.id,
-      calculatedPercentOff: percentOff,
-    });
+    const fields = buildVoucherFieldsFromAdminPayload(
+      data,
+      validatedDuration,
+      {
+        code: upperCode,
+        stripeCouponId: coupon.id,
+        stripePromotionCodeId: promotionCode.id,
+        calculatedPercentOff: percentOff,
+        currentUses: 0,
+        stripeCouponName: null,
+      },
+    );
+    const voucher = new Voucher(fields);
 
     await voucher.save();
 
@@ -260,6 +373,19 @@ export async function PUT(req: Request) {
     }
     percentOff = Math.min(percentOff, 100);
 
+    const durationCheck = validateCouponDuration({
+      duration: data.duration,
+      durationInMonths: data.durationInMonths,
+    });
+    if (!durationCheck.ok) {
+      return NextResponse.json(
+        { success: false, message: durationCheck.message },
+        { status: 400 },
+      );
+    }
+
+    const validatedDuration = durationCheck as ValidatedDuration;
+
     // ✅ Resolve expiry again
     let expiresAtUnix: number | undefined;
     if (data.validityDays) {
@@ -269,12 +395,16 @@ export async function PUT(req: Request) {
       expiresAtUnix = Math.floor(new Date(data.expiryDate).getTime() / 1000);
     }
 
+    const upperCode = data.code.toUpperCase();
+    const couponName = resolveStripeCouponCheckoutName(upperCode, null);
+
     // Create new coupon in Stripe
     const newCoupon = await stripe.coupons.create({
+      name: couponName,
       percent_off: percentOff,
-      duration: data.duration || "once",
-      ...(data.duration === "repeating" && data.durationInMonths
-        ? { duration_in_months: data.durationInMonths }
+      duration: durationCheck.duration,
+      ...(durationCheck.duration === "repeating" && durationCheck.durationInMonths
+        ? { duration_in_months: durationCheck.durationInMonths }
         : {}),
     });
 
@@ -290,19 +420,28 @@ export async function PUT(req: Request) {
     // Create new promo code
     const newPromo = await stripe.promotionCodes.create({
       coupon: newCoupon.id,
-      code: data.code.toUpperCase(),
+      code: upperCode,
       ...(data.maxUses ? { max_redemptions: data.maxUses } : {}),
       ...(expiresAtUnix ? { expires_at: expiresAtUnix } : {}),
     });
 
-    // Update voucher in DB
-    Object.assign(voucher, {
-      ...data,
-      code: data.code.toUpperCase(),
-      stripeCouponId: newCoupon.id,
-      stripePromotionCodeId: newPromo.id,
-      calculatedPercentOff: percentOff,
-    });
+    const currentUses = Number.isFinite(Number(data.currentUses))
+      ? Number(data.currentUses)
+      : Number(voucher.currentUses) || 0;
+
+    const fields = buildVoucherFieldsFromAdminPayload(
+      data,
+      validatedDuration,
+      {
+        code: upperCode,
+        stripeCouponId: newCoupon.id,
+        stripePromotionCodeId: newPromo.id,
+        calculatedPercentOff: percentOff,
+        currentUses,
+        stripeCouponName: null,
+      },
+    );
+    Object.assign(voucher, fields);
 
     await voucher.save();
 
