@@ -42,8 +42,6 @@ export async function GET(request: Request) {
     await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
     const sortBy = searchParams.get('sortBy')?.trim() || 'closest';
 
     const areaFilter = searchParams.get('area');
@@ -133,15 +131,10 @@ export async function GET(request: Request) {
       },
     };
 
-    // Cap in-memory load to prevent production memory spikes (Azure 4GB limit)
-    const MAX_IN_MEMORY = 500;
     const restaurants = await Restaurant.find(query)
       .select('name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
       .sort({ createdAt: -1 })
-      .limit(MAX_IN_MEMORY)
       .lean();
-
-    const totalRestaurants = restaurants.length;
 
     const allAreaIds = restaurants.flatMap(r => Array.isArray(r.area) ? r.area : []);
     const uniqueAreaIds = [...new Set(allAreaIds.map(String))];
@@ -347,7 +340,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // Attach display distance (already inside radius from DB geo query)
     finalFormattedRestaurants = finalFormattedRestaurants.map(
       (restaurant: any) => {
         const lat = restaurant.lat;
@@ -374,7 +366,7 @@ export async function GET(request: Request) {
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);
 
-    // Sort before pagination (closest first). `sortBy` reserved for future options; only `closest` today.
+    // Sort (closest first). `sortBy` reserved for future options; only `closest` today.
     let sortedRestaurants: typeof cleanedRestaurants;
     switch (sortBy) {
       case 'closest':
@@ -386,22 +378,13 @@ export async function GET(request: Request) {
         );
     }
 
-    // Calculate pagination after sorting
     const totalFilteredRestaurants = sortedRestaurants.length;
-    const totalPages = Math.ceil(totalFilteredRestaurants / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-    const skip = (page - 1) * limit;
 
-    // Apply pagination to sorted results
-    const paginatedRestaurants = sortedRestaurants.slice(skip, skip + limit);
-
-    // Remove pinning fields from final response (internal use only)
-    const finalRestaurants = paginatedRestaurants.map(
+    const finalRestaurants = sortedRestaurants.map(
       ({ homePin, areaPins, createdAt, ...rest }) => rest
     );
 
-    console.log(`✓ Returning ${finalRestaurants.length} restaurants (page ${page}/${totalPages}) with active offers. Total: ${totalFilteredRestaurants} restaurants (${formattedRestaurants.length} before day filtering)`);
+    console.log(`✓ Returning ${finalRestaurants.length} restaurants with active offers. Total: ${totalFilteredRestaurants} restaurants (${formattedRestaurants.length} before day filtering)`);
 
     // ✅ COUNT TOTAL ACTIVE OFFERS PER AREA
     const areaOfferCounts: Record<string, number> = {};
@@ -424,7 +407,14 @@ export async function GET(request: Request) {
       success: true,
       restaurants: finalRestaurants,
       selectedAreaOfferCount,
-      pagination: { currentPage: page, totalPages, totalRestaurants: totalFilteredRestaurants, hasNextPage, hasPrevPage, limit }
+      pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalRestaurants: totalFilteredRestaurants,
+        hasNextPage: false,
+        hasPrevPage: false,
+        limit: finalRestaurants.length,
+      }
     });
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return response;

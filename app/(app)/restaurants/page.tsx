@@ -25,7 +25,7 @@ import {
   useRef,
   useLayoutEffect,
 } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useScrollPreservation } from "@/hooks/use-scroll-preservation";
 import { FlavourSection } from "@/components/FlavourSection";
@@ -149,14 +149,8 @@ const RESTAURANTS_LIST_QUERY_KEY_ROOT = ["restaurants", "all"] as const;
 const MOBILE_RESTAURANTS_DRAWER_PEEK = 0.26;
 const MOBILE_RESTAURANTS_DRAWER_EXPANDED = 0.9;
 
-function buildRestaurantsListParams(
-  page: number,
-  f: RestaurantsListFilters,
-): URLSearchParams {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: "40",
-  });
+function buildRestaurantsListParams(f: RestaurantsListFilters): URLSearchParams {
+  const params = new URLSearchParams();
   if (f.area) params.append("area", f.area);
   if (f.search) params.append("search", f.search);
   if (f.categoryId) params.append("categoryId", f.categoryId);
@@ -171,12 +165,11 @@ function buildRestaurantsListParams(
   return params;
 }
 
-async function fetchRestaurantsListPage(
-  page: number,
+async function fetchRestaurantsList(
   f: RestaurantsListFilters,
   signal?: AbortSignal,
 ): Promise<RestaurantsListPageResponse> {
-  const params = buildRestaurantsListParams(page, f);
+  const params = buildRestaurantsListParams(f);
   const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -190,7 +183,6 @@ async function fetchRestaurantsListPage(
     );
   }
   const data = (await response.json()) as RestaurantsListPageResponse;
-  console.log(data.restaurants);
 
   if (!data.success || !Array.isArray(data.restaurants)) {
     throw new Error(data.message || "Invalid response format");
@@ -294,7 +286,7 @@ const DAY_MAP: Record<string, string> = {
 };
 
 export default function RestaurantsPage() {
-  const { saveScrollPosition, getSavedPageState, clearScrollPosition } =
+  const { saveScrollPosition, clearScrollPosition } =
     useScrollPreservation();
   const router = useRouter();
   const { user, isAuthenticated, authLoading } = useAuth();
@@ -462,8 +454,6 @@ export default function RestaurantsPage() {
   const debouncedSearchTerm = useDebounce(filterState.searchTerm, 500);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
-  const scrollRestoreTargetPageRef = useRef<number | null>(null);
-
   const saveFilterState = useCallback(() => {
     const filterData = {
       searchTerm: filterState.searchTerm,
@@ -554,43 +544,22 @@ export default function RestaurantsPage() {
   );
 
   const {
-    data: restaurantsQueryData,
+    data: restaurantsListResponse,
     error: restaurantsQueryError,
-    fetchNextPage,
-    hasNextPage,
-    isFetching,
-    isFetchingNextPage,
+    isFetching: isRestaurantsFetching,
     isPending,
-  } = useInfiniteQuery({
+  } = useQuery({
     queryKey: [
       ...RESTAURANTS_LIST_QUERY_KEY_ROOT,
       restaurantsListFilters,
     ] as const,
-    queryFn: async ({ pageParam, signal }) => {
-      return fetchRestaurantsListPage(
-        pageParam as number,
-        restaurantsListFilters,
-        signal,
-      );
-    },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination?.hasNextPage
-        ? lastPage.pagination.currentPage + 1
-        : undefined,
+    queryFn: ({ signal }) =>
+      fetchRestaurantsList(restaurantsListFilters, signal),
     enabled: filtersHydrated,
+    placeholderData: keepPreviousData,
   });
 
-  const restaurants = useMemo(
-    () => restaurantsQueryData?.pages.flatMap((p) => p.restaurants) ?? [],
-    [restaurantsQueryData],
-  );
-
-  const restaurantsListReportedPage = useMemo(() => {
-    const pages = restaurantsQueryData?.pages;
-    if (!pages?.length) return 1;
-    return pages[pages.length - 1].pagination.currentPage;
-  }, [restaurantsQueryData]);
+  const restaurants = restaurantsListResponse?.restaurants ?? [];
 
   const listErrorMessage =
     restaurantsQueryError instanceof Error
@@ -600,8 +569,7 @@ export default function RestaurantsPage() {
         : null;
 
   const listLoadingInitial =
-    isPending || (isFetching && restaurants.length === 0);
-  const listLoadingMore = isFetchingNextPage;
+    isPending || (isRestaurantsFetching && restaurants.length === 0);
 
   useEffect(() => {
     const readOrigin = () => {
@@ -650,59 +618,6 @@ export default function RestaurantsPage() {
     restoreFilterState();
     setFiltersHydrated(true);
   }, [restoreFilterState]);
-
-  useLayoutEffect(() => {
-    const saved = getSavedPageState();
-    scrollRestoreTargetPageRef.current =
-      saved && saved.currentPage > 1 ? saved.currentPage : null;
-  }, [getSavedPageState]);
-
-  useEffect(() => {
-    const target = scrollRestoreTargetPageRef.current;
-    if (target == null || target <= 1) return;
-    if (!restaurantsQueryData?.pages.length) return;
-    const loadedCount = restaurantsQueryData.pages.length;
-    if (loadedCount >= target) {
-      scrollRestoreTargetPageRef.current = null;
-      return;
-    }
-    if (!hasNextPage) {
-      scrollRestoreTargetPageRef.current = null;
-      return;
-    }
-    if (!isFetchingNextPage) {
-      void fetchNextPage();
-    }
-  }, [
-    restaurantsQueryData?.pages.length,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    restaurantsQueryData,
-  ]);
-
-  const loadMoreRestaurants = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (isFetchingNextPage || !hasNextPage) return;
-
-      const scrollTop = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-
-      if (scrollTop + windowHeight >= documentHeight - 500) {
-        loadMoreRestaurants();
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isFetchingNextPage, hasNextPage, loadMoreRestaurants]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1011,7 +926,7 @@ export default function RestaurantsPage() {
       }
 
       saveScrollPosition({
-        currentPage: restaurantsListReportedPage,
+        currentPage: 1,
         totalItems: restaurants.length,
       });
       saveFilterState();
@@ -1020,7 +935,6 @@ export default function RestaurantsPage() {
     [
       saveScrollPosition,
       saveFilterState,
-      restaurantsListReportedPage,
       restaurants.length,
       router,
       user,
@@ -1787,13 +1701,6 @@ export default function RestaurantsPage() {
             )}
         </div>
 
-        {listLoadingMore && restaurants.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-            {[1, 2, 3].map((i) => (
-              <RestaurantCardSkeleton key={i} />
-            ))}
-          </div>
-        )}
       </section>
     </>
   );
@@ -1955,6 +1862,9 @@ export default function RestaurantsPage() {
             >
               <UserLocationMap
                 className="min-h-0 max-md:h-full"
+                isInteractionLocked={
+                  filtersHydrated && isRestaurantsFetching
+                }
                 onViewDeal={handleRestaurantNavigate}
                 restaurants={visibleRestaurants
                   .filter(

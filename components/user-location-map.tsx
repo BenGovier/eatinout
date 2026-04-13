@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { LocateFixed, Minus, Plus } from "lucide-react";
 import L, { type LeafletMouseEvent } from "leaflet";
-import "leaflet.markercluster";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
@@ -22,8 +21,6 @@ import {
 } from "@/lib/user-location-session";
 
 import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
 type LatLng = { lat: number; lng: number };
 type RestaurantMarker = {
@@ -77,17 +74,20 @@ export default function UserLocationMap({
   zoom = 13,
   restaurants = [],
   onViewDeal,
+  isInteractionLocked = false,
 }: {
   className?: string;
   zoom?: number;
   restaurants?: RestaurantMarker[];
   /** First argument is URL segment: `slug` (fallback to id if missing). */
   onViewDeal?: (restaurantPathSegment: string, offerId?: string) => void;
+  /** When true, map tiles and controls are dimmed and non-interactive (e.g. list refetch). */
+  isInteractionLocked?: boolean;
 }) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
-  const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null);
+  const restaurantLayerRef = useRef<L.LayerGroup | null>(null);
   /** When true, next coords sync uses flyTo instead of setView (user-initiated). */
   const userRequestedRecenterRef = useRef(false);
   /** Map pick updates storage+coords; skip flyTo so the view stays where the user clicked. */
@@ -184,13 +184,7 @@ export default function UserLocationMap({
       marker.bindPopup(
         getStoredUserLatLng() ? "You are here" : "Explore this area",
       );
-      restaurantLayerRef.current = L.markerClusterGroup({
-        maxClusterRadius: 50,
-        disableClusteringAtZoom: 17,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        iconCreateFunction: () => RESTAURANT_MAP_ICON,
-      });
+      restaurantLayerRef.current = L.layerGroup();
       map.addLayer(restaurantLayerRef.current);
 
       map.on("click", (e: LeafletMouseEvent) => {
@@ -274,6 +268,10 @@ export default function UserLocationMap({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (isInteractionLocked) setMapPopover(null);
+  }, [isInteractionLocked]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -428,52 +426,72 @@ export default function UserLocationMap({
     <>
       {popoverLayer}
       <div
+        role="region"
+        aria-label="Restaurant map"
+        aria-busy={isInteractionLocked}
         className={cn("relative z-0 isolate h-full min-h-0 w-full", className)}
       >
-        {!usingMapTiler && (
-          <div className="absolute top-2 left-2 z-10 rounded-lg bg-white/90 border border-gray-200 px-2 py-1 text-[11px] text-gray-700 shadow">
-            Set `NEXT_PUBLIC_MAPTILER_API_KEY` to use MapTiler tiles (optional:
-            `NEXT_PUBLIC_MAPTILER_MAP_ID` for a custom Cloud map)
-          </div>
-        )}
-        <div ref={mapContainerRef} className="h-full w-full" />
         <div
           className={cn(
-            "pointer-events-none absolute z-[1200] flex flex-col gap-2",
-            /* Mobile: sit in the visible band below search tools and above the bottom drawer peek (~26vh). */
-            "right-3 top-[calc(8rem+env(safe-area-inset-top))] max-md:bottom-[calc(28dvh+env(safe-area-inset-bottom,0px))] max-md:justify-start",
-            /* Desktop: classic bottom-right stack. */
-            "md:bottom-3 md:right-3 md:top-auto md:justify-end",
+            "relative h-full min-h-0 w-full transition-opacity duration-200",
+            isInteractionLocked &&
+              "pointer-events-none cursor-wait opacity-60",
           )}
         >
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
-            aria-label="Zoom in"
-            title="Zoom in"
+          {!usingMapTiler && (
+            <div className="absolute top-2 left-2 z-10 rounded-lg bg-white/90 border border-gray-200 px-2 py-1 text-[11px] text-gray-700 shadow">
+              Set `NEXT_PUBLIC_MAPTILER_API_KEY` to use MapTiler tiles (optional:
+              `NEXT_PUBLIC_MAPTILER_MAP_ID` for a custom Cloud map)
+            </div>
+          )}
+          <div ref={mapContainerRef} className="h-full w-full" />
+          <div
+            className={cn(
+              "pointer-events-none absolute z-[1200] flex flex-col gap-2",
+              /* Mobile: sit in the visible band below search tools and above the bottom drawer peek (~26vh). */
+              "right-3 top-[calc(8rem+env(safe-area-inset-top))] max-md:bottom-[calc(28dvh+env(safe-area-inset-bottom,0px))] max-md:justify-start",
+              /* Desktop: classic bottom-right stack. */
+              "md:bottom-3 md:right-3 md:top-auto md:justify-end",
+            )}
           >
-            <Plus className="h-5 w-5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomOut}
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
-            aria-label="Zoom out"
-            title="Zoom out"
-          >
-            <Minus className="h-5 w-5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={handleRecenterOnUser}
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
-            aria-label="Center map on your location"
-            title="Your location"
-          >
-            <LocateFixed className="h-5 w-5" aria-hidden />
-          </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              <Plus className="h-5 w-5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              <Minus className="h-5 w-5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={handleRecenterOnUser}
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50"
+              aria-label="Center map on your location"
+              title="Your location"
+            >
+              <LocateFixed className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
         </div>
+        {isInteractionLocked ? (
+          <div className="pointer-events-none absolute inset-0 z-[1250] flex items-center justify-center">
+            <span className="sr-only">Updating restaurants</span>
+            <div
+              className="h-9 w-9 rounded-full border-2 border-[#DC3545]/25 border-t-[#DC3545] shadow-sm animate-spin"
+              aria-hidden
+            />
+          </div>
+        ) : null}
       </div>
     </>
   );
