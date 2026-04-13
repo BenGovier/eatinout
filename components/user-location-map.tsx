@@ -12,6 +12,10 @@ import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
 import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
+  USER_MARKER_LEAFLET_ICON_ANCHOR,
+  USER_MARKER_LEAFLET_ICON_SIZE,
+} from "@/lib/leaflet-user-marker";
+import {
   getStoredUserLatLng,
   persistUserLatLng,
   USER_LOCATION_STORAGE_EVENT,
@@ -47,12 +51,11 @@ type MapPopoverState = {
   firstOfferId?: string;
 };
 
-/** Tip of pin is at bottom center (anchor point on the map). */
 const USER_LOCATION_ICON = L.icon({
-  iconUrl: "/images/map-marker-user.svg",
-  iconSize: [36, 48],
-  iconAnchor: [18, 48],
-  popupAnchor: [0, -46],
+  iconUrl: "/User-marker.svg",
+  iconSize: [...USER_MARKER_LEAFLET_ICON_SIZE],
+  iconAnchor: [...USER_MARKER_LEAFLET_ICON_ANCHOR],
+  popupAnchor: [0, -14],
 });
 
 /** Restaurant pins on the map (`public/Marker.svg`); distance is shown in the popover, not on the pin. */

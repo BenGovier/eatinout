@@ -5,6 +5,10 @@ import L from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import {
+  USER_MARKER_LEAFLET_ICON_ANCHOR,
+  USER_MARKER_LEAFLET_ICON_SIZE,
+} from "@/lib/leaflet-user-marker";
 import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
@@ -15,26 +19,13 @@ import {
 
 import "leaflet/dist/leaflet.css";
 
-const RESTAURANT_PIN = L.icon({
-  iconUrl: "/Marker.svg",
-  iconSize: [36, 51],
-  iconAnchor: [18, 51],
-  popupAnchor: [0, -49],
+/** Same icon as `/restaurants` user marker (`user-location-map`). */
+const JOIN_MAP_PICK_ICON = L.icon({
+  iconUrl: "/User-marker.svg",
+  iconSize: [...USER_MARKER_LEAFLET_ICON_SIZE],
+  iconAnchor: [...USER_MARKER_LEAFLET_ICON_ANCHOR],
+  popupAnchor: [0, -14],
 });
-
-/** Pill + pin for shared GPS; only used when not the default map centre. */
-function userGpsDivIcon(): L.DivIcon {
-  return L.divIcon({
-    className: "join-map-user-gps-marker",
-    html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-      <div style="background:#DC3545;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,0.2);white-space:nowrap;margin-bottom:2px;">Your location</div>
-      <img src="/images/map-marker-user.svg" width="36" height="48" alt="" style="display:block;" />
-    </div>`,
-    iconSize: [120, 72],
-    iconAnchor: [60, 72],
-    popupAnchor: [0, 72],
-  });
-}
 
 type Pin = { lat: number; lng: number };
 
@@ -49,8 +40,8 @@ export default function JoinRestaurantLocationMap({
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const userGpsMarkerRef = useRef<L.Marker | null>(null);
+  /** Single pick marker (same graphic as `/restaurants` user marker): follows `pin` when set, otherwise session GPS when available. */
+  const pickMarkerRef = useRef<L.Marker | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
@@ -123,8 +114,7 @@ export default function JoinRestaurantLocationMap({
 
     return () => {
       map.off("click", clickHandler);
-      userGpsMarkerRef.current = null;
-      markerRef.current = null;
+      pickMarkerRef.current = null;
       map.remove();
       setMapInstance(null);
     };
@@ -133,9 +123,11 @@ export default function JoinRestaurantLocationMap({
   useEffect(() => {
     if (!mapInstance) return;
 
-    if (!pin) {
-      markerRef.current?.remove();
-      markerRef.current = null;
+    const markerPosition = pin ?? userGpsForMarker;
+
+    if (!markerPosition) {
+      pickMarkerRef.current?.remove();
+      pickMarkerRef.current = null;
       mapInstance.setView(
         L.latLng(
           DEFAULT_MAP_CENTER_LAT_LNG.lat,
@@ -146,41 +138,31 @@ export default function JoinRestaurantLocationMap({
       return;
     }
 
-    const ll = L.latLng(pin.lat, pin.lng);
+    const ll = L.latLng(markerPosition.lat, markerPosition.lng);
 
-    if (!markerRef.current) {
-      const m = L.marker(ll, { icon: RESTAURANT_PIN }).addTo(mapInstance);
-      m.bindPopup("Restaurant location — click map to move the pin");
-      markerRef.current = m;
-    } else {
-      markerRef.current.setLatLng(ll);
-    }
-
-    mapInstance.flyTo(ll, Math.max(mapInstance.getZoom(), 15), {
-      duration: 1.0,
-    });
-  }, [mapInstance, pin]);
-
-  useEffect(() => {
-    if (!mapInstance) return;
-
-    if (!userGpsForMarker) {
-      userGpsMarkerRef.current?.remove();
-      userGpsMarkerRef.current = null;
-      return;
-    }
-
-    const ll = L.latLng(userGpsForMarker.lat, userGpsForMarker.lng);
-
-    if (!userGpsMarkerRef.current) {
-      userGpsMarkerRef.current = L.marker(ll, {
-        icon: userGpsDivIcon(),
+    if (!pickMarkerRef.current) {
+      pickMarkerRef.current = L.marker(ll, {
+        icon: JOIN_MAP_PICK_ICON,
         zIndexOffset: 1000,
       }).addTo(mapInstance);
+      mapInstance.flyTo(ll, Math.max(mapInstance.getZoom(), 15), {
+        duration: 1.0,
+      });
     } else {
-      userGpsMarkerRef.current.setLatLng(ll);
+      pickMarkerRef.current.setLatLng(ll);
+      if (pin) {
+        mapInstance.flyTo(ll, Math.max(mapInstance.getZoom(), 15), {
+          duration: 1.0,
+        });
+      }
     }
-  }, [mapInstance, userGpsForMarker]);
+
+    pickMarkerRef.current.setPopupContent(
+      pin
+        ? "Restaurant location — click the map to move the pin"
+        : "Your location — click the map to set your restaurant address",
+    );
+  }, [mapInstance, pin, userGpsForMarker]);
 
   const handleRecenterOnUser = () => {
     const stored = getStoredUserLatLng();
@@ -197,7 +179,8 @@ export default function JoinRestaurantLocationMap({
 
     const center = L.latLng(stored.lat, stored.lng);
     map.flyTo(center, Math.max(map.getZoom(), 15), { duration: 1.15 });
-    userGpsMarkerRef.current?.setLatLng(center);
+    pickMarkerRef.current?.setLatLng(center);
+    onPickRef.current?.(stored.lat, stored.lng);
   };
 
   return (
