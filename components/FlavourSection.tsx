@@ -34,7 +34,7 @@ export const FlavourSection = memo(function FlavourSection({
 
   return (
     <section className="bg-[#FFFBF7] border-b border-gray-100 py-3">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 md:block hidden">
         <div className="mb-4">
           <h2 className="text-lg font-medium text-gray-800 mb-0.5">Popular searches</h2>
           {/* <p className="text-xs text-gray-400">Where you going?</p> */}

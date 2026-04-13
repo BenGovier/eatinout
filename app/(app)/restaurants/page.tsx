@@ -1509,7 +1509,7 @@ export default function RestaurantsPage() {
       />
 
       {shouldShowCarousels && (
-        <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
+        <div className="bg-[#FFFBF7] pb-6 md:block hidden" id="restaurant-list">
           <AuthCarouselList
             areaId={filterState.selectedLocationId || undefined}
             getAreaNames={getAreaNames}
@@ -1622,11 +1622,7 @@ export default function RestaurantsPage() {
                           }`}
                           onClick={(e) => {
                             e.preventDefault();
-                            handleHeartClick(
-                              e,
-                              restaurant.id,
-                              restaurant.name,
-                            );
+                            handleHeartClick(e, restaurant.id, restaurant.name);
                           }}
                           disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
                           aria-label={
@@ -2012,7 +2008,7 @@ export default function RestaurantsPage() {
             setActiveSnapPoint={setMobileDrawerSnap}
           >
             <DrawerContent
-              className="border-[#FFFBF7] bg-[#FFFBF7] px-0 pt-0 [&>div:first-child]:bg-gray-400/80"
+              className="border-[#FFFBF7] bg-[#FFFBF7] p-0 [&>div:first-child]:bg-gray-400/80"
             >
               <div className="flex max-h-[calc(90dvh-1.5rem)] flex-col overflow-hidden">
                 <p className="sr-only">
