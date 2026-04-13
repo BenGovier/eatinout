@@ -43,6 +43,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const sortBy = searchParams.get('sortBy')?.trim() || 'closest';
+    /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
+    const isWelcomeList = searchParams.get("welcome") === "1";
 
     const areaFilter = searchParams.get('area');
     const search = searchParams.get('search');
@@ -123,13 +125,16 @@ export async function GET(request: Request) {
     if (dineIn) query.dineIn = true;
     if (dineOut) query.dineOut = true;
 
-    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians)
-    const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
-    query.location = {
-      $geoWithin: {
-        $centerSphere: [[originLng, originLat], radiusRadians],
-      },
-    };
+    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
+    // Welcome page omits user coords and should list by area (or all areas), not Blackpool+5mi.
+    if (!isWelcomeList) {
+      const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
+      query.location = {
+        $geoWithin: {
+          $centerSphere: [[originLng, originLat], radiusRadians],
+        },
+      };
+    }
 
     const restaurants = await Restaurant.find(query)
       .select('name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
@@ -340,28 +345,30 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = finalFormattedRestaurants.map(
-      (restaurant: any) => {
-        const lat = restaurant.lat;
-        const lng = restaurant.lng;
-        if (
-          typeof lat !== "number" ||
-          typeof lng !== "number" ||
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lng)
-        ) {
-          return restaurant;
-        }
-        const miles = haversineDistanceMiles(
-          originLat,
-          originLng,
-          lat,
-          lng,
+    finalFormattedRestaurants = isWelcomeList
+      ? finalFormattedRestaurants
+      : finalFormattedRestaurants.map(
+          (restaurant: any) => {
+            const lat = restaurant.lat;
+            const lng = restaurant.lng;
+            if (
+              typeof lat !== "number" ||
+              typeof lng !== "number" ||
+              !Number.isFinite(lat) ||
+              !Number.isFinite(lng)
+            ) {
+              return restaurant;
+            }
+            const miles = haversineDistanceMiles(
+              originLat,
+              originLng,
+              lat,
+              lng,
+            );
+            const distanceMiles = Math.round(miles * 10) / 10;
+            return { ...restaurant, distanceMiles };
+          },
         );
-        const distanceMiles = Math.round(miles * 10) / 10;
-        return { ...restaurant, distanceMiles };
-      },
-    );
 
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);
@@ -371,11 +378,19 @@ export async function GET(request: Request) {
     switch (sortBy) {
       case 'closest':
       default:
-        sortedRestaurants = [...cleanedRestaurants].sort(
-          (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
-            (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
-            (b.distanceMiles ?? Number.POSITIVE_INFINITY),
-        );
+        if (isWelcomeList) {
+          sortedRestaurants = [...cleanedRestaurants].sort(
+            (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
+              new Date(b.createdAt ?? 0).getTime() -
+              new Date(a.createdAt ?? 0).getTime(),
+          );
+        } else {
+          sortedRestaurants = [...cleanedRestaurants].sort(
+            (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
+              (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
+              (b.distanceMiles ?? Number.POSITIVE_INFINITY),
+          );
+        }
     }
 
     const totalFilteredRestaurants = sortedRestaurants.length;

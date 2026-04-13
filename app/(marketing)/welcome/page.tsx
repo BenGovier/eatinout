@@ -251,6 +251,7 @@ export default function RestaurantListingPage() {
       page: page.toString(),
       limit: '12'
     })
+    params.append("welcome", "1")
 
     if (filters.selectedLocationId && filters.selectedLocationId !== 'all') {
       params.append('area', filters.selectedLocationId)
