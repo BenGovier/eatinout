@@ -949,6 +949,34 @@ export default function RestaurantsPage() {
     );
   }, [restaurants]);
 
+  const mapRestaurantMarkers = useMemo(
+    () =>
+      visibleRestaurants
+        .filter(
+          (restaurant) =>
+            typeof restaurant.lat === "number" &&
+            Number.isFinite(restaurant.lat) &&
+            typeof restaurant.lng === "number" &&
+            Number.isFinite(restaurant.lng),
+        )
+        .map((restaurant) => ({
+          id: restaurant.id,
+          slug: restaurant.slug?.trim() ? restaurant.slug : restaurant.id,
+          name: restaurant.name,
+          lat: restaurant.lat as number,
+          lng: restaurant.lng as number,
+          distanceMiles: restaurant.distanceMiles,
+          imageUrl: restaurant.imageUrl || "/placeholder.svg",
+          offerSummary:
+            restaurant.offers?.[0]?.title?.trim() ||
+            (restaurant.dealsCount > 0
+              ? `${restaurant.dealsCount} active deals`
+              : "Special offers"),
+          firstOfferId: restaurant.offers?.[0]?.id,
+        })),
+    [visibleRestaurants],
+  );
+
   const hasFilters = useMemo(() => {
     return !!(
       filterState.selectedLocationId ||
@@ -1866,30 +1894,7 @@ export default function RestaurantsPage() {
                   filtersHydrated && isRestaurantsFetching
                 }
                 onViewDeal={handleRestaurantNavigate}
-                restaurants={visibleRestaurants
-                  .filter(
-                    (restaurant) =>
-                      typeof restaurant.lat === "number" &&
-                      Number.isFinite(restaurant.lat) &&
-                      typeof restaurant.lng === "number" &&
-                      Number.isFinite(restaurant.lng),
-                  )
-                  .map((restaurant) => ({
-                    id: restaurant.id,
-                    slug:
-                      restaurant.slug?.trim() ? restaurant.slug : restaurant.id,
-                    name: restaurant.name,
-                    lat: restaurant.lat as number,
-                    lng: restaurant.lng as number,
-                    distanceMiles: restaurant.distanceMiles,
-                    imageUrl: restaurant.imageUrl || "/placeholder.svg",
-                    offerSummary:
-                      restaurant.offers?.[0]?.title?.trim() ||
-                      (restaurant.dealsCount > 0
-                        ? `${restaurant.dealsCount} active deals`
-                        : "Special offers"),
-                    firstOfferId: restaurant.offers?.[0]?.id,
-                  }))}
+                restaurants={mapRestaurantMarkers}
               />
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs max-md:hidden">

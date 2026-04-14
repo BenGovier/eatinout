@@ -104,6 +104,11 @@ export default function UserLocationMap({
     top: number;
   } | null>(null);
   const [portalReady, setPortalReady] = useState(false);
+  /** Latest props for restaurant-driven fitBounds (effect is keyed only on `restaurants`). */
+  const coordsRef = useRef(coords);
+  coordsRef.current = coords;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   useEffect(() => {
     setPortalReady(true);
@@ -285,34 +290,64 @@ export default function UserLocationMap({
       return stillHere ? prev : null;
     });
 
-    restaurants
-      .filter(
-        (restaurant) =>
-          typeof restaurant.lat === "number" &&
-          Number.isFinite(restaurant.lat) &&
-          typeof restaurant.lng === "number" &&
-          Number.isFinite(restaurant.lng),
-      )
-      .forEach((restaurant) => {
-        const marker = L.marker([restaurant.lat, restaurant.lng], {
-          icon: RESTAURANT_MAP_ICON,
-        });
-        marker.on("click", (e: LeafletMouseEvent) => {
-          L.DomEvent.stopPropagation(e.originalEvent);
-          setMapPopover({
-            id: restaurant.id,
-            slug: restaurant.slug,
-            name: restaurant.name,
-            imageUrl: restaurant.imageUrl,
-            offerSummary: restaurant.offerSummary,
-            distanceMiles: restaurant.distanceMiles,
-            lat: restaurant.lat,
-            lng: restaurant.lng,
-            firstOfferId: restaurant.firstOfferId,
-          });
-        });
-        marker.addTo(layer);
+    const validRestaurants = restaurants.filter(
+      (restaurant) =>
+        typeof restaurant.lat === "number" &&
+        Number.isFinite(restaurant.lat) &&
+        typeof restaurant.lng === "number" &&
+        Number.isFinite(restaurant.lng),
+    );
+
+    validRestaurants.forEach((restaurant) => {
+      const marker = L.marker([restaurant.lat, restaurant.lng], {
+        icon: RESTAURANT_MAP_ICON,
       });
+      marker.on("click", (e: LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e.originalEvent);
+        setMapPopover({
+          id: restaurant.id,
+          slug: restaurant.slug,
+          name: restaurant.name,
+          imageUrl: restaurant.imageUrl,
+          offerSummary: restaurant.offerSummary,
+          distanceMiles: restaurant.distanceMiles,
+          lat: restaurant.lat,
+          lng: restaurant.lng,
+          firstOfferId: restaurant.firstOfferId,
+        });
+      });
+      marker.addTo(layer);
+    });
+
+    // After fetch/refetch (`restaurants` updates), fit everything visible once; user can pan/zoom freely until the next update.
+    const userLatLng =
+      markerRef.current?.getLatLng() ??
+      L.latLng(coordsRef.current.lat, coordsRef.current.lng);
+    const defaultZoom = zoomRef.current;
+    const fitPoints: L.LatLng[] = [
+      ...validRestaurants.map((r) => L.latLng(r.lat, r.lng)),
+      userLatLng,
+    ];
+
+    let bounds = L.latLngBounds(fitPoints);
+    if (!bounds.isValid()) {
+      map.setView(userLatLng, defaultZoom);
+      return;
+    }
+
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    // Degenerate bounds: getBoundsZoom / fitBounds need a non-zero area.
+    if (sw.lat === ne.lat && sw.lng === ne.lng) {
+      const eps = 0.002;
+      bounds = L.latLngBounds(
+        L.latLng(sw.lat - eps, sw.lng - eps),
+        L.latLng(ne.lat + eps, ne.lng + eps),
+      );
+    }
+
+    // fitBounds uses getBoundsZoom internally — max zoom that still fits, with padding (no extra maxZoom cap).
+    map.fitBounds(bounds, { padding: [40, 48] });
   }, [restaurants]);
 
   useEffect(() => {

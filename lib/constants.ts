@@ -25,4 +25,4 @@ export function isRestaurantDistanceFilterMiles(
 }
 
 /** Default radius for restaurant distance search (no “any distance” mode). */
-export const DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES: RestaurantDistanceFilterMiles = 5;
+export const DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES: RestaurantDistanceFilterMiles = 25;
