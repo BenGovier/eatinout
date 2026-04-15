@@ -16,7 +16,6 @@ import {
   useCallback,
   useMemo,
   useRef,
-  useLayoutEffect,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useScrollPreservation } from "@/hooks/use-scroll-preservation";
@@ -26,11 +25,6 @@ import { RestaurantCardSkeleton } from "@/components/restaurant-card-skeleton";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/auth-context";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 type Category = {
@@ -190,14 +184,6 @@ export default function RestaurantsPage() {
     useScrollPreservation();
   const router = useRouter();
   const { user, isAuthenticated, authLoading } = useAuth();
-  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-  useLayoutEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const apply = () => setIsNarrowViewport(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(
     new Set(),
@@ -1349,7 +1335,7 @@ export default function RestaurantsPage() {
   }
 
   const renderPostMapContent = () => (
-    <>
+    <div className="pt-4">
       <FlavourSection
         cuisineTypes={metaState.cuisineTypes}
         selectedCuisineIds={filterState.selectedCuisineIds}
@@ -1631,13 +1617,13 @@ export default function RestaurantsPage() {
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 
   return (
     <>
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
+        <section className="sticky top-0 z-30 bg-white border-b border-gray-100 py-8">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto space-y-4">
               <div className="flex items-center gap-3">
@@ -1665,77 +1651,30 @@ export default function RestaurantsPage() {
                   )}
                 </div>
 
-                <div className="contents md:contents">
-                  <div className="contents md:hidden">
-                    <Popover
-                      open={uiState.showFilters && isNarrowViewport}
-                      onOpenChange={(open) =>
-                        setUIState((prev) => ({
-                          ...prev,
-                          showFilters: open,
-                        }))
-                      }
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          aria-label={
-                            hasFilters
-                              ? "Filters (filters applied)"
-                              : "Filters"
-                          }
-                          aria-expanded={uiState.showFilters}
-                          className="relative flex h-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-[#DC3545]/40 md:hidden"
-                        >
-                          {hasFilters && (
-                            <span
-                              className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                              aria-hidden
-                            />
-                          )}
-                          <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
-                          <span className="font-medium text-[#DC3545]">
-                            Filters
-                          </span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="end"
-                        side="bottom"
-                        sideOffset={10}
-                        className="z-[85] w-[min(calc(100vw-1rem),18.5rem)] max-h-[min(74dvh,26rem)] overflow-y-auto border border-gray-200 bg-[#FFFBF7] p-3 shadow-lg md:hidden"
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                      >
-                        {buildFiltersPanel(true)}
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      setUIState((prev) => ({
-                        ...prev,
-                        showFilters: !prev.showFilters,
-                      }))
-                    }
-                    aria-label={
-                      hasFilters ? "Filters (filters applied)" : "Filters"
-                    }
-                    aria-expanded={uiState.showFilters}
-                    className="relative hidden h-auto shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-[#DC3545] md:inline-flex"
-                  >
-                    {hasFilters && (
-                      <span
-                        className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                        aria-hidden
-                      />
-                    )}
-                    <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
-                    <span className="font-medium text-[#DC3545]">Filters</span>
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setUIState((prev) => ({
+                      ...prev,
+                      showFilters: !prev.showFilters,
+                    }))
+                  }
+                  aria-label={
+                    hasFilters ? "Filters (filters applied)" : "Filters"
+                  }
+                  aria-expanded={uiState.showFilters}
+                  className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                >
+                  {hasFilters && (
+                    <span
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                      aria-hidden
+                    />
+                  )}
+                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
+                  <span className="text-[#DC3545] font-medium">Filters</span>
+                </Button>
               </div>
 
               <div className="flex items-center justify-start text-sm w-full">
@@ -1849,7 +1788,7 @@ export default function RestaurantsPage() {
         </section>
 
         {uiState.showFilters && (
-          <div className="hidden border-b border-gray-100 bg-white px-4 pb-6 md:block">
+          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
             {buildFiltersPanel(false)}
           </div>
         )}
