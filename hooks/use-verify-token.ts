@@ -30,7 +30,7 @@ interface UseVerifyTokenResult {
 const ROLE_TO_DASHBOARD: Record<UserRole, string> = {
   admin: "/admin/dashboard",
   restaurant: "/dashboard",
-  user: "/restaurants",
+  user: "/",
 }
 
 export function useVerifyToken(options?: {
@@ -75,7 +75,7 @@ export function useVerifyToken(options?: {
         setVerificationError(null)
 
         if (redirectOnSuccess && data.user.role) {
-          const dashboardRoute = ROLE_TO_DASHBOARD[data.user.role as UserRole] ?? "/restaurants"
+          const dashboardRoute = ROLE_TO_DASHBOARD[data.user.role as UserRole] ?? "/"
           router.replace(dashboardRoute)
         }
         setIsVerified(true)

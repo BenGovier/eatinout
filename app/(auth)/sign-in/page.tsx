@@ -61,7 +61,7 @@ export default function SignInPage() {
             try {
               const subscriptionData = await fetchProfileAndSubscription();
               if (subscriptionData.hasAccess) {
-                router.push("/restaurants");
+                router.push("/");
               } else {
                 console.log("No access during auth check:", subscriptionData.accessReason);
                 // Stay on sign-in page - they'll need to renew subscription
@@ -124,21 +124,21 @@ export default function SignInPage() {
         console.log("Subscription data from SSO:", subscriptionData);
 
         if (!subscriptionData.hasAccess) {
-          console.log("No access, redirecting to restaurants:", subscriptionData.accessReason);
+          console.log("No access, redirecting to home:", subscriptionData.accessReason);
           sessionStorage.removeItem('triggeredLogin');
-          // Store email for checkout and redirect to restaurants
+          // Store email for checkout; user can open /restaurants or /map from home
           if (session?.user?.email) {
             sessionStorage.setItem('checkoutEmail', session.user.email);
           }
-          router.push("/restaurants");
+          router.push("/");
         } else {
           console.log("User has access:", subscriptionData.accessReason);
           const res = await axios.get("/api/auth/check-session");
-          // Use redirect URL if available, otherwise default to restaurants
+          // Use redirect URL if available, otherwise home
           if (redirectUrl) {
             router.push(decodeURIComponent(redirectUrl));
           } else {
-            router.push("/restaurants");
+            router.push("/");
           }
         }
       }
@@ -238,7 +238,7 @@ export default function SignInPage() {
               sessionStorage.setItem('checkoutEmail', checkoutEmail);
             }
             sessionStorage.setItem('redirectUrl', redirectUrl);
-            router.push('/restaurants');
+            router.push('/');
             return;
           }
         }
@@ -260,7 +260,7 @@ export default function SignInPage() {
           if (checkoutEmail) {
             sessionStorage.setItem('checkoutEmail', checkoutEmail);
           }
-          router.push('/restaurants');
+          router.push('/');
           return;
         } else {
           console.log("Access granted:", subscriptionData.accessReason);
@@ -289,7 +289,7 @@ export default function SignInPage() {
       } else if (data.role === "restaurant") {
         router.push("/dashboard");
       } else if (data.role === "user") {
-        router.push("/restaurants");
+        router.push("/");
       }
     } catch (err: any) {
       console.error("Login error:", err);

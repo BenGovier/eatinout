@@ -103,19 +103,15 @@ function SignUpPageContent() {
 
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null)
 
-// ✅ KEEP only the useEffect, no early returns here
+// Send staff to their apps. Consumers may stay on /sign-up (pricing, etc.) unless a return URL is set.
 useEffect(() => {
   if (!authLoading && user) {
     if (user.role === "admin") {
       router.push("/admin/dashboard")
     } else if (user.role === "restaurant") {
       router.push("/dashboard")
-    } else {
-      if (redirectUrl) {
-        router.push(decodeURIComponent(redirectUrl))
-      } else {
-        router.push("/restaurants")
-      }
+    } else if (redirectUrl) {
+      router.push(decodeURIComponent(redirectUrl))
     }
   }
 }, [user, authLoading, router, redirectUrl])
@@ -236,11 +232,11 @@ useEffect(() => {
         sessionStorage.removeItem('triggeredLogin');
       } else {
         const res = await axios.get("/api/auth/check-session")
-        // Use redirect URL if available, otherwise default to restaurants
+        // Use redirect URL if available, otherwise home
         if (redirectUrl) {
           router.push(decodeURIComponent(redirectUrl));
         } else {
-          router.push("/restaurants");
+          router.push("/");
         }
       }
     }

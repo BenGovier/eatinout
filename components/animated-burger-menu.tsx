@@ -1,13 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Lightbulb, HelpCircle, Lock, Building2, Tag, Phone } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Search, Lightbulb, HelpCircle, Lock, LogOut, Building2, Tag, Phone } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { signOut as nextAuthSignOut } from "next-auth/react"
+import { useAuth } from "@/context/auth-context"
+import type { LucideIcon } from "lucide-react"
+
+type MenuRow =
+  | { icon: LucideIcon; label: string; variant: "primary" | "default" | "link" | "outline"; href: string }
+  | { icon: LucideIcon; label: string; variant: "primary" | "default" | "link" | "outline"; signOut: true }
 
 export function AnimatedBurgerMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const [showPeek, setShowPeek] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const router = useRouter()
+  const { isAuthenticated, authLoading, setAuthState } = useAuth()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -35,15 +44,22 @@ export function AnimatedBurgerMenu() {
     }
   }, [isOpen])
 
-  const menuItems = [
-    { icon: Search, label: "See Offers", variant: "primary" as const, href: "/" },
-    { icon: Tag, label: "Pricing", variant: "default" as const, href: "/pricing" },
-    { icon: Phone, label: "Contact", variant: "default" as const, href: "/contact" },
-    { icon: Lightbulb, label: "How It Works", variant: "default" as const, href: "/how-it-works" },
-    { icon: HelpCircle, label: "FAQ's", variant: "default" as const, href: "/pricing#faq" },
-    { icon: Lock, label: "Login / Sign Up", variant: "link" as const, href: "/sign-up" },
-    { icon: Building2, label: "List a Restaurant", variant: "outline" as const, href: "/join-restaurant" },
-  ]
+  const menuItems: MenuRow[] = useMemo(() => {
+    const authRow: MenuRow =
+      !authLoading && isAuthenticated
+        ? { icon: LogOut, label: "Sign out", variant: "link", signOut: true }
+        : { icon: Lock, label: "Login / Sign Up", variant: "link", href: "/sign-up" }
+
+    return [
+      { icon: Search, label: "See Offers", variant: "primary", href: "/" },
+      { icon: Tag, label: "Pricing", variant: "default", href: "/pricing" },
+      { icon: Phone, label: "Contact", variant: "default", href: "/contact" },
+      { icon: Lightbulb, label: "How It Works", variant: "default", href: "/how-it-works" },
+      { icon: HelpCircle, label: "FAQ's", variant: "default", href: "/pricing#faq" },
+      authRow,
+      { icon: Building2, label: "List a Restaurant", variant: "outline", href: "/join-restaurant" },
+    ]
+  }, [authLoading, isAuthenticated])
 
   const handleMenuClick = (href: string) => {
     setIsOpen(false)
@@ -56,6 +72,36 @@ export function AnimatedBurgerMenu() {
         router.push(href)
       }, 300)
     }
+  }
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return
+    setIsSigningOut(true)
+    setIsOpen(false)
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+      await nextAuthSignOut({ callbackUrl: "/", redirect: false })
+      document.cookie = "auth_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("checkoutEmail")
+      }
+      setAuthState(null, false)
+      router.push("/")
+      router.refresh()
+    } catch (e) {
+      console.error("Sign out error:", e)
+      router.push("/")
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  const handleRowClick = (item: MenuRow) => {
+    if ("signOut" in item && item.signOut) {
+      void handleSignOut()
+      return
+    }
+    handleMenuClick(item.href)
   }
 
   return (
@@ -113,18 +159,21 @@ export function AnimatedBurgerMenu() {
           {menuItems.map((item, index) => {
             const Icon = item.icon
             const isFirstItem = index === 0
-            const isLoginItem = item.label === "Login / Sign Up"
+            const isAuthRow =
+              item.label === "Login / Sign Up" || ("signOut" in item && item.signOut)
             const isListRestaurant = item.label === "List a Restaurant"
 
             return (
               <button
-                key={item.label}
-                onClick={() => handleMenuClick(item.href)}
+                key={`${item.label}-${index}`}
+                type="button"
+                disabled={isSigningOut && "signOut" in item && item.signOut}
+                onClick={() => handleRowClick(item)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-out text-left border ${
                   isFirstItem
                     ? "bg-primary hover:bg-primary/90 text-white border-primary font-semibold shadow-md"
-                    : isLoginItem
-                      ? "text-primary hover:bg-primary/5 border-transparent font-semibold underline"
+                    : isAuthRow
+                      ? "text-primary hover:bg-primary/5 border-transparent font-semibold underline disabled:opacity-50"
                       : isListRestaurant
                         ? "border-2 border-primary text-primary hover:bg-primary/5 font-semibold"
                         : "text-[#475569] hover:bg-accent border-transparent hover:scale-[1.03]"
@@ -136,8 +185,8 @@ export function AnimatedBurgerMenu() {
                 }}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className={isFirstItem || isLoginItem || isListRestaurant ? "font-semibold" : "font-medium"}>
-                  {item.label}
+                <span className={isFirstItem || isAuthRow || isListRestaurant ? "font-semibold" : "font-medium"}>
+                  {"signOut" in item && item.signOut && isSigningOut ? "Signing out…" : item.label}
                 </span>
               </button>
             )

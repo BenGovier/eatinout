@@ -77,7 +77,7 @@ function SuccessPageContent() {
                     if (isFirstLogin) {
                         router.push("/how-it-works")
                     } else {
-                        router.push("/restaurants")
+                        router.push("/")
                     }
                 }
 
