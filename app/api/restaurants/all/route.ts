@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
     const isWelcomeList = searchParams.get("welcome") === "1";
 
-    const areaFilter = searchParams.get('area');
+    const areaFilter = searchParams.get("area");
     const search = searchParams.get('search');
     const categoryId = searchParams.get('categoryId');
     const priceRange = searchParams.get('priceRange');
@@ -74,6 +74,16 @@ export async function GET(request: Request) {
       originLat = ulat;
       originLng = ulng;
     }
+
+    const hasUserCoords = Number.isFinite(ulat) && Number.isFinite(ulng);
+    /**
+     * Browse-by-area (home /restaurants, carousels): no map pin — only `area` should constrain
+     * geography. Default $geoWithin around Blackpool would intersect away every other region.
+     * Map view always sends userLat/userLng so radius still applies there.
+     */
+    const isAreaListingWithoutPin =
+      Boolean(areaFilter && areaFilter !== "all") && !hasUserCoords;
+    const skipGeoFilter = isWelcomeList || isAreaListingWithoutPin;
 
     const query: any = { status: "approved", hidden: { $ne: true } };
 
@@ -126,8 +136,8 @@ export async function GET(request: Request) {
     if (dineOut) query.dineOut = true;
 
     // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
-    // Welcome page omits user coords and should list by area (or all areas), not Blackpool+5mi.
-    if (!isWelcomeList) {
+    // Welcome / area browse omit user coords — do not apply default radius (see skipGeoFilter).
+    if (!skipGeoFilter) {
       const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
       query.location = {
         $geoWithin: {
@@ -345,7 +355,7 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = isWelcomeList
+    finalFormattedRestaurants = skipGeoFilter
       ? finalFormattedRestaurants
       : finalFormattedRestaurants.map(
           (restaurant: any) => {
@@ -378,7 +388,7 @@ export async function GET(request: Request) {
     switch (sortBy) {
       case 'closest':
       default:
-        if (isWelcomeList) {
+        if (skipGeoFilter) {
           sortedRestaurants = [...cleanedRestaurants].sort(
             (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
               new Date(b.createdAt ?? 0).getTime() -
