@@ -20,7 +20,7 @@ export default function DashboardLayout({
       if (!authLoading && isAuthenticated && user) {
         // Redirect authenticated users to their appropriate portal
         if (user.role === "user") {
-          router.push("/")
+          router.push("/restaurants")
         } else if (user.role === "restaurant") {
           router.push("/dashboard")
         } else if (user.role === "admin") {

@@ -34,7 +34,7 @@ export function MarketingNav() {
 
         // Redirect based on user role
         if (userRole === "user") {
-          router.push("/")
+          router.push("/restaurants") // Redirect user to restaurants page
         } else if (userRole === "restaurant") {
           router.push("/dashboard") // Redirect restaurant to dashboard
         } else if (userRole === "admin") {

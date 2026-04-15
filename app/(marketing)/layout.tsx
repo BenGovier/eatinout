@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { Logo } from "@/components/logo"
 import { AnimatedBurgerMenu } from "@/components/animated-burger-menu"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
 import { X } from "lucide-react"
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 const ROLE_TO_DASHBOARD: Record<string, string> = {
   admin: "/admin/dashboard",
   restaurant: "/dashboard",
-  user: "/",
+  user: "/restaurants",
 }
 
 export default function MarketingLayout({
@@ -23,27 +23,21 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const pathname = usePathname()
   const { user, authLoading, isAuthenticated, authError, clearAuthError } = useAuth()
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/"
-      if (pathname !== dashboardRoute) {
-        router.replace(dashboardRoute)
-      }
+      const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/restaurants"
+      router.replace(dashboardRoute)
     }
-  }, [authLoading, isAuthenticated, user, router, pathname])
+  }, [authLoading, isAuthenticated, user, router])
 
   if (authLoading) {
     return <Spinner />
   }
 
   if (isAuthenticated && user) {
-    const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/"
-    if (pathname !== dashboardRoute) {
-      return <Spinner />
-    }
+    return <Spinner />
   }
 
   return (
