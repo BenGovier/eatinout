@@ -403,13 +403,64 @@ export async function GET(request: Request) {
         }
     }
 
-    const totalFilteredRestaurants = sortedRestaurants.length;
-
     const finalRestaurants = sortedRestaurants.map(
       ({ homePin, areaPins, createdAt, ...rest }) => rest
     );
 
-    console.log(`✓ Returning ${finalRestaurants.length} restaurants with active offers. Total: ${totalFilteredRestaurants} restaurants (${formattedRestaurants.length} before day filtering)`);
+    const rawPage = searchParams.get("page");
+    const rawLimit = searchParams.get("limit");
+    const applyPagination = rawPage != null || rawLimit != null;
+
+    const MAX_PAGE_SIZE = 500;
+    let pageNum = 1;
+    let limitNum = 12;
+
+    if (applyPagination) {
+      pageNum = Math.max(1, parseInt(rawPage ?? "1", 10) || 1);
+      const parsedLimit = parseInt(rawLimit ?? "12", 10);
+      limitNum = Math.min(
+        MAX_PAGE_SIZE,
+        Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 12),
+      );
+    }
+
+    const totalCount = finalRestaurants.length;
+    let restaurantsPayload = finalRestaurants;
+    let pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalRestaurants: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+      limit: number;
+    };
+
+    if (applyPagination) {
+      const start = (pageNum - 1) * limitNum;
+      restaurantsPayload = finalRestaurants.slice(start, start + limitNum);
+      const totalPages = Math.max(1, Math.ceil(totalCount / limitNum));
+      pagination = {
+        currentPage: pageNum,
+        totalPages,
+        totalRestaurants: totalCount,
+        hasNextPage: start + restaurantsPayload.length < totalCount,
+        hasPrevPage: pageNum > 1,
+        limit: limitNum,
+      };
+    } else {
+      pagination = {
+        currentPage: 1,
+        totalPages: 1,
+        totalRestaurants: totalCount,
+        hasNextPage: false,
+        hasPrevPage: false,
+        limit: totalCount,
+      };
+    }
+
+    console.log(
+      `✓ Returning ${restaurantsPayload.length} restaurants (page ${pagination.currentPage}/${pagination.totalPages}, applyPagination=${applyPagination}). Total with active offers: ${totalCount} (${formattedRestaurants.length} before day filtering)`,
+    );
 
     // ✅ COUNT TOTAL ACTIVE OFFERS PER AREA
     const areaOfferCounts: Record<string, number> = {};
@@ -430,16 +481,9 @@ export async function GET(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      restaurants: finalRestaurants,
+      restaurants: restaurantsPayload,
       selectedAreaOfferCount,
-      pagination: {
-        currentPage: 1,
-        totalPages: 1,
-        totalRestaurants: totalFilteredRestaurants,
-        hasNextPage: false,
-        hasPrevPage: false,
-        limit: finalRestaurants.length,
-      }
+      pagination,
     });
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return response;

@@ -2,13 +2,13 @@
 
 import {
   Search,
-  MapPin,
   SlidersHorizontal,
   Store,
   PiggyBank,
   X,
   Lock,
 } from "lucide-react"
+import { RestaurantLocationDropdown } from "@/components/restaurant-location-dropdown"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -114,6 +114,8 @@ function useDebounce<T>(value: T, delay: number): T {
 interface PageState {
   restaurants: Restaurant[]
   loading: boolean
+  /** True while fetching the next page (infinite scroll / scroll restoration). */
+  loadingMore: boolean
   error: string | null
   isRestoringScroll: boolean
   pagination: {
@@ -137,7 +139,6 @@ interface FilterState {
 }
 
 interface UIState {
-  showLocationDropdown: boolean
   showFilters: boolean
   showMobileMenu: boolean
   showAllCuisines: boolean
@@ -157,11 +158,11 @@ export default function RestaurantListingPage() {
   const { saveScrollPosition, getSavedPageState, clearScrollPosition } = useScrollPreservation()
   const { isAuthenticated, user } = useAuth()
   const router = useRouter()
-  const locationDropdownRef = useRef<HTMLDivElement>(null)
 
   const [pageState, setPageState] = useState<PageState>({
     restaurants: [],
     loading: true,
+    loadingMore: false,
     error: null,
     isRestoringScroll: false,
     pagination: {
@@ -185,7 +186,6 @@ export default function RestaurantListingPage() {
   })
 
   const [uiState, setUIState] = useState<UIState>({
-    showLocationDropdown: false,
     showFilters: false,
     showMobileMenu: false,
     showAllCuisines: false,
@@ -218,6 +218,7 @@ export default function RestaurantListingPage() {
     selectedMealTimes: [] as string[]
   })
   const fetchingRef = useRef<Set<string>>(new Set())
+  const pendingAppendFetchesRef = useRef(0)
   const skipFilterEffectRef = useRef(false)
 
   const navigateToRestaurant = useCallback((
@@ -285,7 +286,15 @@ export default function RestaurantListingPage() {
       fetchingRef.current.add(requestKey)
 
       if (reset) {
-        setPageState(prev => ({ ...prev, loading: true, error: null }))
+        setPageState(prev => ({
+          ...prev,
+          loading: true,
+          loadingMore: false,
+          error: null,
+        }))
+      } else {
+        pendingAppendFetchesRef.current += 1
+        setPageState(prev => ({ ...prev, loadingMore: true }))
       }
 
       const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
@@ -327,6 +336,13 @@ export default function RestaurantListingPage() {
       }))
     } finally {
       fetchingRef.current.delete(requestKey)
+      if (!reset) {
+        pendingAppendFetchesRef.current -= 1
+        if (pendingAppendFetchesRef.current <= 0) {
+          pendingAppendFetchesRef.current = 0
+          setPageState(prev => ({ ...prev, loadingMore: false }))
+        }
+      }
     }
   }, [])
 
@@ -401,14 +417,24 @@ export default function RestaurantListingPage() {
   ])
 
   const loadMoreRestaurants = useCallback(() => {
-    if (pageState.pagination.hasNextPage && !pageState.loading) {
+    if (
+      pageState.pagination.hasNextPage &&
+      !pageState.loading &&
+      !pageState.loadingMore
+    ) {
       fetchRestaurants(pageState.pagination.currentPage + 1, false)
     }
-  }, [pageState.pagination.hasNextPage, pageState.pagination.currentPage, pageState.loading, fetchRestaurants])
+  }, [pageState.pagination.hasNextPage, pageState.pagination.currentPage, pageState.loading, pageState.loadingMore, fetchRestaurants])
 
   useEffect(() => {
     const handleScroll = () => {
-      if (pageState.loading || !pageState.pagination.hasNextPage) return
+      if (
+        pageState.loading ||
+        pageState.loadingMore ||
+        !pageState.pagination.hasNextPage
+      ) {
+        return
+      }
 
       const scrollTop = window.scrollY
       const windowHeight = window.innerHeight
@@ -421,7 +447,7 @@ export default function RestaurantListingPage() {
 
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [pageState.loading, pageState.pagination.hasNextPage, loadMoreRestaurants])
+  }, [pageState.loading, pageState.loadingMore, pageState.pagination.hasNextPage, loadMoreRestaurants])
 
   const clearFilterState = useCallback(() => {
     sessionStorage.removeItem('restaurantFilters')
@@ -513,42 +539,18 @@ export default function RestaurantListingPage() {
     fetchMetadata()
   }, [])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
-        setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-      }
-    }
-
-    if (uiState.showLocationDropdown) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [uiState.showLocationDropdown])
-
-  const filteredLocations = useMemo(() => {
-    if (!filterState.locationSearch) return metaState.areas
-    const searchLower = filterState.locationSearch.toLowerCase()
-    return metaState.areas.filter((area) =>
-      area.label.toLowerCase().includes(searchLower)
-    )
-  }, [metaState.areas, filterState.locationSearch])
-
-const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
-  const isAdding = !filterState.selectedCuisineIds.includes(cuisineId)
-  setFilterState(prev => ({
-    ...prev,
-    selectedCuisineIds: isAdding
-      ? [...prev.selectedCuisineIds, cuisineId]
-      : prev.selectedCuisineIds.filter(id => id !== cuisineId),
-    selectedCuisines: isAdding
-      ? [...prev.selectedCuisines, cuisineLabel]
-      : prev.selectedCuisines.filter(label => label !== cuisineLabel),
-  }))
-}, [filterState.selectedCuisineIds, filterState.selectedCuisines])
+  const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
+    const isAdding = !filterState.selectedCuisineIds.includes(cuisineId)
+    setFilterState(prev => ({
+      ...prev,
+      selectedCuisineIds: isAdding
+        ? [...prev.selectedCuisineIds, cuisineId]
+        : prev.selectedCuisineIds.filter(id => id !== cuisineId),
+      selectedCuisines: isAdding
+        ? [...prev.selectedCuisines, cuisineLabel]
+        : prev.selectedCuisines.filter(label => label !== cuisineLabel),
+    }))
+  }, [filterState.selectedCuisineIds, filterState.selectedCuisines])
 
   const toggleDay = useCallback((dayValue: string, dayLabel: string) => {
     setFilterState(prev => ({
@@ -670,22 +672,38 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
 
     return true
   }, [debouncedSearchTerm, filterState.selectedCuisineIds])
+  const handleLocationChooseAll = useCallback(() => {
+    setFilterState((prev) => ({
+      ...prev,
+      selectedLocation: "",
+      selectedLocationId: "all",
+    }))
+  }, [])
+
+  const handleLocationChooseArea = useCallback((area: AreaOption) => {
+    setFilterState((prev) => ({
+      ...prev,
+      selectedLocation: area.label,
+      selectedLocationId: area.value,
+      locationSearch: "",
+    }))
+  }, [])
+
   useEffect(() => {
     if (!filterState.selectedLocationId) return
     clearScrollPosition()
     window.scrollTo({
       top: 0,
-      behavior: "smooth"
+      behavior: "auto",
     })
-    setPageState(prev => ({
+    setPageState((prev) => ({
       ...prev,
       pagination: {
         ...prev.pagination,
-        currentPage: 1
-      }
+        currentPage: 1,
+      },
     }))
-    fetchRestaurants(1, true)
-  }, [filterState.selectedLocationId])
+  }, [filterState.selectedLocationId, clearScrollPosition])
   return (
     <>
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
@@ -727,105 +745,14 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
               </div>
 
               <div className="flex items-center justify-start text-sm w-full">
-                <div className="relative w-full" ref={locationDropdownRef}>
-                  <button
-                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
-                    onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span>{filterState.selectedLocation || "Choose location"}</span>
-                    {filterState.selectedLocation && (
-                      <>
-                        <span className="text-gray-400">·</span>
-                        <span className="text-[#DC3545]">change</span>
-                      </>
-                    )}
-                  </button>
-
-                  {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20 w-full">
-                      {/* ✅ ALL LOCATIONS OPTION - Always at top */}
-                      {/* <button
-                        onClick={() => {
-                          setFilterState(prev => ({
-                            ...prev,
-                            selectedLocation: "",
-                            selectedLocationId: "",
-                            locationSearch: ""
-                          }))
-                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                        }}
-                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                            ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                            : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                      > */}
-                        <button
-                          onClick={() => {
-                            setFilterState(prev => ({
-                              ...prev,
-                              selectedLocation: "",
-                              selectedLocationId: "all",
-                            }))
-                            clearScrollPosition()
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth"
-                            })
-                            setPageState(prev => ({
-                              ...prev,
-                              pagination: {
-                                ...prev.pagination,
-                                currentPage: 1
-                              }
-                            }))
-                            setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                            fetchRestaurants(1, true)
-                          }}
-                          className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                            ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                            : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
-                          <span>All Locations</span>
-                        </div>
-                      </button>
-
-                      {/* Individual Locations */}
-                      {filteredLocations.length > 0 ? (
-                        filteredLocations.map((area) => (
-                          <button
-                            key={area.value}
-                            onClick={() => {
-                              setFilterState(prev => ({
-                                ...prev,
-                                selectedLocation: area.label,
-                                selectedLocationId: area.value,
-                                locationSearch: ""
-                              }))
-                              setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                            }}
-                            className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
-                                ? 'bg-[#DC3545]/5 font-semibold'
-                                : 'hover:bg-gray-50'
-                              }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="font-medium">{area.label}</span>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
-                          No locations found
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <RestaurantLocationDropdown
+                  areas={metaState.areas}
+                  areasLoading={metaState.areasLoading}
+                  selectedLocation={filterState.selectedLocation}
+                  selectedLocationId={filterState.selectedLocationId}
+                  onChooseAll={handleLocationChooseAll}
+                  onChooseArea={handleLocationChooseArea}
+                />
               </div>
             </div>
           </div>
@@ -1060,10 +987,13 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
             )}
           </div>
 
-          {pageState.loading && pageState.restaurants.length > 0 && (
+          {((pageState.loading && pageState.restaurants.length > 0) ||
+            pageState.loadingMore) && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-              {[1, 2, 3].map((i) => (
-                <RestaurantCardSkeleton key={i} />
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className={i > 2 ? "hidden md:block" : undefined}>
+                  <RestaurantCardSkeleton />
+                </div>
               ))}
             </div>
           )}
