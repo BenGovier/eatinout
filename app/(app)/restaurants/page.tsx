@@ -1344,7 +1344,7 @@ export default function RestaurantsPage() {
       />
 
       {shouldShowCarousels && (
-        <div className="bg-[#FFFBF7] pb-6 md:block hidden" id="restaurant-list">
+        <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
           <AuthCarouselList
             areaId={filterState.selectedLocationId || undefined}
             getAreaNames={getAreaNames}
