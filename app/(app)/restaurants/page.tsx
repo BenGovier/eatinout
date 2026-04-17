@@ -5,27 +5,18 @@ import {
   X,
   Tag,
   Heart,
-  ArrowDownWideNarrow,
 } from "lucide-react";
+import { RestaurantLocationDropdown } from "@/components/restaurant-location-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useState,
   useEffect,
   useCallback,
   useMemo,
   useRef,
-  useLayoutEffect,
 } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useScrollPreservation } from "@/hooks/use-scroll-preservation";
 import { FlavourSection } from "@/components/FlavourSection";
@@ -34,34 +25,7 @@ import { RestaurantCardSkeleton } from "@/components/restaurant-card-skeleton";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/auth-context";
-import {
-  DEFAULT_MAP_CENTER_LAT_LNG,
-  DEFAULT_MAP_LOCATION_LABEL,
-  DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-  RESTAURANT_DISTANCE_OPTIONS_MILES,
-  isRestaurantDistanceFilterMiles,
-  type RestaurantDistanceFilterMiles,
-} from "@/lib/constants";
-import {
-  USER_LAT_LNG_SESSION_KEY,
-  USER_LOCATION_STORAGE_EVENT,
-} from "@/lib/user-location-session";
-import dynamic from "next/dynamic";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useIsMobile } from "@/components/ui/use-mobile";
 import { cn } from "@/lib/utils";
-
-const UserLocationMap = dynamic(
-  () => import("@/components/user-location-map"),
-  {
-    ssr: false,
-  },
-);
 
 type Category = {
   id: string;
@@ -84,8 +48,6 @@ type Restaurant = {
   id: string;
   slug: string;
   name: string;
-  /** Miles from search origin (user or default); computed on API only. */
-  distanceMiles?: number;
   lat?: number | null;
   lng?: number | null;
   cuisine?: string;
@@ -121,74 +83,6 @@ type RestaurantsListPageResponse = {
     totalRestaurants?: number;
   };
 };
-
-const DEFAULT_RESTAURANT_LIST_SORT = "closest" as const;
-type RestaurantListSort = typeof DEFAULT_RESTAURANT_LIST_SORT;
-
-function isRestaurantListSort(v: unknown): v is RestaurantListSort {
-  return v === DEFAULT_RESTAURANT_LIST_SORT;
-}
-
-type RestaurantsListFilters = {
-  area: string;
-  search: string;
-  categoryId: string;
-  dineIn: boolean;
-  dineOut: boolean;
-  days: string;
-  mealTimes: string;
-  maxDistanceMiles: RestaurantDistanceFilterMiles;
-  userLat: number;
-  userLng: number;
-  sortBy: RestaurantListSort;
-};
-
-const RESTAURANTS_LIST_QUERY_KEY_ROOT = ["restaurants", "all"] as const;
-
-/** Mobile map drawer snap fractions (vaul: fraction of viewport height). */
-const MOBILE_RESTAURANTS_DRAWER_PEEK = 0.26;
-const MOBILE_RESTAURANTS_DRAWER_EXPANDED = 0.9;
-
-function buildRestaurantsListParams(f: RestaurantsListFilters): URLSearchParams {
-  const params = new URLSearchParams();
-  if (f.area) params.append("area", f.area);
-  if (f.search) params.append("search", f.search);
-  if (f.categoryId) params.append("categoryId", f.categoryId);
-  if (f.dineIn) params.append("dineIn", "true");
-  if (f.dineOut) params.append("dineOut", "true");
-  if (f.days) params.append("days", f.days);
-  if (f.mealTimes) params.append("mealTimes", f.mealTimes);
-  params.append("maxDistanceMiles", String(f.maxDistanceMiles));
-  params.append("userLat", String(f.userLat));
-  params.append("userLng", String(f.userLng));
-  params.append("sortBy", f.sortBy);
-  return params;
-}
-
-async function fetchRestaurantsList(
-  f: RestaurantsListFilters,
-  signal?: AbortSignal,
-): Promise<RestaurantsListPageResponse> {
-  const params = buildRestaurantsListParams(f);
-  const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    signal,
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      (errorData as { message?: string }).message ||
-        `Server error: ${response.status}`,
-    );
-  }
-  const data = (await response.json()) as RestaurantsListPageResponse;
-
-  if (!data.success || !Array.isArray(data.restaurants)) {
-    throw new Error(data.message || "Invalid response format");
-  }
-  return data;
-}
 
 type AreaOption = {
   value: string;
@@ -227,8 +121,20 @@ interface FilterState {
   selectedDayValues: string[];
   selectedDining: string[];
   selectedMealTimes: string[];
-  maxDistanceMiles: RestaurantDistanceFilterMiles;
-  listSort: RestaurantListSort;
+}
+
+interface PageState {
+  restaurants: Restaurant[];
+  loading: boolean;
+  /** True while fetching the next page (infinite scroll / scroll restoration). */
+  loadingMore: boolean;
+  error: string | null;
+  isRestoringScroll: boolean;
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+  };
 }
 
 interface MetaState {
@@ -252,7 +158,6 @@ interface MetaState {
 }
 
 interface UIState {
-  showLocationDropdown: boolean;
   showFilters: boolean;
   showMobileMenu: boolean;
   showAllCuisines: boolean;
@@ -275,57 +180,11 @@ const MEAL_TIMES = [
   "Evening 5pm-late!",
 ] as const;
 
-const DAY_MAP: Record<string, string> = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
-};
-
 export default function RestaurantsPage() {
-  const { saveScrollPosition, clearScrollPosition } =
+  const { saveScrollPosition, clearScrollPosition, getSavedPageState } =
     useScrollPreservation();
   const router = useRouter();
   const { user, isAuthenticated, authLoading } = useAuth();
-  const isMobile = useIsMobile();
-  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-  useLayoutEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const apply = () => setIsNarrowViewport(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-  const mobileDrawerScrollRef = useRef<HTMLDivElement>(null);
-  const [mobileDrawerSnap, setMobileDrawerSnap] = useState<number | string | null>(
-    MOBILE_RESTAURANTS_DRAWER_PEEK,
-  );
-
-  const isMobileDrawerExpandedForInnerScroll = useMemo(() => {
-    if (typeof mobileDrawerSnap !== "number") return false;
-    return mobileDrawerSnap >= MOBILE_RESTAURANTS_DRAWER_EXPANDED - 0.02;
-  }, [mobileDrawerSnap]);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const el = mobileDrawerScrollRef.current;
-    if (!el) return;
-
-    const onWheel = (e: WheelEvent) => {
-      if (isMobileDrawerExpandedForInnerScroll) return;
-      if (e.deltaY < 0) {
-        e.preventDefault();
-        setMobileDrawerSnap(MOBILE_RESTAURANTS_DRAWER_EXPANDED);
-      }
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [isMobile, isMobileDrawerExpandedForInnerScroll]);
-  // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(
     new Set(),
@@ -408,22 +267,22 @@ export default function RestaurantsPage() {
     selectedDayValues: [],
     selectedDining: [],
     selectedMealTimes: [],
-    maxDistanceMiles: DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-    listSort: DEFAULT_RESTAURANT_LIST_SORT,
   });
 
-  const [userOrigin, setUserOrigin] = useState<{ lat: number; lng: number }>(
-    () => ({
-      lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
-      lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
-    }),
-  );
-
-  /** True when `userLatLng` in sessionStorage is a saved device location (not default center). */
-  const [isUserLocationShared, setIsUserLocationShared] = useState(false);
+  const [pageState, setPageState] = useState<PageState>({
+    restaurants: [],
+    loading: true,
+    loadingMore: false,
+    error: null,
+    isRestoringScroll: false,
+    pagination: {
+      currentPage: 1,
+      totalPages: 1,
+      hasNextPage: false,
+    },
+  });
 
   const [uiState, setUIState] = useState<UIState>({
-    showLocationDropdown: false,
     showFilters: false,
     showMobileMenu: false,
     showAllCuisines: false,
@@ -442,18 +301,23 @@ export default function RestaurantsPage() {
     // categoriesError: null
   });
 
-  const [carouselVisibility, setCarouselVisibility] = useState<
-    Record<string, boolean>
-  >({
-    "available-everywhere": true,
-  });
-
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
 
   const debouncedSearchTerm = useDebounce(filterState.searchTerm, 500);
-  const locationDropdownRef = useRef<HTMLDivElement>(null);
-  const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [filtersReady, setFiltersReady] = useState(false);
+  const filtersRef = useRef({
+    selectedLocationId: "",
+    searchTerm: "",
+    selectedCuisineIds: [] as string[],
+    selectedDining: [] as string[],
+    selectedDayValues: [] as string[],
+    selectedMealTimes: [] as string[],
+  });
+  const fetchingRef = useRef<Set<string>>(new Set());
+  const pendingAppendFetchesRef = useRef(0);
+  const skipFilterEffectRef = useRef(false);
+
   const saveFilterState = useCallback(() => {
     const filterData = {
       searchTerm: filterState.searchTerm,
@@ -465,8 +329,6 @@ export default function RestaurantsPage() {
       selectedDayValues: filterState.selectedDayValues,
       selectedDining: filterState.selectedDining,
       selectedMealTimes: filterState.selectedMealTimes,
-      maxDistanceMiles: filterState.maxDistanceMiles,
-      listSort: filterState.listSort,
     };
     sessionStorage.setItem("restaurantFilters", JSON.stringify(filterData));
   }, [filterState]);
@@ -487,16 +349,7 @@ export default function RestaurantsPage() {
           selectedDayValues: savedState.selectedDayValues || [],
           selectedDining: savedState.selectedDining || [],
           selectedMealTimes: savedState.selectedMealTimes || [],
-          maxDistanceMiles:
-            typeof savedState.maxDistanceMiles === "number" &&
-            isRestaurantDistanceFilterMiles(savedState.maxDistanceMiles)
-              ? savedState.maxDistanceMiles
-              : DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-          listSort: isRestaurantListSort(savedState.listSort)
-            ? savedState.listSort
-            : DEFAULT_RESTAURANT_LIST_SORT,
         });
-        // Keep filter panel closed on load; only filter values are restored.
         setUIState((prev) => ({
           ...prev,
           showFilters: false,
@@ -511,113 +364,248 @@ export default function RestaurantsPage() {
     sessionStorage.removeItem("restaurantFilters");
   }, []);
 
-  const restaurantsListFilters = useMemo<RestaurantsListFilters>(
-    () => ({
-      area:
-        filterState.selectedLocationId &&
-        filterState.selectedLocationId !== "all"
-          ? filterState.selectedLocationId
-          : "",
-      search: debouncedSearchTerm.trim(),
-      categoryId: filterState.selectedCuisineIds.join(","),
-      dineIn: filterState.selectedDining.includes("dine-in"),
-      dineOut: filterState.selectedDining.includes("takeaway"),
-      days: filterState.selectedDayValues.join(","),
-      mealTimes: filterState.selectedMealTimes.join(","),
-      maxDistanceMiles: filterState.maxDistanceMiles,
-      userLat: userOrigin.lat,
-      userLng: userOrigin.lng,
-      sortBy: filterState.listSort,
-    }),
-    [
-      filterState.selectedLocationId,
-      debouncedSearchTerm,
-      filterState.selectedCuisineIds,
-      filterState.selectedDining,
-      filterState.selectedDayValues,
-      filterState.selectedMealTimes,
-      filterState.maxDistanceMiles,
-      filterState.listSort,
-      userOrigin.lat,
-      userOrigin.lng,
-    ],
-  );
+  const fetchRestaurants = useCallback(async (page = 1, reset = true) => {
+    const filters = filtersRef.current;
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: "12",
+    });
+    params.append("welcome", "1");
 
-  const {
-    data: restaurantsListResponse,
-    error: restaurantsQueryError,
-    isFetching: isRestaurantsFetching,
-    isPending,
-  } = useQuery({
-    queryKey: [
-      ...RESTAURANTS_LIST_QUERY_KEY_ROOT,
-      restaurantsListFilters,
-    ] as const,
-    queryFn: ({ signal }) =>
-      fetchRestaurantsList(restaurantsListFilters, signal),
-    enabled: filtersHydrated,
-    placeholderData: keepPreviousData,
-  });
+    if (filters.selectedLocationId && filters.selectedLocationId !== "all") {
+      params.append("area", filters.selectedLocationId);
+    }
+    if (filters.searchTerm?.trim()) {
+      params.append("search", filters.searchTerm.trim());
+    }
+    if (filters.selectedCuisineIds.length > 0) {
+      params.append("categoryId", filters.selectedCuisineIds.join(","));
+    }
+    if (filters.selectedDining.includes("dine-in")) {
+      params.append("dineIn", "true");
+    }
+    if (filters.selectedDining.includes("takeaway")) {
+      params.append("dineOut", "true");
+    }
+    if (filters.selectedDayValues.length > 0) {
+      params.append("days", filters.selectedDayValues.join(","));
+    }
+    if (filters.selectedMealTimes.length > 0) {
+      params.append("mealTimes", filters.selectedMealTimes.join(","));
+    }
 
-  const restaurants = restaurantsListResponse?.restaurants ?? [];
+    const requestKey = `${params.toString()}-${page}`;
 
-  const listErrorMessage =
-    restaurantsQueryError instanceof Error
-      ? restaurantsQueryError.message
-      : restaurantsQueryError
-        ? String(restaurantsQueryError)
-        : null;
+    if (fetchingRef.current.has(requestKey)) {
+      return;
+    }
 
-  const listLoadingInitial =
-    isPending || (isRestaurantsFetching && restaurants.length === 0);
+    try {
+      fetchingRef.current.add(requestKey);
 
-  useEffect(() => {
-    const readOrigin = () => {
-      try {
-        const raw = sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY);
-        if (!raw) {
-          setIsUserLocationShared(false);
-          setUserOrigin({
-            lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
-            lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
-          });
-          return;
-        }
-        const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown };
-        if (
-          typeof parsed.lat === "number" &&
-          typeof parsed.lng === "number" &&
-          Number.isFinite(parsed.lat) &&
-          Number.isFinite(parsed.lng)
-        ) {
-          setIsUserLocationShared(true);
-          setUserOrigin({ lat: parsed.lat, lng: parsed.lng });
-        } else {
-          setIsUserLocationShared(false);
-          setUserOrigin({
-            lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
-            lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
-          });
-        }
-      } catch {
-        setIsUserLocationShared(false);
-        setUserOrigin({
-          lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
-          lng: DEFAULT_MAP_CENTER_LAT_LNG.lng,
-        });
+      if (reset) {
+        setPageState((prev) => ({
+          ...prev,
+          loading: true,
+          loadingMore: false,
+          error: null,
+        }));
+      } else {
+        pendingAppendFetchesRef.current += 1;
+        setPageState((prev) => ({ ...prev, loadingMore: true }));
       }
-    };
 
-    readOrigin();
-    window.addEventListener(USER_LOCATION_STORAGE_EVENT, readOrigin);
-    return () =>
-      window.removeEventListener(USER_LOCATION_STORAGE_EVENT, readOrigin);
+      const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        next: { revalidate: 60 },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          (errorData as { message?: string }).message ||
+            `Server error: ${response.status}`,
+        );
+      }
+
+      const data = (await response.json()) as RestaurantsListPageResponse;
+
+      if (!data.success || !Array.isArray(data.restaurants)) {
+        throw new Error(data.message || "Invalid response format");
+      }
+
+      setPageState((prev) => ({
+        ...prev,
+        restaurants: reset
+          ? data.restaurants
+          : [...prev.restaurants, ...data.restaurants],
+        loading: false,
+        error: null,
+        pagination: {
+          currentPage: data.pagination?.currentPage || page,
+          totalPages: data.pagination?.totalPages || 1,
+          hasNextPage: data.pagination?.hasNextPage || false,
+        },
+      }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setPageState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        loading: false,
+        restaurants: reset ? [] : prev.restaurants,
+      }));
+    } finally {
+      fetchingRef.current.delete(requestKey);
+      if (!reset) {
+        pendingAppendFetchesRef.current -= 1;
+        if (pendingAppendFetchesRef.current <= 0) {
+          pendingAppendFetchesRef.current = 0;
+          setPageState((prev) => ({ ...prev, loadingMore: false }));
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
+    filtersRef.current = {
+      selectedLocationId: filterState.selectedLocationId,
+      searchTerm: debouncedSearchTerm,
+      selectedCuisineIds: filterState.selectedCuisineIds,
+      selectedDining: filterState.selectedDining,
+      selectedDayValues: filterState.selectedDayValues,
+      selectedMealTimes: filterState.selectedMealTimes,
+    };
+  }, [
+    filterState.selectedLocationId,
+    debouncedSearchTerm,
+    filterState.selectedCuisineIds,
+    filterState.selectedDining,
+    filterState.selectedDayValues,
+    filterState.selectedMealTimes,
+  ]);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+
+    let isMounted = true;
+
+    const initializePage = async () => {
+      const savedPageState = getSavedPageState();
+
+      if (savedPageState && savedPageState.currentPage > 1) {
+        if (!isMounted) return;
+        setPageState((prev) => ({ ...prev, isRestoringScroll: true }));
+
+        const pagesToLoad = Array.from(
+          { length: savedPageState.currentPage },
+          (_, i) => i + 1,
+        );
+        const batchSize = 3;
+
+        for (let i = 0; i < pagesToLoad.length; i += batchSize) {
+          if (!isMounted) break;
+          const batch = pagesToLoad.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map((p) => fetchRestaurants(p, p === 1)),
+          );
+        }
+
+        if (isMounted) {
+          setPageState((prev) => ({ ...prev, isRestoringScroll: false }));
+        }
+      } else if (isMounted) {
+        fetchRestaurants(1, true);
+      }
+    };
+
+    void initializePage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchRestaurants, getSavedPageState, filtersReady]);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+    if (pageState.isRestoringScroll) {
+      skipFilterEffectRef.current = true;
+      return;
+    }
+
+    if (skipFilterEffectRef.current) {
+      skipFilterEffectRef.current = false;
+      return;
+    }
+
+    void fetchRestaurants(1, true);
+  }, [
+    debouncedSearchTerm,
+    filterState.selectedLocationId,
+    filterState.selectedCuisineIds,
+    filterState.selectedDining,
+    filterState.selectedDayValues,
+    filterState.selectedMealTimes,
+    fetchRestaurants,
+    pageState.isRestoringScroll,
+    filtersReady,
+  ]);
+
+  const loadMoreRestaurants = useCallback(() => {
+    if (
+      pageState.pagination.hasNextPage &&
+      !pageState.loading &&
+      !pageState.loadingMore
+    ) {
+      void fetchRestaurants(pageState.pagination.currentPage + 1, false);
+    }
+  }, [
+    pageState.pagination.hasNextPage,
+    pageState.pagination.currentPage,
+    pageState.loading,
+    pageState.loadingMore,
+    fetchRestaurants,
+  ]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        pageState.loading ||
+        pageState.loadingMore ||
+        !pageState.pagination.hasNextPage
+      ) {
+        return;
+      }
+
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      if (scrollTop + windowHeight >= documentHeight - 500) {
+        loadMoreRestaurants();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [
+    pageState.loading,
+    pageState.loadingMore,
+    pageState.pagination.hasNextPage,
+    loadMoreRestaurants,
+  ]);
+
+  useEffect(() => {
     restoreFilterState();
-    setFiltersHydrated(true);
+    setFiltersReady(true);
   }, [restoreFilterState]);
+
+  const restaurants = pageState.restaurants;
+  const listErrorMessage = pageState.error;
+  const listLoadingInitial = pageState.loading && restaurants.length === 0;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -772,33 +760,6 @@ export default function RestaurantsPage() {
     fetchMetadata();
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        locationDropdownRef.current &&
-        !locationDropdownRef.current.contains(event.target as Node)
-      ) {
-        setUIState((prev) => ({ ...prev, showLocationDropdown: false }));
-      }
-    };
-
-    if (uiState.showLocationDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [uiState.showLocationDropdown]);
-
-  const filteredLocations = useMemo(() => {
-    if (!filterState.locationSearch) return metaState.areas;
-    const searchLower = filterState.locationSearch.toLowerCase();
-    return metaState.areas.filter((area) =>
-      area.label.toLowerCase().includes(searchLower),
-    );
-  }, [metaState.areas, filterState.locationSearch]);
-
   const toggleCuisine = useCallback(
     (cuisineId: string, cuisineLabel: string) => {
       const isAdding = !filterState.selectedCuisineIds.includes(cuisineId);
@@ -849,23 +810,6 @@ export default function RestaurantsPage() {
         ? prev.selectedMealTimes.filter((m) => m !== mealTime)
         : [...prev.selectedMealTimes, mealTime],
     }));
-  }, []);
-
-  const setMaxDistanceMiles = useCallback(
-    (miles: RestaurantDistanceFilterMiles) => {
-      setFilterState((prev) => ({ ...prev, maxDistanceMiles: miles }));
-    },
-    [],
-  );
-
-  const mapDaysToDisplay = useCallback((tags: string[]) => {
-    return tags.map((tag) => DAY_MAP[tag.toLowerCase()] || tag).filter(Boolean);
-  }, []);
-
-  const getDayLabel = useCallback((days: string[]) => {
-    if (days.length === 7) return "All Week";
-    if (days.length > 1) return "Multi Days";
-    return days[0];
   }, []);
 
   const getAreaNames = useCallback(
@@ -926,8 +870,8 @@ export default function RestaurantsPage() {
       }
 
       saveScrollPosition({
-        currentPage: 1,
-        totalItems: restaurants.length,
+        currentPage: pageState.pagination.currentPage,
+        totalItems: pageState.restaurants.length,
       });
       saveFilterState();
       router.push(returnPath);
@@ -935,7 +879,8 @@ export default function RestaurantsPage() {
     [
       saveScrollPosition,
       saveFilterState,
-      restaurants.length,
+      pageState.pagination.currentPage,
+      pageState.restaurants.length,
       router,
       user,
       isAuthenticated,
@@ -956,8 +901,6 @@ export default function RestaurantsPage() {
       filterState.selectedDining.length > 0 ||
       filterState.selectedDayValues.length > 0 ||
       filterState.selectedMealTimes.length > 0 ||
-      filterState.maxDistanceMiles !==
-        DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES ||
       debouncedSearchTerm
     );
   }, [
@@ -966,7 +909,6 @@ export default function RestaurantsPage() {
     filterState.selectedDining.length,
     filterState.selectedDayValues.length,
     filterState.selectedMealTimes.length,
-    filterState.maxDistanceMiles,
     debouncedSearchTerm,
   ]);
 
@@ -1105,13 +1047,52 @@ export default function RestaurantsPage() {
   //   return metaState.areas.find(area => area.value === filterState.selectedLocationId)
   // }, [metaState.areas, filterState.selectedLocationId])
   useEffect(() => {
+    if (filterState.selectedLocation && metaState.areas.length > 0) {
+      const match = metaState.areas.find(
+        (a) => a.label === filterState.selectedLocation,
+      );
+      if (match) {
+        setFilterState((prev) => ({
+          ...prev,
+          selectedLocationId: match.value,
+        }));
+      }
+    }
+  }, [filterState.selectedLocation, metaState.areas]);
+
+  const handleLocationChooseAll = useCallback(() => {
+    setFilterState((prev) => ({
+      ...prev,
+      selectedLocation: "",
+      selectedLocationId: "all",
+    }));
+  }, []);
+
+  const handleLocationChooseArea = useCallback((area: AreaOption) => {
+    setFilterState((prev) => ({
+      ...prev,
+      selectedLocation: area.label,
+      selectedLocationId: area.value,
+      locationSearch: "",
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!filtersReady) return;
     if (!filterState.selectedLocationId) return;
     clearScrollPosition();
     window.scrollTo({
       top: 0,
-      behavior: "smooth",
+      behavior: "auto",
     });
-  }, [filterState.selectedLocationId, clearScrollPosition]);
+    setPageState((prev) => ({
+      ...prev,
+      pagination: {
+        ...prev.pagination,
+        currentPage: 1,
+      },
+    }));
+  }, [filterState.selectedLocationId, clearScrollPosition, filtersReady]);
 
   function buildFiltersPanel(compact: boolean) {
     const sectionLabel = cn(
@@ -1154,9 +1135,7 @@ export default function RestaurantsPage() {
         {(filterState.selectedMealTimes.length > 0 ||
           filterState.selectedCuisines.length > 0 ||
           filterState.selectedDays.length > 0 ||
-          filterState.selectedDining.length > 0 ||
-          filterState.maxDistanceMiles !==
-            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) && (
+          filterState.selectedDining.length > 0) && (
           <div
             className={cn(
               "flex flex-wrap items-center gap-2",
@@ -1205,12 +1184,6 @@ export default function RestaurantsPage() {
                 {dining === "dine-in" ? "Dine In" : "Takeaway"}
               </Badge>
             ))}
-            <Badge
-              variant="secondary"
-              className="bg-primary/10 text-primary border-primary/20"
-            >
-              Within {filterState.maxDistanceMiles} mi
-            </Badge>
           </div>
         )}
 
@@ -1320,37 +1293,6 @@ export default function RestaurantsPage() {
             </div>
           </div>
 
-          <div>
-            <span className={sectionLabel}>Distance from you</span>
-            {!compact && (
-              <p className="text-muted-foreground mb-2 text-xs">
-                Uses your shared location on the map when available; otherwise
-                the default map area ({DEFAULT_MAP_LOCATION_LABEL}).
-              </p>
-            )}
-            <div className={cn("flex flex-wrap gap-2", compact && "gap-1.5")}>
-              {RESTAURANT_DISTANCE_OPTIONS_MILES.map((miles) => (
-                <Button
-                  key={miles}
-                  type="button"
-                  variant={
-                    filterState.maxDistanceMiles === miles ? "default" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => setMaxDistanceMiles(miles)}
-                  className={cn(
-                    filterState.maxDistanceMiles === miles
-                      ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
-                      : "rounded-2xl",
-                    compact && "h-8 min-w-[2.75rem] px-2 text-xs",
-                  )}
-                >
-                  {miles} mi
-                </Button>
-              ))}
-            </div>
-          </div>
-
           <div
             className={cn("flex gap-2", compact ? "pt-1" : "pt-2")}
           >
@@ -1383,9 +1325,6 @@ export default function RestaurantsPage() {
                   selectedDayValues: [],
                   selectedDining: [],
                   selectedMealTimes: [],
-                  maxDistanceMiles:
-                    DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-                  listSort: DEFAULT_RESTAURANT_LIST_SORT,
                 });
                 clearScrollPosition();
                 clearFilterState();
@@ -1414,7 +1353,7 @@ export default function RestaurantsPage() {
   }
 
   const renderPostMapContent = () => (
-    <>
+    <div className="pt-4">
       <FlavourSection
         cuisineTypes={metaState.cuisineTypes}
         selectedCuisineIds={filterState.selectedCuisineIds}
@@ -1423,7 +1362,7 @@ export default function RestaurantsPage() {
       />
 
       {shouldShowCarousels && (
-        <div className="bg-[#FFFBF7] pb-6 md:block hidden" id="restaurant-list">
+        <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
           <AuthCarouselList
             areaId={filterState.selectedLocationId || undefined}
             getAreaNames={getAreaNames}
@@ -1453,12 +1392,12 @@ export default function RestaurantsPage() {
           {listLoadingInitial &&
             !listErrorMessage &&
             restaurants.length === 0 &&
-            [1, 2, 3, 4, 5, 6].map((i) => <RestaurantCardSkeleton key={i} />)}
+            [1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={cn(i > 2 && "hidden md:block")}>
+                <RestaurantCardSkeleton />
+              </div>
+            ))}
           {visibleRestaurants.map((restaurant) => {
-            const location = Array.isArray(restaurant.area)
-              ? getAreaNames(restaurant.area, metaState.areas)
-              : restaurant.location;
-
             const offers =
               restaurant.offers?.map((offer) => ({
                 discount: offer.title,
@@ -1467,13 +1406,7 @@ export default function RestaurantsPage() {
                   ? offer.totalCodes - (offer.codesRedeemed || 0)
                   : undefined,
               })) || [];
-            //Helper: Check if coming soon (0 or undefined)
             const heroOffer = offers[0];
-            const isHeroComingSoon =
-              heroOffer &&
-              !heroOffer.unlimited &&
-              (typeof heroOffer.remainingCount !== "number" ||
-                heroOffer.remainingCount <= 0);
 
             return (
               <div
@@ -1684,9 +1617,6 @@ export default function RestaurantsPage() {
                           selectedDayValues: [],
                           selectedDining: [],
                           selectedMealTimes: [],
-                          maxDistanceMiles:
-                            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-                          listSort: DEFAULT_RESTAURANT_LIST_SORT,
                         });
                         clearScrollPosition();
                         clearFilterState();
@@ -1701,247 +1631,98 @@ export default function RestaurantsPage() {
             )}
         </div>
 
+        {((pageState.loading && pageState.restaurants.length > 0) ||
+          pageState.loadingMore) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={cn(i > 2 && "hidden md:block")}>
+                <RestaurantCardSkeleton />
+              </div>
+            ))}
+          </div>
+        )}
       </section>
-    </>
+    </div>
   );
 
   return (
     <>
-      <main className="min-h-screen bg-[#FFFBF7] pb-20 max-md:min-h-[100dvh] max-md:pb-0">
-        <section className="z-30 border-b border-gray-100 bg-white py-8 md:sticky md:top-16 max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 max-md:z-[55] max-md:border-0 max-md:bg-transparent max-md:py-3 max-md:shadow-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="max-md:pointer-events-none">
-            <div className="container mx-auto px-4 max-md:pointer-events-auto">
-              <div className="mx-auto max-w-2xl space-y-4 max-md:max-w-none max-md:space-y-2">
-                <div className="flex flex-wrap items-center gap-3 max-md:flex-col max-md:items-stretch">
-                  <div className="relative min-w-[200px] w-full flex-1 max-md:min-w-0">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                    <Input
-                      type="text"
-                      placeholder="Search restaurant/food type"
-                      value={filterState.searchTerm}
-                      onChange={handleSearchChange}
-                      className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent max-md:bg-white max-md:shadow-md max-md:transition-colors max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
-                    />
-                    {filterState.searchTerm && (
-                      <button
-                        onClick={() => {
-                          setFilterState((prev) => ({ ...prev, searchTerm: "" }));
-                          clearFilterState();
-                        }}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        aria-label="Clear search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex w-full min-w-0 flex-wrap items-center gap-3 md:contents max-md:flex-nowrap max-md:gap-2">
-                    <Select
-                      value={filterState.listSort}
-                      onValueChange={(v) =>
-                        setFilterState((prev) => ({
-                          ...prev,
-                          listSort: v as RestaurantListSort,
-                        }))
-                      }
+      <main className="min-h-screen bg-[#FFFBF7] pb-20">
+        <section className="sticky top-0 z-30 bg-white border-b border-gray-100 py-8">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
+                  <Input
+                    type="text"
+                    placeholder="Search restaurant/food type"
+                    value={filterState.searchTerm}
+                    onChange={handleSearchChange}
+                    className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent"
+                  />
+                  {filterState.searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterState((prev) => ({ ...prev, searchTerm: "" }));
+                        clearFilterState();
+                      }}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label="Clear search"
                     >
-                      <SelectTrigger
-                        aria-label="Sort restaurants"
-                        className="h-auto w-[152px] shrink-0 gap-2 rounded-xl border border-gray-200 px-3 py-3 text-[#DC3545] hover:border-[#DC3545] focus:ring-[#DC3545] max-md:min-w-0 max-md:flex-1 max-md:bg-white max-md:shadow-md max-md:transition-colors max-md:hover:border-[#DC3545]/40 max-md:hover:bg-gray-50"
-                      >
-                        <ArrowDownWideNarrow className="h-5 w-5 shrink-0" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="z-[80]">
-                        <SelectItem value="closest">Closest</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <div className="contents md:contents">
-                      <div className="contents md:hidden">
-                        <Popover
-                          open={uiState.showFilters && isNarrowViewport}
-                          onOpenChange={(open) =>
-                            setUIState((prev) => ({
-                              ...prev,
-                              showFilters: open,
-                            }))
-                          }
-                        >
-                          <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              aria-label={
-                                hasFilters
-                                  ? "Filters (filters applied)"
-                                  : "Filters"
-                              }
-                              aria-expanded={uiState.showFilters}
-                              className="relative flex h-full min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-md transition-colors hover:border-[#DC3545]/40 hover:bg-gray-50 max-md:flex-1 md:hidden"
-                            >
-                              {hasFilters && (
-                                <span
-                                  className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                                  aria-hidden
-                                />
-                              )}
-                              <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
-                              <span className="font-medium text-[#DC3545]">
-                                Filters
-                              </span>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            align="end"
-                            side="bottom"
-                            sideOffset={10}
-                            className="z-[85] w-[min(calc(100vw-1rem),18.5rem)] max-h-[min(74dvh,26rem)] overflow-y-auto border border-gray-200 bg-[#FFFBF7] p-3 shadow-lg md:hidden"
-                            onOpenAutoFocus={(e) => e.preventDefault()}
-                          >
-                            {buildFiltersPanel(true)}
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() =>
-                          setUIState((prev) => ({
-                            ...prev,
-                            showFilters: !prev.showFilters,
-                          }))
-                        }
-                        aria-label={
-                          hasFilters ? "Filters (filters applied)" : "Filters"
-                        }
-                        aria-expanded={uiState.showFilters}
-                        className="relative hidden h-auto shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-[#DC3545] md:inline-flex md:w-[152px]"
-                      >
-                        {hasFilters && (
-                          <span
-                            className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
-                            aria-hidden
-                          />
-                        )}
-                        <SlidersHorizontal className="h-5 w-5 text-[#DC3545]" />
-                        <span className="font-medium text-[#DC3545]">
-                          Filters
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setUIState((prev) => ({
+                      ...prev,
+                      showFilters: !prev.showFilters,
+                    }))
+                  }
+                  aria-label={
+                    hasFilters ? "Filters (filters applied)" : "Filters"
+                  }
+                  aria-expanded={uiState.showFilters}
+                  className="relative flex shrink-0 items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                >
+                  {hasFilters && (
+                    <span
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#DC3545] ring-2 ring-white"
+                      aria-hidden
+                    />
+                  )}
+                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
+                  <span className="text-[#DC3545] font-medium">Filters</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-start text-sm w-full">
+                <RestaurantLocationDropdown
+                  areas={metaState.areas}
+                  areasLoading={metaState.areasLoading}
+                  selectedLocation={filterState.selectedLocation}
+                  selectedLocationId={filterState.selectedLocationId}
+                  onChooseAll={handleLocationChooseAll}
+                  onChooseArea={handleLocationChooseArea}
+                />
               </div>
             </div>
           </div>
         </section>
 
         {uiState.showFilters && (
-          <div className="hidden border-b border-gray-100 bg-white px-4 pb-6 md:block">
+          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
             {buildFiltersPanel(false)}
           </div>
         )}
 
-        <section
-          className="w-full border-b border-gray-100 bg-[#FFFBF7] py-4 sm:py-5 md:py-6 max-md:fixed max-md:inset-0 max-md:z-0 max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:py-0"
-          aria-label="Map near you"
-        >
-          <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 max-md:h-full max-md:max-w-none max-md:px-0">
-            <div className="mb-2 flex items-center justify-between gap-2 sm:mb-3 max-md:hidden">
-              <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
-                Explore nearby
-              </h2>
-              <span className="hidden text-xs text-gray-500 sm:inline">
-                Pan, zoom, or click to search from a point
-              </span>
-            </div>
-            <div
-              className="relative z-0 isolate h-[min(38vh,240px)] min-h-[200px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.04] sm:h-64 sm:min-h-[240px] md:h-72 lg:h-80 max-md:h-full max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:ring-0 max-md:shadow-none"
-            >
-              <UserLocationMap
-                className="min-h-0 max-md:h-full"
-                isInteractionLocked={
-                  filtersHydrated && isRestaurantsFetching
-                }
-                onViewDeal={handleRestaurantNavigate}
-                restaurants={visibleRestaurants
-                  .filter(
-                    (restaurant) =>
-                      typeof restaurant.lat === "number" &&
-                      Number.isFinite(restaurant.lat) &&
-                      typeof restaurant.lng === "number" &&
-                      Number.isFinite(restaurant.lng),
-                  )
-                  .map((restaurant) => ({
-                    id: restaurant.id,
-                    slug:
-                      restaurant.slug?.trim() ? restaurant.slug : restaurant.id,
-                    name: restaurant.name,
-                    lat: restaurant.lat as number,
-                    lng: restaurant.lng as number,
-                    distanceMiles: restaurant.distanceMiles,
-                    imageUrl: restaurant.imageUrl || "/placeholder.svg",
-                    offerSummary:
-                      restaurant.offers?.[0]?.title?.trim() ||
-                      (restaurant.dealsCount > 0
-                        ? `${restaurant.dealsCount} active deals`
-                        : "Special offers"),
-                    firstOfferId: restaurant.offers?.[0]?.id,
-                  }))}
-              />
-            </div>
-            <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs max-md:hidden">
-              {isUserLocationShared
-                ? "Showing restaurants near the pin. Tap the map to move it."
-                : `Showing restaurants around ${DEFAULT_MAP_LOCATION_LABEL}. Tap the map to pick a spot.`}
-            </p>
-          </div>
-        </section>
-
-        {!isMobile && renderPostMapContent()}
-
-        {isMobile && (
-          <Drawer
-            open
-            onOpenChange={() => undefined}
-            dismissible={false}
-            modal={false}
-            shouldScaleBackground={false}
-            noBodyStyles
-            snapPoints={[
-              MOBILE_RESTAURANTS_DRAWER_PEEK,
-              MOBILE_RESTAURANTS_DRAWER_EXPANDED,
-            ]}
-            activeSnapPoint={mobileDrawerSnap}
-            setActiveSnapPoint={setMobileDrawerSnap}
-          >
-            <DrawerContent
-              className="border-[#FFFBF7] bg-[#FFFBF7] p-0 [&>div:first-child]:bg-gray-400/80"
-            >
-              <div className="flex max-h-[calc(90dvh-1.5rem)] flex-col overflow-hidden">
-                <p className="sr-only">
-                  Restaurant list, cuisines and carousels. Drag the handle up
-                  for more.
-                </p>
-                <div
-                  ref={mobileDrawerScrollRef}
-                  className={
-                    isMobileDrawerExpandedForInnerScroll
-                      ? "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]"
-                      : "min-h-0 flex-1 overflow-y-hidden overscroll-none pb-[calc(1rem+env(safe-area-inset-bottom))]"
-                  }
-                  {...(isMobileDrawerExpandedForInnerScroll
-                    ? { "data-vaul-no-drag": true }
-                    : {})}
-                >
-                  {renderPostMapContent()}
-                </div>
-              </div>
-            </DrawerContent>
-          </Drawer>
-        )}
+        {renderPostMapContent()}
       </main>
     </>
   );

@@ -43,8 +43,10 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const sortBy = searchParams.get('sortBy')?.trim() || 'closest';
+    /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
+    const isWelcomeList = searchParams.get("welcome") === "1";
 
-    const areaFilter = searchParams.get('area');
+    const areaFilter = searchParams.get("area");
     const search = searchParams.get('search');
     const categoryId = searchParams.get('categoryId');
     const priceRange = searchParams.get('priceRange');
@@ -72,6 +74,16 @@ export async function GET(request: Request) {
       originLat = ulat;
       originLng = ulng;
     }
+
+    const hasUserCoords = Number.isFinite(ulat) && Number.isFinite(ulng);
+    /**
+     * Browse-by-area (home /restaurants, carousels): no map pin — only `area` should constrain
+     * geography. Default $geoWithin around Blackpool would intersect away every other region.
+     * Map view always sends userLat/userLng so radius still applies there.
+     */
+    const isAreaListingWithoutPin =
+      Boolean(areaFilter && areaFilter !== "all") && !hasUserCoords;
+    const skipGeoFilter = isWelcomeList || isAreaListingWithoutPin;
 
     const query: any = { status: "approved", hidden: { $ne: true } };
 
@@ -123,13 +135,16 @@ export async function GET(request: Request) {
     if (dineIn) query.dineIn = true;
     if (dineOut) query.dineOut = true;
 
-    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians)
-    const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
-    query.location = {
-      $geoWithin: {
-        $centerSphere: [[originLng, originLat], radiusRadians],
-      },
-    };
+    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
+    // Welcome / area browse omit user coords — do not apply default radius (see skipGeoFilter).
+    if (!skipGeoFilter) {
+      const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
+      query.location = {
+        $geoWithin: {
+          $centerSphere: [[originLng, originLat], radiusRadians],
+        },
+      };
+    }
 
     const restaurants = await Restaurant.find(query)
       .select('name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
@@ -340,28 +355,30 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = finalFormattedRestaurants.map(
-      (restaurant: any) => {
-        const lat = restaurant.lat;
-        const lng = restaurant.lng;
-        if (
-          typeof lat !== "number" ||
-          typeof lng !== "number" ||
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lng)
-        ) {
-          return restaurant;
-        }
-        const miles = haversineDistanceMiles(
-          originLat,
-          originLng,
-          lat,
-          lng,
+    finalFormattedRestaurants = skipGeoFilter
+      ? finalFormattedRestaurants
+      : finalFormattedRestaurants.map(
+          (restaurant: any) => {
+            const lat = restaurant.lat;
+            const lng = restaurant.lng;
+            if (
+              typeof lat !== "number" ||
+              typeof lng !== "number" ||
+              !Number.isFinite(lat) ||
+              !Number.isFinite(lng)
+            ) {
+              return restaurant;
+            }
+            const miles = haversineDistanceMiles(
+              originLat,
+              originLng,
+              lat,
+              lng,
+            );
+            const distanceMiles = Math.round(miles * 10) / 10;
+            return { ...restaurant, distanceMiles };
+          },
         );
-        const distanceMiles = Math.round(miles * 10) / 10;
-        return { ...restaurant, distanceMiles };
-      },
-    );
 
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);
@@ -371,20 +388,79 @@ export async function GET(request: Request) {
     switch (sortBy) {
       case 'closest':
       default:
-        sortedRestaurants = [...cleanedRestaurants].sort(
-          (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
-            (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
-            (b.distanceMiles ?? Number.POSITIVE_INFINITY),
-        );
+        if (skipGeoFilter) {
+          sortedRestaurants = [...cleanedRestaurants].sort(
+            (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
+              new Date(b.createdAt ?? 0).getTime() -
+              new Date(a.createdAt ?? 0).getTime(),
+          );
+        } else {
+          sortedRestaurants = [...cleanedRestaurants].sort(
+            (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
+              (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
+              (b.distanceMiles ?? Number.POSITIVE_INFINITY),
+          );
+        }
     }
-
-    const totalFilteredRestaurants = sortedRestaurants.length;
 
     const finalRestaurants = sortedRestaurants.map(
       ({ homePin, areaPins, createdAt, ...rest }) => rest
     );
 
-    console.log(`✓ Returning ${finalRestaurants.length} restaurants with active offers. Total: ${totalFilteredRestaurants} restaurants (${formattedRestaurants.length} before day filtering)`);
+    const rawPage = searchParams.get("page");
+    const rawLimit = searchParams.get("limit");
+    const applyPagination = rawPage != null || rawLimit != null;
+
+    const MAX_PAGE_SIZE = 500;
+    let pageNum = 1;
+    let limitNum = 12;
+
+    if (applyPagination) {
+      pageNum = Math.max(1, parseInt(rawPage ?? "1", 10) || 1);
+      const parsedLimit = parseInt(rawLimit ?? "12", 10);
+      limitNum = Math.min(
+        MAX_PAGE_SIZE,
+        Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 12),
+      );
+    }
+
+    const totalCount = finalRestaurants.length;
+    let restaurantsPayload = finalRestaurants;
+    let pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalRestaurants: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+      limit: number;
+    };
+
+    if (applyPagination) {
+      const start = (pageNum - 1) * limitNum;
+      restaurantsPayload = finalRestaurants.slice(start, start + limitNum);
+      const totalPages = Math.max(1, Math.ceil(totalCount / limitNum));
+      pagination = {
+        currentPage: pageNum,
+        totalPages,
+        totalRestaurants: totalCount,
+        hasNextPage: start + restaurantsPayload.length < totalCount,
+        hasPrevPage: pageNum > 1,
+        limit: limitNum,
+      };
+    } else {
+      pagination = {
+        currentPage: 1,
+        totalPages: 1,
+        totalRestaurants: totalCount,
+        hasNextPage: false,
+        hasPrevPage: false,
+        limit: totalCount,
+      };
+    }
+
+    console.log(
+      `✓ Returning ${restaurantsPayload.length} restaurants (page ${pagination.currentPage}/${pagination.totalPages}, applyPagination=${applyPagination}). Total with active offers: ${totalCount} (${formattedRestaurants.length} before day filtering)`,
+    );
 
     // ✅ COUNT TOTAL ACTIVE OFFERS PER AREA
     const areaOfferCounts: Record<string, number> = {};
@@ -405,16 +481,9 @@ export async function GET(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      restaurants: finalRestaurants,
+      restaurants: restaurantsPayload,
       selectedAreaOfferCount,
-      pagination: {
-        currentPage: 1,
-        totalPages: 1,
-        totalRestaurants: totalFilteredRestaurants,
-        hasNextPage: false,
-        hasPrevPage: false,
-        limit: finalRestaurants.length,
-      }
+      pagination,
     });
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return response;

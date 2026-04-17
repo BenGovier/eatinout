@@ -1,1 +1,3 @@
-export { default } from "../restaurants/loading";
+export default function Loading() {
+  return null;
+}
