@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import {
-  DEFAULT_MAP_CENTER_LAT_LNG,
-  DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
-  isRestaurantDistanceFilterMiles,
-} from "@/lib/constants";
 import connectToDatabase from "@/lib/mongodb";
 import Restaurant from "@/models/Restaurant";
 import Offer from "@/models/Offer";
@@ -16,37 +11,15 @@ function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const EARTH_RADIUS_MILES = 3958.8;
-
-function haversineDistanceMiles(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return EARTH_RADIUS_MILES * c;
-}
-
 export async function GET(request: Request) {
   try {
     await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
-    const sortBy = searchParams.get('sortBy')?.trim() || 'closest';
-    /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
-    const isWelcomeList = searchParams.get("welcome") === "1";
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
-    const areaFilter = searchParams.get("area");
+    const areaFilter = searchParams.get('area');
     const search = searchParams.get('search');
     const categoryId = searchParams.get('categoryId');
     const priceRange = searchParams.get('priceRange');
@@ -54,36 +27,6 @@ export async function GET(request: Request) {
     const dineOut = searchParams.get('dineOut') === 'true';
     const days = searchParams.get('days');
     const mealTimes = searchParams.get('mealTimes');
-    const maxDistanceMilesRaw = searchParams.get('maxDistanceMiles');
-
-    let maxDistanceMiles: number = DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES;
-    if (maxDistanceMilesRaw) {
-      const parsed = parseInt(maxDistanceMilesRaw, 10);
-      if (isRestaurantDistanceFilterMiles(parsed)) {
-        maxDistanceMiles = parsed;
-      }
-    }
-
-    let originLat: number = DEFAULT_MAP_CENTER_LAT_LNG.lat;
-    let originLng: number = DEFAULT_MAP_CENTER_LAT_LNG.lng;
-    const userLatRaw = searchParams.get('userLat');
-    const userLngRaw = searchParams.get('userLng');
-    const ulat = userLatRaw != null ? parseFloat(userLatRaw) : NaN;
-    const ulng = userLngRaw != null ? parseFloat(userLngRaw) : NaN;
-    if (Number.isFinite(ulat) && Number.isFinite(ulng)) {
-      originLat = ulat;
-      originLng = ulng;
-    }
-
-    const hasUserCoords = Number.isFinite(ulat) && Number.isFinite(ulng);
-    /**
-     * Browse-by-area (home /restaurants, carousels): no map pin — only `area` should constrain
-     * geography. Default $geoWithin around Blackpool would intersect away every other region.
-     * Map view always sends userLat/userLng so radius still applies there.
-     */
-    const isAreaListingWithoutPin =
-      Boolean(areaFilter && areaFilter !== "all") && !hasUserCoords;
-    const skipGeoFilter = isWelcomeList || isAreaListingWithoutPin;
 
     const query: any = { status: "approved", hidden: { $ne: true } };
 
@@ -135,21 +78,15 @@ export async function GET(request: Request) {
     if (dineIn) query.dineIn = true;
     if (dineOut) query.dineOut = true;
 
-    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
-    // Welcome / area browse omit user coords — do not apply default radius (see skipGeoFilter).
-    if (!skipGeoFilter) {
-      const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
-      query.location = {
-        $geoWithin: {
-          $centerSphere: [[originLng, originLat], radiusRadians],
-        },
-      };
-    }
-
+    // Cap in-memory load to prevent production memory spikes (Azure 4GB limit)
+    const MAX_IN_MEMORY = 500;
     const restaurants = await Restaurant.find(query)
-      .select('name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
+      .select('name cuisine address city state zipCode area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt')
       .sort({ createdAt: -1 })
+      .limit(MAX_IN_MEMORY)
       .lean();
+
+    const totalRestaurants = restaurants.length;
 
     const allAreaIds = restaurants.flatMap(r => Array.isArray(r.area) ? r.area : []);
     const uniqueAreaIds = [...new Set(allAreaIds.map(String))];
@@ -259,7 +196,6 @@ export async function GET(request: Request) {
 
       return {
         id: restaurantId,
-        slug: restaurant.slug ?? "",
         name: restaurant.name,
         cuisine: restaurant.cuisine,
         location: fullLocation,
@@ -267,8 +203,6 @@ export async function GET(request: Request) {
         city: restaurant.city || "",
         state: restaurant.state || "",
         zipCode: restaurant.zipCode || "",
-        lat: restaurant.lat ?? null,
-        lng: restaurant.lng ?? null,
         addressLink: restaurant.addressLink || "",
         area: restaurant.area,
         rating: 4.5,
@@ -355,112 +289,28 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = skipGeoFilter
-      ? finalFormattedRestaurants
-      : finalFormattedRestaurants.map(
-          (restaurant: any) => {
-            const lat = restaurant.lat;
-            const lng = restaurant.lng;
-            if (
-              typeof lat !== "number" ||
-              typeof lng !== "number" ||
-              !Number.isFinite(lat) ||
-              !Number.isFinite(lng)
-            ) {
-              return restaurant;
-            }
-            const miles = haversineDistanceMiles(
-              originLat,
-              originLng,
-              lat,
-              lng,
-            );
-            const distanceMiles = Math.round(miles * 10) / 10;
-            return { ...restaurant, distanceMiles };
-          },
-        );
-
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(({ validDays, ...rest }: any) => rest);
 
-    // Sort (closest first). `sortBy` reserved for future options; only `closest` today.
-    let sortedRestaurants: typeof cleanedRestaurants;
-    switch (sortBy) {
-      case 'closest':
-      default:
-        if (skipGeoFilter) {
-          sortedRestaurants = [...cleanedRestaurants].sort(
-            (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
-              new Date(b.createdAt ?? 0).getTime() -
-              new Date(a.createdAt ?? 0).getTime(),
-          );
-        } else {
-          sortedRestaurants = [...cleanedRestaurants].sort(
-            (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
-              (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
-              (b.distanceMiles ?? Number.POSITIVE_INFINITY),
-          );
-        }
-    }
+    // Sort ALL restaurants by pinning status BEFORE pagination
+    const sortedRestaurants = sortRestaurantsByPinning(cleanedRestaurants, areaFilter);
 
-    const finalRestaurants = sortedRestaurants.map(
+    // Calculate pagination after sorting
+    const totalFilteredRestaurants = sortedRestaurants.length;
+    const totalPages = Math.ceil(totalFilteredRestaurants / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+    const skip = (page - 1) * limit;
+
+    // Apply pagination to sorted results
+    const paginatedRestaurants = sortedRestaurants.slice(skip, skip + limit);
+
+    // Remove pinning fields from final response (internal use only)
+    const finalRestaurants = paginatedRestaurants.map(
       ({ homePin, areaPins, createdAt, ...rest }) => rest
     );
 
-    const rawPage = searchParams.get("page");
-    const rawLimit = searchParams.get("limit");
-    const applyPagination = rawPage != null || rawLimit != null;
-
-    const MAX_PAGE_SIZE = 500;
-    let pageNum = 1;
-    let limitNum = 12;
-
-    if (applyPagination) {
-      pageNum = Math.max(1, parseInt(rawPage ?? "1", 10) || 1);
-      const parsedLimit = parseInt(rawLimit ?? "12", 10);
-      limitNum = Math.min(
-        MAX_PAGE_SIZE,
-        Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 12),
-      );
-    }
-
-    const totalCount = finalRestaurants.length;
-    let restaurantsPayload = finalRestaurants;
-    let pagination: {
-      currentPage: number;
-      totalPages: number;
-      totalRestaurants: number;
-      hasNextPage: boolean;
-      hasPrevPage: boolean;
-      limit: number;
-    };
-
-    if (applyPagination) {
-      const start = (pageNum - 1) * limitNum;
-      restaurantsPayload = finalRestaurants.slice(start, start + limitNum);
-      const totalPages = Math.max(1, Math.ceil(totalCount / limitNum));
-      pagination = {
-        currentPage: pageNum,
-        totalPages,
-        totalRestaurants: totalCount,
-        hasNextPage: start + restaurantsPayload.length < totalCount,
-        hasPrevPage: pageNum > 1,
-        limit: limitNum,
-      };
-    } else {
-      pagination = {
-        currentPage: 1,
-        totalPages: 1,
-        totalRestaurants: totalCount,
-        hasNextPage: false,
-        hasPrevPage: false,
-        limit: totalCount,
-      };
-    }
-
-    console.log(
-      `✓ Returning ${restaurantsPayload.length} restaurants (page ${pagination.currentPage}/${pagination.totalPages}, applyPagination=${applyPagination}). Total with active offers: ${totalCount} (${formattedRestaurants.length} before day filtering)`,
-    );
+    console.log(`✓ Returning ${finalRestaurants.length} restaurants (page ${page}/${totalPages}) with active offers. Total: ${totalFilteredRestaurants} restaurants (${formattedRestaurants.length} before day filtering)`);
 
     // ✅ COUNT TOTAL ACTIVE OFFERS PER AREA
     const areaOfferCounts: Record<string, number> = {};
@@ -481,9 +331,9 @@ export async function GET(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      restaurants: restaurantsPayload,
+      restaurants: finalRestaurants,
       selectedAreaOfferCount,
-      pagination,
+      pagination: { currentPage: page, totalPages, totalRestaurants: totalFilteredRestaurants, hasNextPage, hasPrevPage, limit }
     });
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return response;
@@ -577,4 +427,133 @@ function sortOffersByPinning(offers: any[]): any[] {
 
   // Return pinned offers first (newest pinned → older pinned), then non-pinned (newest → oldest)
   return [...pinnedOffers, ...nonPinnedOffers];
+}
+
+// Helper function to sort restaurants by pinning status
+function sortRestaurantsByPinning(
+  restaurants: any[],
+  areaFilter: string | null
+): any[] {
+  const homePinned: any[] = []
+  const areaPinned: any[] = []
+  const areaMatchedNonPinned: any[] = []
+  const regular: any[] = []
+
+  restaurants.forEach((restaurant) => {
+
+    /* ===============================
+       🟢 CASE 1: AREA FILTER APPLIED
+       =============================== */
+    if (areaFilter) {
+      // 1️⃣ AREA PINNED
+      const areaPin = Array.isArray(restaurant.areaPins)
+        ? restaurant.areaPins.find(
+          (p: any) =>
+            p.areaId === areaFilter && p.priority !== null
+        )
+        : null
+
+      if (areaPin) {
+        areaPinned.push(restaurant)
+        return
+      }
+
+      // 2️⃣ AREA MATCHED BUT NOT PINNED
+      if (
+        Array.isArray(restaurant.area) &&
+        restaurant.area.map(String).includes(areaFilter)
+      ) {
+        areaMatchedNonPinned.push(restaurant)
+        return
+      }
+
+      // 3️⃣ REGULAR
+      regular.push(restaurant)
+      return
+    }
+
+    /* ===============================
+       🟢 CASE 2: NO AREA FILTER
+       (HOME PAGE LOGIC – UNCHANGED)
+       =============================== */
+    const homePin = restaurant.homePin || {}
+
+    if (homePin.isPinned === true && homePin.priority !== null) {
+      homePinned.push(restaurant)
+      return
+    }
+
+    regular.push(restaurant)
+  })
+
+  /* ===============================
+     🔽 SORTING
+     =============================== */
+
+  // 🔵 AREA PIN SORT (TOP PRIORITY WHEN AREA FILTER)
+  areaPinned.sort((a, b) => {
+    const pinA = a.areaPins.find((p: any) => p.areaId === areaFilter)
+    const pinB = b.areaPins.find((p: any) => p.areaId === areaFilter)
+
+    const prioA = pinA?.priority ?? 999
+    const prioB = pinB?.priority ?? 999
+    if (prioA !== prioB) return prioA - prioB
+
+    const dateA = pinA?.pinnedAt
+      ? new Date(pinA.pinnedAt).getTime()
+      : 0
+    const dateB = pinB?.pinnedAt
+      ? new Date(pinB.pinnedAt).getTime()
+      : 0
+
+    return dateB - dateA
+  })
+
+  // 🔵 AREA MATCH (NON PINNED)
+  areaMatchedNonPinned.sort((a, b) => {
+    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return dB - dA
+  })
+
+  // 🔵 HOME PIN (ONLY WHEN NO AREA FILTER)
+  homePinned.sort((a, b) => {
+    const pA = a.homePin?.priority ?? 999
+    const pB = b.homePin?.priority ?? 999
+    if (pA !== pB) return pA - pB
+
+    const dA = a.homePin?.pinnedAt
+      ? new Date(a.homePin.pinnedAt).getTime()
+      : 0
+    const dB = b.homePin?.pinnedAt
+      ? new Date(b.homePin.pinnedAt).getTime()
+      : 0
+
+    return dB - dA
+  })
+
+  // 🔵 REGULAR
+  regular.sort((a, b) => {
+    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return dB - dA
+  })
+
+  console.log(
+    `📌 SORT → area:${areaPinned.length}, areaMatch:${areaMatchedNonPinned.length}, home:${homePinned.length}, regular:${regular.length}`
+  )
+
+  /* ===============================
+     🔚 FINAL RETURN ORDER
+     =============================== */
+  return areaFilter
+    ? [
+      ...areaPinned,
+      ...areaMatchedNonPinned,
+      ...regular,
+    ]
+    : [
+      ...homePinned,
+      ...regular,
+    ]
 }

@@ -1,93 +1,46 @@
-"use client";
-import type React from "react";
+"use client"
 
-import { useEffect, useMemo, useState, useRef } from "react";
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  ArrowRight,
-  Building2,
-  MapPin,
-  Phone,
-  Mail,
-  Globe,
-  User,
-  Lock,
-  Check,
-  X,
-  Upload,
-  Eye,
-  EyeOff,
-} from "lucide-react";
-import { toast } from "react-toastify";
-import ReactSelect from "react-select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import type React from "react"
+
+import { useEffect, useState,useRef } from "react"
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ArrowRight, Building2, MapPin, Phone, Mail, Globe, User, Lock, Check, X, Upload, Eye, EyeOff, Plus } from "lucide-react"
+import { toast } from "react-toastify"
+import { deleteFileFromAzure, uploadFileToAzure } from "@/lib/azure-upload"
+import ReactSelect from "react-select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal";
-import { useImageUpload } from "@/hooks/use-image-upload";
-
-const JoinRestaurantLocationMap = dynamic(
-  () => import("@/components/join-restaurant-location-map"),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="h-[240px] w-full animate-pulse rounded-xl border border-gray-200 bg-gray-100 md:h-[280px]"
-        aria-hidden
-      />
-    ),
-  },
-);
-
+import { Badge } from "@/components/ui/badge"
+import { useImageUpload } from "@/hooks/use-image-upload"
 export default function RestaurantRegisterPage() {
-  const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [step, setStep] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
   // const [uploadingImage, setUploadingImage] = useState(false)
-  const [categories, setCategories] = useState<
-    Array<{ id: string; name: string }>
-  >([]); // Define categories state
-  const [areas, setAreas] = useState<any>([]);
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // ✅ Add selected categories state
+  const [categories, setCategories] = useState<Array<{ id: string, name: string }>>([]); // Define categories state
+  const [areas, setAreas] = useState<any>([])
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]) // ✅ Add selected categories state
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
-    useState(false);
-  const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [showAddCuisineModal, setShowAddCuisineModal] = useState(false);
-  const [newCuisineName, setNewCuisineName] = useState("");
-  const [isAddingCuisine, setIsAddingCuisine] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false)
+  const [showAddCuisineModal, setShowAddCuisineModal] = useState(false)
+  const [newCuisineName, setNewCuisineName] = useState("")
+  const [isAddingCuisine, setIsAddingCuisine] = useState(false)
   const [menuPdfUrls, setMenuPdfUrls] = useState<string[]>([]);
-  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] =
-    useState(false);
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
   const [pdfIndexToDelete, setPdfIndexToDelete] = useState<number | null>(null);
   const [uploadingMenuPdf, setUploadingMenuPdf] = useState(false);
   const menuPdfInputRef = useRef<HTMLInputElement | null>(null);
-  const skipNextForwardPostcodeGeocodeRef = useRef(false);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [reverseGeocodeLoading, setReverseGeocodeLoading] = useState(false);
-
   const [formData, setFormData] = useState({
     // User data
     firstName: "",
@@ -112,150 +65,30 @@ export default function RestaurantRegisterPage() {
     deliveryAvailable: false,
     category: [] as string[], // ✅ Changed to array
     addressLink: "",
-    /** Set from UK postcode lookup (postcodes.io via /api/geocode/uk-postcode) */
-    lat: undefined as number | undefined,
-    lng: undefined as number | undefined,
-  });
-
-  const mapPin = useMemo(() => {
-    if (
-      typeof formData.lat === "number" &&
-      typeof formData.lng === "number" &&
-      Number.isFinite(formData.lat) &&
-      Number.isFinite(formData.lng)
-    ) {
-      return { lat: formData.lat, lng: formData.lng };
-    }
-    return null;
-  }, [formData.lat, formData.lng]);
-
-  useEffect(() => {
-    const zip = formData.zipCode.trim();
-
-    if (skipNextForwardPostcodeGeocodeRef.current) {
-      skipNextForwardPostcodeGeocodeRef.current = false;
-      return;
-    }
-
-    if (zip.length < 5) {
-      setFormData((prev) => ({ ...prev, lat: undefined, lng: undefined }));
-      return;
-    }
-
-    let cancelled = false;
-    const t = window.setTimeout(async () => {
-      setGeocodeLoading(true);
-      try {
-        const res = await fetch(
-          `/api/geocode/uk-postcode?postcode=${encodeURIComponent(zip)}`,
-        );
-        const data = (await res.json()) as {
-          success?: boolean;
-          lat?: number;
-          lng?: number;
-          message?: string;
-        };
-        if (cancelled) return;
-        if (
-          res.ok &&
-          data.success &&
-          typeof data.lat === "number" &&
-          typeof data.lng === "number"
-        ) {
-          setFormData((prev) => ({
-            ...prev,
-            lat: data.lat,
-            lng: data.lng,
-          }));
-        } else {
-          setFormData((prev) => ({ ...prev, lat: undefined, lng: undefined }));
-          if (res.status === 404) {
-            toast.error(data.message || "Postcode not found");
-          } else if (res.status >= 500) {
-            toast.error(data.message || "Postcode lookup failed");
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setFormData((prev) => ({ ...prev, lat: undefined, lng: undefined }));
-          toast.error("Location lookup failed");
-        }
-      } finally {
-        if (!cancelled) setGeocodeLoading(false);
-      }
-    }, 700);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [formData.zipCode]);
-
-  const handleMapLocationPick = async (lat: number, lng: number) => {
-    if (reverseGeocodeLoading) return;
-    setReverseGeocodeLoading(true);
-    setFormData((prev) => ({ ...prev, lat, lng }));
-    try {
-      const res = await fetch(
-        `/api/geocode/reverse-uk?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}`,
-      );
-      const data = (await res.json()) as {
-        success?: boolean;
-        lat?: number;
-        lng?: number;
-        postcode?: string;
-        address?: string | null;
-        city?: string | null;
-        state?: string | null;
-        message?: string;
-      };
-      if (!res.ok || !data.success) {
-        toast.error(data.message || "Could not resolve address for this point");
-        return;
-      }
-      const pc = data.postcode?.trim() ?? "";
-      skipNextForwardPostcodeGeocodeRef.current = true;
-      setFormData((prev) => ({
-        ...prev,
-        lat: typeof data.lat === "number" ? data.lat : lat,
-        lng: typeof data.lng === "number" ? data.lng : lng,
-        zipCode: pc ? pc.toUpperCase() : prev.zipCode,
-        address: data.address?.trim() ? data.address.trim() : prev.address,
-        city: data.city?.trim() ? data.city.trim() : prev.city,
-        state: data.state?.trim() ? data.state.trim() : prev.state,
-      }));
-      toast.success("Address filled from map location");
-    } catch {
-      toast.error("Address lookup failed");
-    } finally {
-      setReverseGeocodeLoading(false);
-    }
-  };
+  })
 
   const [errors, setErrors] = useState({
-    restaurantName: "",
-    description: "",
-    area: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    phone: "",
-    email: "",
-    firstName: "",
-    lastName: "",
-    password: "",
-    confirmPassword: "",
-    agreeToTerms: "",
-    website: "",
+    restaurantName: '',
+    description: '',
+    area: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    phone: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    password: '',
+    confirmPassword: '',
+    agreeToTerms: '',
+    website: '',
     category: "",
     addressLink: "",
     diningOptions: "",
   });
 
-  const [allTags, setAllTags] = useState<
-    { _id: string; name: string; slug?: string }[]
-  >([]);
+  const [allTags, setAllTags] = useState<{ _id: string; name: string; slug?: string }[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]); // array of tag _id strings
   const [customTag, setCustomTag] = useState("");
 
@@ -304,6 +137,7 @@ export default function RestaurantRegisterPage() {
 
     fetchCategories();
   }, []);
+
 
   useEffect(() => {
     const fetchAreas = async () => {
@@ -372,10 +206,7 @@ export default function RestaurantRegisterPage() {
       // Add the newly created category to selected categories only if under limit
       setSelectedCategories((prev) => {
         if (prev.length >= 2) {
-          setErrors((prevErrors) => ({
-            ...prevErrors,
-            category: "You can select only up to 2 categories",
-          }));
+          setErrors((prevErrors) => ({ ...prevErrors, category: 'You can select only up to 2 categories' }));
           return prev;
         }
         return [...prev, newCategory.id];
@@ -394,13 +225,11 @@ export default function RestaurantRegisterPage() {
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
-    setErrors((prev) => ({ ...prev, [id]: "" }));
-  };
+    setErrors((prev) => ({ ...prev, [id]: '' }));
+  }
 
   const handleSelectChange = (id: string, value: string) => {
     if (id === "category" && value === "other") {
@@ -408,25 +237,25 @@ export default function RestaurantRegisterPage() {
       setShowAddCuisineModal(true);
     } else {
       setFormData((prev) => ({ ...prev, [id]: value }));
-      setErrors((prev) => ({ ...prev, [id]: "" })); // Clear error on change
+      setErrors((prev) => ({ ...prev, [id]: '' })); // Clear error on change
     }
-  };
+  }
 
   const handleCheckboxChange = (checked: boolean) => {
     setFormData((prev) => ({ ...prev, agreeToTerms: checked }));
-    setErrors((prev) => ({ ...prev, agreeToTerms: "" })); // Clear error on change
-  };
+    setErrors((prev) => ({ ...prev, agreeToTerms: '' })); // Clear error on change
+  }
 
-  const restaurantImageUpload = useImageUpload({
-    preset: "restaurantThumb",
-    onSuccess: (url) => {
-      setUploadedImages((prev) => [...prev, url]);
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, url],
-      }));
-    },
-  });
+const restaurantImageUpload = useImageUpload({
+  preset: "restaurantThumb",
+  onSuccess: (url) => {
+    setUploadedImages((prev) => [...prev, url]);
+    setFormData((prev) => ({
+      ...prev, 
+      images: [...prev.images, url],
+    }));
+  },
+});
   // const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   //   const files = e.target.files;
   //   if (!files || files.length === 0) return;
@@ -470,39 +299,41 @@ export default function RestaurantRegisterPage() {
   //     setUploadingImage(false);
   //   }
   // };
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+const handleImageUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
 
-    if (uploadedImages.length >= 6) {
-      toast.error("You can upload a maximum of 6 images");
-      return;
-    }
+  if (uploadedImages.length >= 6) {
+    toast.error("You can upload a maximum of 6 images");
+    return;
+  }
 
-    const file = files[0];
+  const file = files[0];
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Invalid image file");
-      return;
-    }
+  if (!file.type.startsWith("image/")) {
+    toast.error("Invalid image file");
+    return;
+  }
 
-    // if (file.size > 5 * 1024 * 1024) {
-    //   toast.error("File size exceeds 5MB");
-    //   return;
-    // }
-    // setUploadingImage(true);
-    try {
-      await restaurantImageUpload.upload(file);
-    } catch {
-      toast.error("Failed to upload image");
-    }
-  };
+  // if (file.size > 5 * 1024 * 1024) {
+  //   toast.error("File size exceeds 5MB");
+  //   return;
+  // }
+  // setUploadingImage(true);
+  try {
+    await restaurantImageUpload.upload(file);
+  } catch {
+    toast.error("Failed to upload image");
+  }
+};
   // Modify the removeImage function to delete from Azure
   const removeImage = async (index: number) => {
     try {
       const imageUrl = uploadedImages[index];
       if (!imageUrl.includes("raffilybusiness")) {
-        await restaurantImageUpload.remove(imageUrl);
+       await restaurantImageUpload.remove(imageUrl);
       }
 
       setUploadedImages((prev) => prev.filter((_, i) => i !== index));
@@ -554,19 +385,18 @@ export default function RestaurantRegisterPage() {
   //   }
   // };
 
+
   // const handlePdfDelete = (url: string) => {
   //   setPdfToDelete(url);
   //   setIsConfirmDeleteModalOpen(true);
   // };
 
-  const menuPdfUpload = useImageUpload({
+ const menuPdfUpload = useImageUpload({
     preset: "menuPdf",
-    onSuccess: (url) => setMenuPdfUrls((prev) => [...prev, url]),
+    onSuccess: (url) => setMenuPdfUrls(prev => [...prev, url]),
   });
-
-  const handleMenuPdfUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  
+  const handleMenuPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     const files = Array.from(e.target.files);
     console.log("Selected files for PDF upload:", files);
@@ -595,17 +425,16 @@ export default function RestaurantRegisterPage() {
     const newErrors = { ...errors };
 
     if (!formData.restaurantName.trim()) {
-      newErrors.restaurantName = "Restaurant name is required";
+      newErrors.restaurantName = 'Restaurant name is required';
       valid = false;
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = "Description is required";
+      newErrors.description = 'Description is required';
       valid = false;
     }
 
-    if (selectedCategories.length === 0) {
-      // ✅ Updated validation
+    if (selectedCategories.length === 0) { // ✅ Updated validation
       newErrors.category = "At least one Cuisine Type is required";
       valid = false;
     } else if (selectedCategories.length > 2) {
@@ -628,45 +457,45 @@ export default function RestaurantRegisterPage() {
     const newErrors = { ...errors };
 
     if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
+      newErrors.address = 'Address is required';
       valid = false;
     }
 
     if (!formData.city.trim()) {
-      newErrors.city = "City is required";
+      newErrors.city = 'City is required';
       valid = false;
     }
 
     if (!formData.zipCode.trim()) {
-      newErrors.zipCode = "Zip/Postal Code is required";
+      newErrors.zipCode = 'Zip/Postal Code is required';
       valid = false;
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
+      newErrors.phone = 'Phone number is required';
       valid = false;
     } else if (formData.phone.length < 10) {
-      newErrors.phone = "Phone number must be at least 10 digits";
+      newErrors.phone = 'Phone number must be at least 10 digits';
       valid = false;
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Business email is required";
+      newErrors.email = 'Business email is required';
       valid = false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+      newErrors.email = 'Please enter a valid email address';
       valid = false;
     }
 
     // Add dining options validation
     if (!formData.dineIn && !formData.dineOut) {
-      newErrors.diningOptions = "Please select at least one dining option";
+      newErrors.diningOptions = 'Please select at least one dining option';
       valid = false;
     } else {
-      newErrors.diningOptions = "";
+      newErrors.diningOptions = '';
     }
 
     setErrors(newErrors);
@@ -679,61 +508,58 @@ export default function RestaurantRegisterPage() {
     setShowValidationErrors(true); // Show validation errors when validation is triggered
 
     if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
+      newErrors.firstName = 'First name is required';
       valid = false;
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
+      newErrors.lastName = 'Last name is required';
       valid = false;
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
+      newErrors.email = 'Email is required';
       valid = false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+      newErrors.email = 'Please enter a valid email address';
       valid = false;
     }
 
     if (!formData.password) {
-      newErrors.password = "Password is required";
+      newErrors.password = 'Password is required';
       valid = false;
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters long";
+      newErrors.password = 'Password must be at least 8 characters long';
       valid = false;
     } else {
       // Check for at least one number
       const hasNumber = /\d/.test(formData.password);
       // Check for at least one special character
-      const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(
-        formData.password,
-      );
+      const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password);
 
       if (!hasNumber) {
-        newErrors.password = "Password must contain at least one number";
+        newErrors.password = 'Password must contain at least one number';
         valid = false;
       } else if (!hasSpecialChar) {
-        newErrors.password =
-          "Password must contain at least one special character";
+        newErrors.password = 'Password must contain at least one special character';
         valid = false;
       }
     }
 
     // Password confirmation validation
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
+      newErrors.confirmPassword = 'Please confirm your password';
       valid = false;
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+      newErrors.confirmPassword = 'Passwords do not match';
       valid = false;
     }
 
     if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = "You must agree to the terms and conditions";
+      newErrors.agreeToTerms = 'You must agree to the terms and conditions';
       valid = false;
     }
 
@@ -742,22 +568,22 @@ export default function RestaurantRegisterPage() {
   };
 
   const nextStep = () => {
-    if (step === 1 && !validateStep1()) return;
-    if (step === 2 && !validateStep2()) return;
+    if (step === 1 && !validateStep1()) return
+    if (step === 2 && !validateStep2()) return
 
-    window.scrollTo(0, 0);
-    setStep(step + 1);
-    setProgress((step / 3) * 100);
-  };
+    window.scrollTo(0, 0)
+    setStep(step + 1)
+    setProgress((step / 3) * 100)
+  }
 
   const prevStep = () => {
-    window.scrollTo(0, 0);
-    setStep(step - 1);
-    setProgress(((step - 2) / 3) * 100);
-  };
+    window.scrollTo(0, 0)
+    setStep(step - 1)
+    setProgress(((step - 2) / 3) * 100)
+  }
 
   const handleSubmit = async () => {
-    if (!validateStep3()) return;
+    if (!validateStep3()) return
     if (formData.images.length === 0) {
       toast.error("Please upload at least one image");
       return;
@@ -777,27 +603,28 @@ export default function RestaurantRegisterPage() {
           menuPdfUrls: menuPdfUrls,
           searchTags: selectedTags,
         }),
-      });
+      })
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Registration error:", errorData);
-        throw new Error(errorData.message || "Registration failed");
+        const errorData = await response.json()
+        console.error("Registration error:", errorData)
+        throw new Error(errorData.message || "Registration failed")
       }
-      toast.success("Restaurant registered successfully!");
+      toast.success("Restaurant registered successfully!")
 
       // Move to success step
-      console.log("Registration error:");
+      console.log("Registration error:")
 
-      setStep(4);
-      setProgress(100);
+      setStep(4)
+      setProgress(100)
     } catch (error: any) {
-      console.log("Registration error:", error);
-      toast.error(error.message || "Registration failed. Please try again.");
+      console.log("Registration error:", error)
+      toast.error(error.message || "Registration failed. Please try again.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
+
 
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) => {
@@ -823,7 +650,7 @@ export default function RestaurantRegisterPage() {
 
     // Check if already exists
     const existing = allTags.find(
-      (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
+      (t) => t.name.toLowerCase() === trimmed.toLowerCase()
     );
 
     if (existing) {
@@ -876,13 +703,7 @@ export default function RestaurantRegisterPage() {
     <div className="relative min-h-screen flex flex-col">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/restaurant-patio.webp"
-          alt="Restaurant background"
-          fill
-          className="object-cover"
-          priority
-        />
+        <Image src="/images/restaurant-patio.webp" alt="Restaurant background" fill className="object-cover" priority />
         <div className="absolute inset-0 bg-black/60"></div>
       </div>
 
@@ -906,13 +727,9 @@ export default function RestaurantRegisterPage() {
             {/* Progress bar */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-white">
-                  Registration Progress
-                </span>
+                <span className="text-sm font-medium text-white">Registration Progress</span>
                 {/* <span className="text-sm font-medium text-white">{progress}%</span> */}
-                <span className="text-sm font-medium text-white">
-                  {Math.round(progress)}%
-                </span>
+                <span className="text-sm font-medium text-white">{Math.round(progress)}%</span>
               </div>
               <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                 <div
@@ -931,17 +748,13 @@ export default function RestaurantRegisterPage() {
                   >
                     1
                   </div>
-                  <div
-                    className={`h-1 flex-1 ${step >= 2 ? "bg-red-600" : "bg-gray-200"}`}
-                  ></div>
+                  <div className={`h-1 flex-1 ${step >= 2 ? "bg-red-600" : "bg-gray-200"}`}></div>
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${step >= 2 ? "bg-red-600 text-white" : "bg-gray-200 text-gray-500"}`}
                   >
                     2
                   </div>
-                  <div
-                    className={`h-1 flex-1 ${step >= 3 ? "bg-red-600" : "bg-gray-200"}`}
-                  ></div>
+                  <div className={`h-1 flex-1 ${step >= 3 ? "bg-red-600" : "bg-gray-200"}`}></div>
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${step >= 3 ? "bg-red-600 text-white" : "bg-gray-200 text-gray-500"}`}
                   >
@@ -956,30 +769,22 @@ export default function RestaurantRegisterPage() {
                 <>
                   <CardHeader>
                     <CardTitle>Restaurant Information</CardTitle>
-                    <CardDescription>
-                      Tell us about your restaurant
-                    </CardDescription>
+                    <CardDescription>Tell us about your restaurant</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="restaurantName">Restaurant Name</Label>
                       <div className="relative">
-                        <Building2
-                          className={`absolute left-3 ${errors.restaurantName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                        />
+                        <Building2 className={`absolute left-3 ${errors.restaurantName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                         <Input
                           type="text"
                           maxLength={40}
                           id="restaurantName"
-                          className={`pl-10 ${errors.restaurantName ? "border-red-500" : ""}`}
+                          className={`pl-10 ${errors.restaurantName ? 'border-red-500' : ''}`}
                           value={formData.restaurantName}
                           onChange={handleChange}
                         />
-                        {errors.restaurantName && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.restaurantName}
-                          </p>
-                        )}
+                        {errors.restaurantName && <p className="text-red-500 text-xs mt-1">{errors.restaurantName}</p>}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -989,21 +794,17 @@ export default function RestaurantRegisterPage() {
                         placeholder="Tell customers about your restaurant"
                         rows={4}
                         maxLength={500}
-                        className={` ${errors.description ? "border-red-500" : ""}`}
+                        className={` ${errors.description ? 'border-red-500' : ''}`}
                         value={formData.description}
                         onChange={handleChange}
                       />
-                      {errors.description && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.description}
-                        </p>
-                      )}
+                      {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
                       <p className="text-xs text-gray-500">
-                        Describe your restaurant's atmosphere, cuisine style,
-                        and what makes it special.
+                        Describe your restaurant's atmosphere, cuisine style, and what makes it special.
                       </p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+
                       <div className="space-y-2">
                         <Label htmlFor="category">Cuisine Type</Label>
                         <ReactSelect
@@ -1017,9 +818,7 @@ export default function RestaurantRegisterPage() {
                             // { value: "other", label: "+ Other " }
                           ]}
                           value={categories
-                            .filter((category: any) =>
-                              selectedCategories.includes(category.id),
-                            )
+                            .filter((category: any) => selectedCategories.includes(category.id))
                             .map((category: any) => ({
                               value: category.id,
                               label: category.name,
@@ -1029,63 +828,39 @@ export default function RestaurantRegisterPage() {
                           onChange={(selectedOptions: any) => {
                             if (!selectedOptions) {
                               setSelectedCategories([]);
-                              setFormData((prev) => ({
-                                ...prev,
-                                category: [],
-                              }));
-                              setErrors((prev) => ({ ...prev, category: "" }));
+                              setFormData((prev) => ({ ...prev, category: [] }));
+                              setErrors((prev) => ({ ...prev, category: '' }));
                               return;
                             }
 
-                            const selectedIds = selectedOptions.map(
-                              (option: any) => option.value,
-                            );
+                            const selectedIds = selectedOptions.map((option: any) => option.value);
 
                             // Check if trying to select more than 2 categories
                             if (selectedIds.length > 2) {
-                              setErrors((prev) => ({
-                                ...prev,
-                                category:
-                                  "You can select only up to 2 categories",
-                              }));
+                              setErrors((prev) => ({ ...prev, category: 'You can select only up to 2 categories' }));
                               return; // Prevent the selection
                             }
 
                             if (selectedIds.includes("other")) {
                               setShowAddCuisineModal(true);
-                              const filteredIds = selectedIds.filter(
-                                (id: any) => id !== "other",
-                              );
+                              const filteredIds = selectedIds.filter((id: any) => id !== "other");
 
                               // Check again after filtering out "other"
                               if (filteredIds.length > 2) {
-                                setErrors((prev) => ({
-                                  ...prev,
-                                  category:
-                                    "You can select only up to 2 categories",
-                                }));
+                                setErrors((prev) => ({ ...prev, category: 'You can select only up to 2 categories' }));
                                 return;
                               }
 
                               setSelectedCategories(filteredIds);
-                              setFormData((prev) => ({
-                                ...prev,
-                                category: filteredIds,
-                              }));
+                              setFormData((prev) => ({ ...prev, category: filteredIds }));
                             } else {
                               setSelectedCategories(selectedIds);
-                              setFormData((prev) => ({
-                                ...prev,
-                                category: selectedIds,
-                              }));
+                              setFormData((prev) => ({ ...prev, category: selectedIds }));
                             }
 
                             // Clear errors if selection is valid
-                            if (
-                              selectedIds.length > 0 &&
-                              selectedIds.length <= 2
-                            ) {
-                              setErrors((prev) => ({ ...prev, category: "" }));
+                            if (selectedIds.length > 0 && selectedIds.length <= 2) {
+                              setErrors((prev) => ({ ...prev, category: '' }));
                             }
                           }}
                           placeholder="Select up to 2 Cuisine Types"
@@ -1093,35 +868,16 @@ export default function RestaurantRegisterPage() {
                           styles={{
                             option: (provided, state) => ({
                               ...provided,
-                              color:
-                                state.data.value === "other"
-                                  ? "#dc2626"
-                                  : provided.color,
-                              fontWeight:
-                                state.data.value === "other"
-                                  ? "600"
-                                  : provided.fontWeight,
-                              borderTop:
-                                state.data.value === "other"
-                                  ? "1px solid #e5e7eb"
-                                  : provided.borderTop,
-                              paddingTop:
-                                state.data.value === "other"
-                                  ? "8px"
-                                  : provided.paddingTop,
-                              marginTop:
-                                state.data.value === "other"
-                                  ? "4px"
-                                  : provided.marginTop,
-                              cursor: "pointer",
+                              color: state.data.value === "other" ? "#dc2626" : provided.color,
+                              fontWeight: state.data.value === "other" ? "600" : provided.fontWeight,
+                              borderTop: state.data.value === "other" ? "1px solid #e5e7eb" : provided.borderTop,
+                              paddingTop: state.data.value === "other" ? "8px" : provided.paddingTop,
+                              marginTop: state.data.value === "other" ? "4px" : provided.marginTop,
+                              cursor: "pointer"
                             }),
                           }}
                         />
-                        {errors.category && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.category}
-                          </p>
-                        )}
+                        {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                       </div>
                     </div>
 
@@ -1200,10 +956,7 @@ export default function RestaurantRegisterPage() {
                       <Label>Restaurant Photos (Max 6)</Label>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {uploadedImages.map((image, index) => (
-                          <div
-                            key={index}
-                            className="relative aspect-square bg-gray-100 rounded-md overflow-hidden"
-                          >
+                          <div key={index} className="relative aspect-square bg-gray-100 rounded-md overflow-hidden">
                             <Image
                               src={image || "/placeholder.svg"}
                               alt={`Restaurant image ${index + 1}`}
@@ -1234,25 +987,21 @@ export default function RestaurantRegisterPage() {
                             ) : (
                               <>
                                 <Upload className="h-8 w-8 text-gray-400" />
-                                <span className="text-sm text-gray-500 mt-2">
-                                  Add Photo
-                                </span>
+                                <span className="text-sm text-gray-500 mt-2">Add Photo</span>
                               </>
                             )}
                           </label>
                         )}
                       </div>
                       <p className="text-xs text-gray-500">
-                        Upload photos of your restaurant, food, and ambiance.
-                        High-quality images attract more customers.
+                        Upload photos of your restaurant, food, and ambiance. High-quality images attract more
+                        customers.
                       </p>
                     </div>
+
                   </CardContent>
                   <CardFooter className="flex justify-end">
-                    <Button
-                      onClick={nextStep}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
+                    <Button onClick={nextStep} className="bg-red-600 hover:bg-red-700">
                       <div className="flex items-center">
                         Continue <ArrowRight className="ml-2 h-4 w-4" />
                       </div>
@@ -1265,9 +1014,7 @@ export default function RestaurantRegisterPage() {
                 <>
                   <CardHeader>
                     <CardTitle>Contact & Location</CardTitle>
-                    <CardDescription>
-                      Where can customers find you?
-                    </CardDescription>
+                    <CardDescription>Where can customers find you?</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -1276,44 +1023,30 @@ export default function RestaurantRegisterPage() {
                         isMulti
                         name="areas"
                         options={areas || []}
-                        value={areas.filter((area: any) =>
-                          selectedAreas.includes(area.value),
-                        )} // Match selected areas
+                        value={areas.filter((area: any) => selectedAreas.includes(area.value))} // Match selected areas
                         className="basic-multi-select"
                         classNamePrefix="select"
                         onChange={(selectedOptions: any) => {
-                          const selectedIds = selectedOptions.map(
-                            (option: any) => option.value,
-                          );
+                          const selectedIds = selectedOptions.map((option: any) => option.value);
                           setSelectedAreas(selectedIds);
                         }}
                       />
-                      {errors.area && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.area}
-                        </p>
-                      )}
+                      {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
                       <div className="relative">
-                        <MapPin
-                          className={`absolute left-3 ${errors.address ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                        />
+                        <MapPin className={`absolute left-3 ${errors.address ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                         <Input
                           id="address"
                           type="text"
                           maxLength={100}
                           placeholder="Enter your address"
-                          className={`pl-10 ${errors.address ? "border-red-500" : ""}`}
+                          className={`pl-10 ${errors.address ? 'border-red-500' : ''}`}
                           value={formData.address}
                           onChange={handleChange}
                         />
-                        {errors.address && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.address}
-                          </p>
-                        )}
+                        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1323,15 +1056,11 @@ export default function RestaurantRegisterPage() {
                           id="city"
                           maxLength={25}
                           placeholder="Enter your town or area"
-                          className={` ${errors.city ? "border-red-500" : ""}`}
+                          className={` ${errors.city ? 'border-red-500' : ''}`}
                           value={formData.city}
                           onChange={handleChange}
                         />
-                        {errors.city && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.city}
-                          </p>
-                        )}
+                        {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="zipCode">Zip/Postal Code</Label>
@@ -1339,7 +1068,7 @@ export default function RestaurantRegisterPage() {
                           id="zipCode"
                           maxLength={10}
                           placeholder="Enter your zip code"
-                          className={`${errors.zipCode ? "border-red-500" : ""}`}
+                          className={`${errors.zipCode ? 'border-red-500' : ''}`}
                           value={formData.zipCode}
                           onChange={(e) => {
                             const value = e.target.value.toUpperCase();
@@ -1360,38 +1089,12 @@ export default function RestaurantRegisterPage() {
                           }}
                         />
                         {errors.zipCode && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.zipCode}
-                          </p>
+                          <p className="text-red-500 text-xs mt-1">{errors.zipCode}</p>
                         )}
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <Label className="text-base">Location on map</Label>
-                        {geocodeLoading && (
-                          <span className="text-xs text-muted-foreground">
-                            Looking up postcode…
-                          </span>
-                        )}
-                        {reverseGeocodeLoading && (
-                          <span className="text-xs text-muted-foreground">
-                            Resolving address…
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Enter a <strong>UK postcode</strong> to centre the map,
-                        or <strong>click the map</strong> to drop a pin to fill
-                        address, town, and postcode when possible.
-                      </p>
-                      <JoinRestaurantLocationMap
-                        pin={mapPin}
-                        onPick={handleMapLocationPick}
-                      />
-                    </div>
 
+                    </div>
                     {/*<div className="space-y-2">
                       <Label htmlFor="addressLink">Address Location URL</Label>
                       <div className="relative">
@@ -1406,20 +1109,18 @@ export default function RestaurantRegisterPage() {
                         />
                         {errors.addressLink && <p className="text-red-500 text-xs mt-1">{errors.addressLink}</p>}
                       </div>
-                    </div>*/}
+                    </div>*/ }
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
                         <div className="relative">
-                          <Phone
-                            className={`absolute left-3 ${errors.phone ? "top-1/3" : "top-1/2"} transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                          />
+                          <Phone className={`absolute left-3 ${errors.phone ? "top-1/3" : "top-1/2"} transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                           <Input
                             id="phone"
                             placeholder="Enter restaurant number"
                             maxLength={11}
                             pattern="[0-9]*"
-                            className={`pl-10 ${errors.phone ? "border-red-500" : ""}`}
+                            className={`pl-10 ${errors.phone ? 'border-red-500' : ''}`}
                             value={formData.phone}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -1430,57 +1131,39 @@ export default function RestaurantRegisterPage() {
                             }}
                           />
 
-                          {errors.phone && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.phone}
-                            </p>
-                          )}
+                          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                         </div>
-                        <span className="text-xs text-gray-500">
-                          This number is for bookings and enquiries.
-                        </span>
+                        <span className="text-xs text-gray-500">This number is for bookings and enquiries.</span>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="email">Business Email</Label>
                         <div className="relative">
-                          <Mail
-                            className={`absolute left-3 ${errors.email ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                          />
+                          <Mail className={`absolute left-3 ${errors.email ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                           <Input
                             id="email"
                             type="email"
                             placeholder="Enter your email"
-                            className={`pl-10 ${errors.email ? "border-red-500" : ""}`}
+                            className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
                             value={formData.email}
                             onChange={handleChange}
                           />
-                          {errors.email && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.email}
-                            </p>
-                          )}
+                          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                         </div>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="website">Website (Optional)</Label>
                       <div className="relative">
-                        <Globe
-                          className={`absolute left-3 ${errors.website ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                        />
+                        <Globe className={`absolute left-3 ${errors.website ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                         <Input
                           id="website"
                           type="url"
                           maxLength={200}
-                          className={`pl-10 ${errors.website ? "border-red-500" : ""}`}
+                          className={`pl-10 ${errors.website ? 'border-red-500' : ''}`}
                           value={formData.website}
                           onChange={handleChange}
                         />
-                        {errors.website && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.website}
-                          </p>
-                        )}
+                        {errors.website && <p className="text-red-500 text-xs mt-1">{errors.website}</p>}
                       </div>
                     </div>
 
@@ -1492,23 +1175,14 @@ export default function RestaurantRegisterPage() {
                             id="dineIn"
                             checked={formData.dineIn}
                             onCheckedChange={(checked) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                dineIn: checked === true,
-                              }));
+                              setFormData((prev) => ({ ...prev, dineIn: checked === true }));
                               // Clear error when user makes a selection
                               if (checked || formData.dineOut) {
-                                setErrors((prev) => ({
-                                  ...prev,
-                                  diningOptions: "",
-                                }));
+                                setErrors((prev) => ({ ...prev, diningOptions: '' }));
                               }
                             }}
                           />
-                          <Label
-                            htmlFor="dineIn"
-                            className="text-sm font-normal"
-                          >
+                          <Label htmlFor="dineIn" className="text-sm font-normal">
                             Dine In (customers can eat at your restaurant)
                           </Label>
                         </div>
@@ -1517,35 +1191,23 @@ export default function RestaurantRegisterPage() {
                             id="dineOut"
                             checked={formData.dineOut}
                             onCheckedChange={(checked) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                dineOut: checked === true,
-                              }));
+                              setFormData((prev) => ({ ...prev, dineOut: checked === true }));
                               // Clear error when user makes a selection
                               if (checked || formData.dineIn) {
-                                setErrors((prev) => ({
-                                  ...prev,
-                                  diningOptions: "",
-                                }));
+                                setErrors((prev) => ({ ...prev, diningOptions: '' }));
                               }
                             }}
                           />
-                          <Label
-                            htmlFor="dineOut"
-                            className="text-sm font-normal"
-                          >
+                          <Label htmlFor="dineOut" className="text-sm font-normal">
                             Takeaway (customers can take food away)
                           </Label>
                         </div>
                       </div>
                       {errors.diningOptions && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.diningOptions}
-                        </p>
+                        <p className="text-red-500 text-xs mt-1">{errors.diningOptions}</p>
                       )}
                       <p className="text-xs text-gray-500">
-                        Select at least one dining option that your restaurant
-                        offers
+                        Select at least one dining option that your restaurant offers
                       </p>
                     </div>
 
@@ -1556,18 +1218,11 @@ export default function RestaurantRegisterPage() {
                           id="deliveryAvailable"
                           checked={formData.deliveryAvailable}
                           onCheckedChange={(checked) => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              deliveryAvailable: checked === true,
-                            }));
+                            setFormData((prev) => ({ ...prev, deliveryAvailable: checked === true }));
                           }}
                         />
-                        <Label
-                          htmlFor="deliveryAvailable"
-                          className="text-sm font-normal"
-                        >
-                          Delivery Available (we offer delivery service to
-                          customers)
+                        <Label htmlFor="deliveryAvailable" className="text-sm font-normal">
+                          Delivery Available (we offer delivery service to customers)
                         </Label>
                       </div>
                       <p className="text-xs text-gray-500">
@@ -1579,10 +1234,7 @@ export default function RestaurantRegisterPage() {
                     <Button variant="outline" onClick={prevStep}>
                       Back
                     </Button>
-                    <Button
-                      onClick={nextStep}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
+                    <Button onClick={nextStep} className="bg-red-600 hover:bg-red-700">
                       <div className="flex items-center">
                         Continue <ArrowRight className="ml-2 h-4 w-4" />
                       </div>
@@ -1595,82 +1247,61 @@ export default function RestaurantRegisterPage() {
                 <>
                   <CardHeader>
                     <CardTitle>Account Setup</CardTitle>
-                    <CardDescription>
-                      Create your account to manage your restaurant
-                    </CardDescription>
+                    <CardDescription>Create your account to manage your restaurant</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
                         <div className="relative">
-                          <User
-                            className={`absolute left-3 ${errors.firstName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                          />
+                          <User className={`absolute left-3 ${errors.firstName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                           <Input
                             id="firstName"
                             maxLength={50}
                             required
                             placeholder="Enter your first name"
-                            className={`pl-10 ${errors.firstName ? "border-red-500" : ""}`}
+                            className={`pl-10 ${errors.firstName ? 'border-red-500' : ''}`}
                             value={formData.firstName}
                             onChange={handleChange}
                           />
-                          {errors.firstName && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.firstName}
-                            </p>
-                          )}
+                          {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Last Name</Label>
                         <div className="relative">
-                          <User
-                            className={`absolute left-3 ${errors.lastName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                          />
+                          <User className={`absolute left-3 ${errors.lastName ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                           <Input
                             id="lastName"
                             maxLength={50}
                             required
                             placeholder="Enter your last name"
-                            className={`pl-10 ${errors.lastName ? "border-red-500" : ""}`}
+                            className={`pl-10 ${errors.lastName ? 'border-red-500' : ''}`}
                             value={formData.lastName}
                             onChange={handleChange}
                           />
-                          {errors.lastName && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.lastName}
-                            </p>
-                          )}
+                          {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                         </div>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="accountEmail">Email</Label>
                       <div className="relative">
-                        <Mail
-                          className={`absolute left-3 ${errors.email ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`}
-                        />
+                        <Mail className={`absolute left-3 ${errors.email ? "top-1/3" : "top-1/2"}  transform -translate-y-1/2 text-gray-400 h-5 w-5`} />
                         <Input
                           id="email"
                           type="email"
                           maxLength={50}
                           required
                           placeholder="Enter your email"
-                          className={`pl-10 ${errors.email ? "border-red-500" : ""}`}
+                          className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
                           value={formData.email}
                           onChange={handleChange}
                         />
-                        {errors.email && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.email}
-                          </p>
-                        )}
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                       </div>
                       <p className="text-xs text-gray-500">
-                        This will be your login email and where we'll send
-                        important updates.
+                        This will be your login email and where we'll send important updates.
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -1692,9 +1323,7 @@ export default function RestaurantRegisterPage() {
                         <button
                           type="button"
                           className={`absolute right-3 ${errors.password ? "top-1/3" : "top-1/2"} transform -translate-y-1/2 text-gray-400`}
-                          onClick={() =>
-                            setIsPasswordVisible(!isPasswordVisible)
-                          }
+                          onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                         >
                           {isPasswordVisible ? (
                             <EyeOff className="h-5 w-5" />
@@ -1703,15 +1332,12 @@ export default function RestaurantRegisterPage() {
                           )}
                         </button>
                         {errors.password && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.password}
-                          </p>
+                          <p className="text-red-500 text-xs mt-1">{errors.password}</p>
                         )}
                       </div>
 
                       <p className="text-xs text-gray-500">
-                        Must be at least 8 characters with a number and special
-                        character.
+                        Must be at least 8 characters with a number and special character.
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -1734,9 +1360,7 @@ export default function RestaurantRegisterPage() {
                           type="button"
                           className={`absolute right-3 ${errors.confirmPassword ? "top-1/3" : "top-1/2"} transform -translate-y-1/2 text-gray-400`}
                           onClick={() =>
-                            setIsConfirmPasswordVisible(
-                              !isConfirmPasswordVisible,
-                            )
+                            setIsConfirmPasswordVisible(!isConfirmPasswordVisible)
                           }
                         >
                           {isConfirmPasswordVisible ? (
@@ -1746,9 +1370,7 @@ export default function RestaurantRegisterPage() {
                           )}
                         </button>
                         {errors.confirmPassword && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.confirmPassword}
-                          </p>
+                          <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
                         )}
                       </div>
                     </div>
@@ -1773,10 +1395,7 @@ export default function RestaurantRegisterPage() {
                       {menuPdfUrls.length > 0 && (
                         <div className="space-y-1 mt-2">
                           {menuPdfUrls.map((url, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center space-x-2 text-sm"
-                            >
+                            <div key={index} className="flex items-center space-x-2 text-sm">
                               <a
                                 href={url}
                                 target="_blank"
@@ -1806,56 +1425,31 @@ export default function RestaurantRegisterPage() {
                           ))}
                         </div>
                       )}
-                      <p className="text-xs text-gray-500">
-                        Upload one or more menu PDFs (max 10MB each).
-                      </p>
+                      <p className="text-xs text-gray-500">Upload one or more menu PDFs (max 10MB each).</p>
                     </div>
 
                     <div className="items-center space-x-2 pt-2 ">
                       <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="terms"
-                          checked={formData.agreeToTerms}
-                          onCheckedChange={handleCheckboxChange}
-                        />
+                        <Checkbox id="terms" checked={formData.agreeToTerms} onCheckedChange={handleCheckboxChange} />
                         <Label htmlFor="terms" className="text-sm">
                           I agree to the{" "}
-                          <Link
-                            href="/terms"
-                            target="_blank"
-                            className="text-red-600 hover:underline"
-                          >
+                          <Link href="/terms" target="_blank" className="text-red-600 hover:underline">
                             Terms of Service
                           </Link>{" "}
                           and{" "}
-                          <Link
-                            href="/privacy"
-                            target="_blank"
-                            className="text-red-600 hover:underline"
-                          >
+                          <Link href="/privacy" target="_blank" className="text-red-600 hover:underline">
                             Privacy Policy
                           </Link>
                         </Label>
                       </div>
-                      {errors.agreeToTerms && (
-                        <p
-                          className="text-red-500 text-xs mt-1"
-                          style={{ marginLeft: "22px" }}
-                        >
-                          {errors.agreeToTerms}
-                        </p>
-                      )}
+                      {errors.agreeToTerms && <p className="text-red-500 text-xs mt-1" style={{ marginLeft: '22px' }}>{errors.agreeToTerms}</p>}
                     </div>
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <Button variant="outline" onClick={prevStep}>
                       Back
                     </Button>
-                    <Button
-                      onClick={handleSubmit}
-                      className="bg-red-600 hover:bg-red-700"
-                      disabled={isLoading}
-                    >
+                    <Button onClick={handleSubmit} className="bg-red-600 hover:bg-red-700" disabled={isLoading}>
                       {isLoading ? (
                         <div className="flex items-center">
                           <svg
@@ -1882,8 +1476,7 @@ export default function RestaurantRegisterPage() {
                         </div>
                       ) : (
                         <div className="flex items-center">
-                          Complete Registration{" "}
-                          <ArrowRight className="ml-2 h-4 w-4" />
+                          Complete Registration <ArrowRight className="ml-2 h-4 w-4" />
                         </div>
                       )}
                     </Button>
@@ -1897,36 +1490,18 @@ export default function RestaurantRegisterPage() {
                     <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 p-3">
                       <Check className="h-10 w-10 text-green-600" />
                     </div>
-                    <CardTitle className="text-2xl">
-                      Registration Complete!
-                    </CardTitle>
-                    <CardDescription>
-                      Your restaurant has been successfully registered.
-                    </CardDescription>
+                    <CardTitle className="text-2xl">Registration Complete!</CardTitle>
+                    <CardDescription>Your restaurant has been successfully registered.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 text-center">
                     <p>Thank you for joining Eatinout!</p>
-                    <p>
-                      Your profile is being reviewed by our team, but you can
-                      immediately start adding offers — no need to wait!
-                    </p>
+                    <p>Your profile is being reviewed by our team, but you can immediately start adding offers — no need to wait!</p>
                     <div className="rounded-lg bg-gray-50 p-4">
                       <h3 className="font-medium mb-2">What happens next?</h3>
                       <ol className="text-sm text-gray-600 space-y-2 text-left list-decimal pl-4">
-                        <li>
-                          {" "}
-                          You can now log in to your dashboard and start
-                          creating exclusive offers.
-                        </li>
-                        <li>
-                          Our team will review your profile in the background
-                          (usually within 24 hours).
-                        </li>
-                        <li>
-                          {" "}
-                          You'll get an email confirmation once your profile is
-                          approved.
-                        </li>
+                        <li>  You can now log in to your dashboard and start creating exclusive offers.</li>
+                        <li>Our team will review your profile in the background (usually within 24 hours).</li>
+                        <li> You'll get an email confirmation once your profile is approved.</li>
                       </ol>
                     </div>
                   </CardContent>
@@ -1945,9 +1520,7 @@ export default function RestaurantRegisterPage() {
             {/* Benefits sidebar - only show on steps 1-3 */}
             {step < 4 && (
               <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white">
-                <h3 className="font-medium text-lg mb-4">
-                  Benefits of joining Eatinout
-                </h3>
+                <h3 className="font-medium text-lg mb-4">Benefits of joining Eatinout</h3>
                 <ul className="space-y-3">
                   <li className="flex items-start">
                     <Check className="h-5 w-5 mr-2 text-green-400 shrink-0 mt-0.5" />
@@ -2083,20 +1656,21 @@ export default function RestaurantRegisterPage() {
       <ConfirmDeleteModal
         open={isConfirmDeleteModalOpen}
         onClose={() => {
-          setIsConfirmDeleteModalOpen(false);
-          setPdfIndexToDelete(null);
+          setIsConfirmDeleteModalOpen(false)
+          setPdfIndexToDelete(null)
         }}
         title="Delete Menu PDF?"
         description="Are you sure you want to delete this menu PDF?"
         onConfirm={async () => {
-          if (pdfIndexToDelete === null) return;
+          if (pdfIndexToDelete === null) return
 
-          await removeMenuPdf(pdfIndexToDelete);
+          await removeMenuPdf(pdfIndexToDelete)
 
-          setIsConfirmDeleteModalOpen(false);
-          setPdfIndexToDelete(null);
+          setIsConfirmDeleteModalOpen(false)
+          setPdfIndexToDelete(null)
         }}
       />
     </div>
-  );
+  )
 }
+

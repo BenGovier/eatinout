@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         .populate({
           path: "restaurants.restaurantId",
           select:
-            "name slug images area cuisine rating dineIn dineOut priceRange category searchTags zipCode city homePin areaPins createdAt",
+            "name images area cuisine rating dineIn dineOut priceRange category searchTags zipCode city homePin areaPins createdAt",
         })
         .lean(),
 
@@ -184,17 +184,17 @@ export async function GET(req: NextRequest) {
             restaurant.name
               ?.toLowerCase()
               .includes(search.toLowerCase()) ||
-            restaurantCategoryIds.some((id: string) =>
+            restaurantCategoryIds.some((id) =>
               searchCategoryIds.includes(id)
             ) ||
-            restaurantTagIds.some((id: string) =>
+            restaurantTagIds.some((id) =>
               searchTagIds.includes(id)
             );
 
           if (!matchesSearch) return null;
 
           if (selectedCategoryIds.length > 0) {
-            const hasCategory = restaurantCategoryIds.some((id: string) =>
+            const hasCategory = restaurantCategoryIds.some((id) =>
               selectedCategoryIds.includes(id)
             );
             if (!hasCategory) return null;
@@ -319,8 +319,8 @@ function getRestaurantPinMeta(restaurant: any, areaId?: string | null) {
 }
 
 function sortOffersByPinning(offers: any[]) {
-  const pinned: any[] = [];
-  const normal: any[] = [];
+  const pinned = [];
+  const normal = [];
 
   offers.forEach((o) => {
     if (o.isPinned) pinned.push(o);

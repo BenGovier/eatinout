@@ -1,7 +1,6 @@
 "use client"
 import type React from "react"
-import { useState, useEffect, useRef, useMemo } from "react"
-import dynamic from "next/dynamic"
+import { useState, useEffect,useRef } from "react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -20,20 +19,6 @@ import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal"
 import { Badge } from "@/components/ui/badge"
 import { useImageUpload } from "@/hooks/use-image-upload"
 import { Spinner } from "@/components/ui/spinner";
-
-const JoinRestaurantLocationMap = dynamic(
-  () => import("@/components/join-restaurant-location-map"),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="h-[240px] w-full animate-pulse rounded-xl border border-gray-200 bg-gray-100 md:h-[280px]"
-        aria-hidden
-      />
-    ),
-  },
-);
-
 export default function RestaurantEditPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("restaurant")
@@ -53,9 +38,6 @@ export default function RestaurantEditPage() {
   const [isAddingCuisine, setIsAddingCuisine] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [pdfIndexToDelete, setPdfIndexToDelete] = useState<number | null>(null);
-  const skipNextForwardPostcodeGeocodeRef = useRef(false);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [reverseGeocodeLoading, setReverseGeocodeLoading] = useState(false);
   const [formData, setFormData] = useState<any>({
     // User data
     firstName: "",
@@ -80,8 +62,6 @@ export default function RestaurantEditPage() {
     deliveryAvailable: false,
     category: [],
     addressLink: "",
-    lat: undefined as number | undefined,
-    lng: undefined as number | undefined,
   })
 
   const [errors, setErrors] = useState({
@@ -113,127 +93,6 @@ export default function RestaurantEditPage() {
   const [allTags, setAllTags] = useState<any[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState("")
-
-  const mapPin = useMemo(() => {
-    if (
-      typeof formData.lat === "number" &&
-      typeof formData.lng === "number" &&
-      Number.isFinite(formData.lat) &&
-      Number.isFinite(formData.lng)
-    ) {
-      return { lat: formData.lat, lng: formData.lng };
-    }
-    return null;
-  }, [formData.lat, formData.lng]);
-
-  useEffect(() => {
-    const zip = (formData.zipCode || "").trim();
-
-    if (skipNextForwardPostcodeGeocodeRef.current) {
-      skipNextForwardPostcodeGeocodeRef.current = false;
-      return;
-    }
-
-    if (zip.length < 5) {
-      setFormData((prev: any) => ({ ...prev, lat: undefined, lng: undefined }));
-      return;
-    }
-
-    let cancelled = false;
-    const t = window.setTimeout(async () => {
-      setGeocodeLoading(true);
-      try {
-        const res = await fetch(
-          `/api/geocode/uk-postcode?postcode=${encodeURIComponent(zip)}`,
-        );
-        const data = (await res.json()) as {
-          success?: boolean;
-          lat?: number;
-          lng?: number;
-          message?: string;
-        };
-        if (cancelled) return;
-        if (
-          res.ok &&
-          data.success &&
-          typeof data.lat === "number" &&
-          typeof data.lng === "number"
-        ) {
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: data.lat,
-            lng: data.lng,
-          }));
-        } else {
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: undefined,
-            lng: undefined,
-          }));
-          if (res.status === 404) {
-            toast.error(data.message || "Postcode not found");
-          } else if (res.status >= 500) {
-            toast.error(data.message || "Postcode lookup failed");
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: undefined,
-            lng: undefined,
-          }));
-          toast.error("Location lookup failed");
-        }
-      } finally {
-        if (!cancelled) setGeocodeLoading(false);
-      }
-    }, 700);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [formData.zipCode]);
-
-  const handleMapLocationPick = async (lat: number, lng: number) => {
-    if (reverseGeocodeLoading) return;
-    setReverseGeocodeLoading(true);
-    setFormData((prev: any) => ({ ...prev, lat, lng }));
-    try {
-      const res = await fetch(
-        `/api/geocode/reverse-uk?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}`,
-      );
-      const data = (await res.json()) as {
-        success?: boolean;
-        lat?: number;
-        lng?: number;
-        postcode?: string;
-        address?: string | null;
-        city?: string | null;
-        message?: string;
-      };
-      if (!res.ok || !data.success) {
-        toast.error(data.message || "Could not resolve address for this point");
-        return;
-      }
-      const pc = data.postcode?.trim() ?? "";
-      skipNextForwardPostcodeGeocodeRef.current = true;
-      setFormData((prev: any) => ({
-        ...prev,
-        lat: typeof data.lat === "number" ? data.lat : lat,
-        lng: typeof data.lng === "number" ? data.lng : lng,
-        zipCode: pc ? pc.toUpperCase() : prev.zipCode,
-        address: data.address?.trim() ? data.address.trim() : prev.address,
-        city: data.city?.trim() ? data.city.trim() : prev.city,
-      }));
-      toast.success("Address filled from map location");
-    } catch {
-      toast.error("Address lookup failed");
-    } finally {
-      setReverseGeocodeLoading(false);
-    }
-  };
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -291,14 +150,6 @@ export default function RestaurantEditPage() {
           deliveryAvailable: data.deliveryAvailable || false,
           category: data.category || [],
           addressLink: data.addressLink || "",
-          lat:
-            typeof data.lat === "number" && Number.isFinite(data.lat)
-              ? data.lat
-              : undefined,
-          lng:
-            typeof data.lng === "number" && Number.isFinite(data.lng)
-              ? data.lng
-              : undefined,
         });
         setSelectedTags(
           Array.isArray(data.searchTags) ? data.searchTags : []
@@ -1267,31 +1118,6 @@ export default function RestaurantEditPage() {
 
                   </div>
 
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label className="text-base">Location on map</Label>
-                    {geocodeLoading && (
-                      <span className="text-xs text-muted-foreground">
-                        Looking up postcode…
-                      </span>
-                    )}
-                    {reverseGeocodeLoading && (
-                      <span className="text-xs text-muted-foreground">
-                        Resolving address…
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Enter a <strong>UK postcode</strong> to centre the map,
-                    or <strong>click the map</strong> to drop a pin to fill
-                    address, town, and postcode when possible.
-                  </p>
-                  <JoinRestaurantLocationMap
-                    pin={mapPin}
-                    onPick={handleMapLocationPick}
-                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
