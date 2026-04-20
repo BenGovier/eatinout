@@ -3,7 +3,6 @@ import Stripe from "stripe";
 import connectToDatabase from "@/lib/mongodb";
 import Voucher from "@/models/Voucher";
 import { verifyAdminToken } from "@/lib/auth-admin";
-import { resolveStripeCouponCheckoutName } from "@/lib/stripe-coupon-display-name";
 
 // Configure route for longer execution time (for self-hosted deployments)
 export const maxDuration = 300; // 5 minutes
@@ -42,24 +41,6 @@ function parseNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseDurationFromRow(
-  value: unknown,
-): "once" | "repeating" | "forever" | null {
-  if (value === null || value === undefined || value === "") return null;
-  const s = String(value).trim().toLowerCase();
-  if (s === "once" || s === "1") return "once";
-  if (s === "forever") return "forever";
-  if (
-    s === "repeating" ||
-    s === "multiple month" ||
-    s === "multiple months" ||
-    s === "multi-month"
-  ) {
-    return "repeating";
-  }
-  return null;
-}
-
 function parseDiscountType(value: unknown): "percentage" | "fixed" {
   if (!value) return "percentage";
   const str = value.toString().trim().toLowerCase();
@@ -84,7 +65,7 @@ async function createVoucherFromRow(row: IncomingRow) {
   const discountValueNum = parseNumber(row.discountValue);
   const maxUsesNum = parseNumber(row.maxUses) ?? 1;
   const validityDaysNum = parseNumber(row.validityDays ?? null);
-  const duration = parseDurationFromRow(row.duration);
+  const duration = (row.duration as IncomingRow["duration"]) || "once";
   const durationInMonthsNum = parseNumber(row.durationInMonths ?? null);
   const isActive = toBoolean(row.isActive ?? true);
   const description = (row.description || "").toString();
@@ -95,20 +76,6 @@ async function createVoucherFromRow(row: IncomingRow) {
     throw new Error("Missing or invalid discountValue");
   }
   if (!maxUsesNum) throw new Error("Missing maxUses");
-  if (!duration) {
-    throw new Error(
-      "Missing or invalid duration (once, repeating, forever, or \"multiple month\")",
-    );
-  }
-  if (duration === "repeating") {
-    if (
-      durationInMonthsNum === null ||
-      !Number.isInteger(durationInMonthsNum) ||
-      durationInMonthsNum < 1
-    ) {
-      throw new Error("durationInMonths is required for repeating duration");
-    }
-  }
   if (!validityDaysNum) throw new Error("Missing validityDays or expiryDate");
 
   const basePrice = 4.99;
@@ -147,13 +114,10 @@ async function createVoucherFromRow(row: IncomingRow) {
   // This saves ~200-300ms per voucher and allows parallel processing
 
   try {
-    const couponName = resolveStripeCouponCheckoutName(code, null);
-
     // Create coupon and promotion code in Stripe
     const coupon = await stripe.coupons.create({
-      name: couponName,
       percent_off: percentOff,
-      duration,
+      duration: duration || "once",
       ...(duration === "repeating" && durationInMonthsNum
         ? { duration_in_months: durationInMonthsNum }
         : {}),
@@ -177,12 +141,9 @@ async function createVoucherFromRow(row: IncomingRow) {
       validityDays: validityDaysNum ?? null,
       isActive,
       description,
-      stripeCouponName: null,
       stripeCouponId: coupon.id,
       stripePromotionCodeId: promotionCode.id,
       calculatedPercentOff: percentOff,
-      duration,
-      durationInMonths: duration === "repeating" ? durationInMonthsNum : null,
     });
 
     await voucher.save();
@@ -236,8 +197,6 @@ async function processBatch(rows: IncomingRow[], batchSize: number = 8) {
             maxUses: rawRow.maxUses,
             validityDays: rawRow.validityDays,
             expiryDate: rawRow.expiryDate,
-            duration: rawRow.duration,
-            durationInMonths: rawRow.durationInMonths,
             isActive: rawRow.isActive,
             description: rawRow.description
           }

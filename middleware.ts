@@ -13,13 +13,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // Alias for marketing links: /signup?... → /sign-up?...
-  if (request.method === "GET" && url.pathname === "/signup") {
-    const dest = new URL("/sign-up", request.url);
-    dest.search = url.search;
-    return NextResponse.redirect(dest);
-  }
-
   return NextResponse.next();
 }
 

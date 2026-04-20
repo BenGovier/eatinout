@@ -13,53 +13,6 @@ import { Edit, Trash2, Check, X, Download, Loader2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
-function toDateInputValue(val: unknown): string {
-  if (val == null || val === "") return "";
-  if (typeof val === "string") {
-    const s = val.trim();
-    return s.length >= 10 ? s.slice(0, 10) : s;
-  }
-  if (val instanceof Date && !isNaN(val.getTime())) {
-    return val.toISOString().slice(0, 10);
-  }
-  try {
-    const d = new Date(val as string | number);
-    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-  } catch {
-    return "";
-  }
-}
-
-function normalizeVoucherDuration(d: unknown): "once" | "repeating" | "forever" {
-  if (d === "repeating" || d === "forever") return d;
-  return "once";
-}
-
-function normalizeDurationInMonths(
-  duration: "once" | "repeating" | "forever",
-  raw: unknown,
-): number {
-  if (duration !== "repeating") return 0;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 0;
-}
-
-function formatVoucherDurationLabel(voucher: {
-  duration?: string | null;
-  durationInMonths?: number | null;
-}): string {
-  const d = voucher.duration;
-  if (d === "forever") return "Forever";
-  if (d === "repeating") {
-    const n = Number(voucher.durationInMonths);
-    if (Number.isFinite(n) && n >= 1) {
-      return `${n} month${n === 1 ? "" : "s"}`;
-    }
-    return "Multiple months";
-  }
-  return "Once";
-}
-
 export default function AdminVouchersPage() {
   const [errors, setErrors] = useState<any>({});
   const [vouchers, setVouchers] = useState<any>([])
@@ -84,8 +37,6 @@ export default function AdminVouchersPage() {
     currentUses: 0,
     expiryDate: "",
     validityDays: 0,
-    duration: "once" as "once" | "repeating" | "forever",
-    durationInMonths: 0,
     isActive: true,
     description: "",
   })
@@ -367,18 +318,6 @@ export default function AdminVouchersPage() {
       }
     }
 
-    if (name === "durationInMonths") {
-      const num = Number(value);
-      if (currentVoucher.duration === "repeating") {
-        if (!num || num < 1 || !Number.isInteger(num)) {
-          newErrors.durationInMonths =
-            "Number of months is required (whole number, at least 1)";
-        } else {
-          delete newErrors.durationInMonths;
-        }
-      }
-    }
-
     setErrors(newErrors);
     setCurrentVoucher({
       ...currentVoucher,
@@ -393,15 +332,6 @@ export default function AdminVouchersPage() {
         [name]: value,
         discountValue: 0
       })
-    } else if (name === "duration") {
-      const next = { ...errors };
-      delete next.durationInMonths;
-      setErrors(next);
-      setCurrentVoucher({
-        ...currentVoucher,
-        duration: value,
-        durationInMonths: value === "repeating" ? currentVoucher.durationInMonths : 0,
-      });
     } else {
       setCurrentVoucher({
         ...currentVoucher,
@@ -412,17 +342,13 @@ export default function AdminVouchersPage() {
 
   const handleEditVoucher = (voucher: any) => {
     setIsEditing(true);
-    const resolvedExpiry: unknown = voucher.resolvedExpiry || voucher.expiryDate;
+    const resolvedExpiry: string | undefined = voucher.resolvedExpiry || voucher.expiryDate;
     const shouldUseExpiry = !Boolean(resolvedExpiry);
     setUseExpiryDate(shouldUseExpiry);
-    const duration = normalizeVoucherDuration(voucher.duration);
-    const durationInMonths = normalizeDurationInMonths(duration, voucher.durationInMonths);
     setCurrentVoucher({
       ...voucher,
-      expiryDate: toDateInputValue(resolvedExpiry),
+      expiryDate: resolvedExpiry ? resolvedExpiry.substring(0, 10) : "",
       validityDays: voucher.validityDays || 0,
-      duration,
-      durationInMonths,
     });
   }
 
@@ -436,8 +362,6 @@ export default function AdminVouchersPage() {
       currentUses: 0,
       expiryDate: "",
       validityDays: 0,
-      duration: "once",
-      durationInMonths: 0,
       isActive: true,
       description: "",
     })
@@ -466,14 +390,6 @@ export default function AdminVouchersPage() {
       }
     }
 
-    if (currentVoucher.duration === "repeating") {
-      const months = Number(currentVoucher.durationInMonths);
-      if (!months || months < 1 || !Number.isInteger(months)) {
-        newErrors.durationInMonths =
-          "Number of months is required (whole number, at least 1)";
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -496,11 +412,6 @@ export default function AdminVouchersPage() {
         ...currentVoucher,
         expiryDate: computedExpiryIso || currentVoucher.expiryDate,
         validityDays: useExpiryDate ? 0 : currentVoucher.validityDays,
-        duration: currentVoucher.duration,
-        durationInMonths:
-          currentVoucher.duration === "repeating"
-            ? Number(currentVoucher.durationInMonths)
-            : null,
       };
 
       if (isEditing) {
@@ -584,14 +495,12 @@ export default function AdminVouchersPage() {
     if (!failedRecords.length) return;
 
     // Create CSV content with all columns
-    const headers = ["Code", "DiscountType", "DiscountValue", "MaxUses", "Duration", "DurationInMonths", "ValidityDays", "Description"];
+    const headers = ["Code", "DiscountType", "DiscountValue", "MaxUses", "ValidityDays", "Description"];
     const rows = failedRecords.map((record: any) => [
       record.data?.code || record.code || "N/A",
       record.data?.discountType || "",
       record.data?.discountValue || "",
       record.data?.maxUses || "",
-      record.data?.duration ?? "",
-      record.data?.durationInMonths ?? "",
       record.data?.validityDays || "",
       // record.data?.expiryDate || "",
       // record.data?.isActive !== undefined ? record.data.isActive : "",
@@ -620,15 +529,14 @@ export default function AdminVouchersPage() {
 
   const downloadSampleTemplate = () => {
     // Create sample CSV content with proper format
-    const headers = ["code", "discountType", "discountValue", "maxUses", "duration", "durationInMonths", "validityDays", "description"];
+    const headers = ["code", "discountType", "discountValue", "maxUses", "validityDays", "description"];
     const sampleRows = [
-      ["WELCOME10", "%", "10", "100", "once", "", "30", "Welcome discount for new users"],
-      ["SAVE20", "%", "20", "500", "forever", "", "60", "Save 20% on subscription"],
-      ["MULTI3", "%", "15", "50", "repeating", "3", "90", "Three months at 15% off"],
-      ["FIXED5OFF", "£", "2.50", "200", "once", "", "90", "£2.50 off your subscription"],
-      ["SUMMER25", "percentage", "25", "1000", "once", "", "365", "Summer sale discount"],
-      ["VIP50", "%", "50", "50", "once", "", "180", "VIP members only"],
-      ["GROUPON100", "%", "100", "100", "once", "", "365", "Groupon deal - 100% off"],
+      ["WELCOME10", "%", "10", "100", "30", "Welcome discount for new users"],
+      ["SAVE20", "%", "20", "500", "60", "Save 20% on subscription"],
+      ["FIXED5OFF", "£", "2.50", "200", "90", "£2.50 off your subscription"],
+      ["SUMMER25", "percentage", "25", "1000", "365", "Summer sale discount"],
+      ["VIP50", "%", "50", "50", "180", "VIP members only"],
+      ["GROUPON100", "%", "100", "100", "365", "Groupon deal - 100% off"],
     ];
 
     const csvContent = [
@@ -726,11 +634,7 @@ export default function AdminVouchersPage() {
                   disabled={uploading}
                 />
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>
-                    Required columns: code, discountType, discountValue, maxUses, duration (once / repeating / forever
-                    or &quot;multiple month&quot;), durationInMonths (required if repeating), validityDays (or
-                    expiryDate), description
-                  </p>
+                  <p>Required columns: code, discountType, discountValue, maxUses, validityDays (or expiryDate), description</p>
                   {/* <p className="text-green-600">⚡ Chunked processing: handles large uploads without timeouts</p> */}
                 </div>
                 {uploadResults && (
@@ -751,10 +655,6 @@ export default function AdminVouchersPage() {
                   required
                   maxLength={50}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Customers enter this code at checkout. The same text is used automatically as the Stripe coupon name
-                  (uppercased when saved).
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -809,10 +709,6 @@ export default function AdminVouchersPage() {
                     maxLength={10}
                   />
                   {errors.maxUses && <p className="text-red-500 text-sm">{errors.maxUses}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    Maximum number of times this promo code can be redeemed in Stripe (not the same as subscription discount
-                    duration).
-                  </p>
                 </div>
                 {useExpiryDate ? (
                   <div className="space-y-2">
@@ -845,50 +741,6 @@ export default function AdminVouchersPage() {
                   </div>
                 )}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="duration">Discount duration</Label>
-                <Select
-                  key={currentVoucher._id ? String(currentVoucher._id) : "create-voucher"}
-                  value={currentVoucher.duration ?? "once"}
-                  onValueChange={(value) => handleSelectChange("duration", value)}
-                >
-                  <SelectTrigger id="duration">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="once">Once</SelectItem>
-                    <SelectItem value="repeating">Multiple month</SelectItem>
-                    <SelectItem value="forever">Forever</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  How long the discount applies to the subscription in Stripe (separate from voucher expiry).
-                </p>
-              </div>
-
-              {currentVoucher.duration === "repeating" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="durationInMonths">Number of month</Label>
-                  <Input
-                    id="durationInMonths"
-                    name="durationInMonths"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={
-                      currentVoucher.durationInMonths
-                        ? currentVoucher.durationInMonths
-                        : ""
-                    }
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {errors.durationInMonths && (
-                    <p className="text-red-500 text-sm">{errors.durationInMonths}</p>
-                  )}
-                </div>
-              ) : null}
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -969,7 +821,6 @@ export default function AdminVouchersPage() {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Discount</TableHead>
-                  <TableHead>Duration</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
@@ -979,7 +830,7 @@ export default function AdminVouchersPage() {
               <TableBody>
                 {isLoading && page === 1 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                       Loading vouchers...
                     </TableCell>
                   </TableRow>
@@ -992,9 +843,6 @@ export default function AdminVouchersPage() {
                           {voucher.discountType === "percentage"
                             ? `${voucher.discountValue}%`
                             : `£${voucher.discountValue.toFixed(2)}`}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                          {formatVoucherDurationLabel(voucher)}
                         </TableCell>
                         <TableCell>
                           {voucher.currentUses} / {voucher.maxUses}
@@ -1068,7 +916,7 @@ export default function AdminVouchersPage() {
                     
                     {vouchers.length === 0 && !isLoading && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                           {searchQuery ? `No vouchers found matching "${searchQuery}"` : "No vouchers found. Create your first voucher."}
                         </TableCell>
                       </TableRow>
@@ -1077,7 +925,7 @@ export default function AdminVouchersPage() {
                     {/* Infinite scroll trigger - only show when not searching */}
                     {hasMore && !searchQuery && (
                       <TableRow ref={observerTarget as React.Ref<HTMLTableRowElement>}>
-                        <TableCell colSpan={7} className="text-center py-4">
+                        <TableCell colSpan={6} className="text-center py-4">
                           {isLoadingMore ? (
                             <div className="flex items-center justify-center gap-2 text-gray-500">
                               <Loader2 className="h-4 w-4 animate-spin" />

@@ -191,8 +191,7 @@ export async function PUT(
     if (data.dineIn !== undefined) updateData.dineIn = data.dineIn
     if (data.images !== undefined) updateData.images = data.images
     if (data.searchTags !== undefined) updateData.searchTags = data.searchTags
-    if (data.lat !== undefined) updateData.lat = data.lat
-    if (data.lng !== undefined) updateData.lng = data.lng
+
 
     // Always update the updatedAt timestamp
     updateData.updatedAt = new Date()

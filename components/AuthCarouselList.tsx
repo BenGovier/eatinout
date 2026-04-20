@@ -156,12 +156,7 @@ export const AuthCarouselList = memo(function AuthCarouselList({
                   isFavorite={favorites.has(restaurant._id)}
                   onHeartClick={onHeartClick}
                   // onClick={() => onNavigate(restaurant._id)}
-                  onClick={() =>
-                    onNavigate(
-                      restaurant.slug?.trim() || restaurant._id,
-                      restaurant.offers?.[0]?.id,
-                    )
-                  } 
+                  onClick={() => onNavigate(restaurant._id, restaurant.offers?.[0]?.id)} 
                 />
               )
             }).filter(Boolean)}

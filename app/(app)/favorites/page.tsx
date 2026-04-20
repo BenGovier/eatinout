@@ -132,9 +132,6 @@ export default function FavoriteRestaurantsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
                     {favorites.map((restaurant) => {
                         const rid = restaurant.id || restaurant._id;
-                        const pathSeg =
-                            (restaurant.slug && String(restaurant.slug).trim()) ||
-                            rid;
                         const liked = likedStatus[rid] ?? true;
                         const offers = restaurant.offers || [];
 
@@ -157,7 +154,7 @@ export default function FavoriteRestaurantsPage() {
                                             });
                                             const { url } = await response.json();
                                             if (response.ok && url) {
-                                                sessionStorage.setItem('redirectUrl', `/restaurant/${pathSeg}`);
+                                                sessionStorage.setItem('redirectUrl', `/restaurant/${rid}`);
                                                 window.location.replace(url);
                                             } else {
                                                 toast.error("Failed to initiate checkout");
@@ -168,7 +165,7 @@ export default function FavoriteRestaurantsPage() {
                                         }
                                         return;
                                     }
-                                    router.push(`/restaurant/${pathSeg}`);
+                                    router.push(`/restaurant/${rid}`);
                                 }}
                                 className="w-full"
                             >
@@ -263,7 +260,7 @@ export default function FavoriteRestaurantsPage() {
                                                                             });
                                                                             const { url } = await response.json();
                                                                             if (response.ok && url) {
-                                                                                sessionStorage.setItem('redirectUrl', `/restaurant/${pathSeg}?offerId=${offer._id}`);
+                                                                                sessionStorage.setItem('redirectUrl', `/restaurant/${rid}?offerId=${offer._id}`);
                                                                                 window.location.replace(url);
                                                                             } else {
                                                                                 toast.error("Failed to initiate checkout");
@@ -274,7 +271,7 @@ export default function FavoriteRestaurantsPage() {
                                                                         }
                                                                         return;
                                                                     }
-                                                                    router.push(`/restaurant/${pathSeg}?offerId=${offer._id}`);
+                                                                    router.push(`/restaurant/${rid}?offerId=${offer._id}`);
                                                                 }}
                                                                 className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
                                                             >

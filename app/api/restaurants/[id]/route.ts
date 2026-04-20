@@ -26,25 +26,23 @@ export async function GET(
     try {
       await connectToDatabase();
 
-      // Find by Mongo ID, stored `slug`, or legacy generated slug (name + id suffix)
-      let restaurant = null;
+      // Find restaurant by ID or slug
+      let restaurant;
       if (isValidObjectId(id)) {
+        // If it's a valid ObjectId, search by ID
         restaurant = await Restaurant.findById(id);
-      }
-      if (!restaurant) {
-        restaurant = await Restaurant.findOne({ slug: id });
-      }
-      if (!restaurant) {
+      } else {
+        // Slug format: restaurant-name-{last6chars}. Load minimal fields only to avoid memory spike
         const allRestaurants = await Restaurant.find({})
           .select("_id name")
           .limit(1000)
           .lean();
-        const match = allRestaurants.find((r: any) => {
-          const legacySlug = generateSlug(r.name, r._id.toString());
-          return legacySlug === id;
+        restaurant = allRestaurants.find((r: any) => {
+          const restaurantSlug = generateSlug(r.name, r._id.toString());
+          return restaurantSlug === id;
         });
-        if (match) {
-          restaurant = await Restaurant.findById((match as any)._id);
+        if (restaurant) {
+          restaurant = await Restaurant.findById((restaurant as any)._id);
         }
       }
 
@@ -167,7 +165,6 @@ export async function GET(
       // Format the response
       const formattedRestaurant = {
         id: restaurant._id.toString(),
-        slug: (restaurant as { slug?: string }).slug ?? "",
         name: restaurant.name,
         description: restaurant.description,
         cuisine: restaurant.cuisine,

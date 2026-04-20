@@ -88,14 +88,16 @@ export function TodaysDealsCarousel({
   const selectedDayValuesStr = useMemo(() => selectedDayValues.join(','), [selectedDayValues])
   const selectedMealTimesStr = useMemo(() => selectedMealTimes.join(','), [selectedMealTimes])
 
-  const fetchRestaurants = useCallback(async (_page: number, reset: boolean = false) => {
+  const fetchRestaurants = useCallback(async (page: number, reset: boolean = false) => {
     if (loadingRef.current) return
     loadingRef.current = true
 
     try {
-      // Omit page/limit: this carousel filters to "expires today" client-side and needs the
-      // full filtered set from the API (same behavior as before server-side pagination).
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '12',
+        // No categoryId - we'll filter for restaurants with offers ending today
+      })
 
       // Don't apply area filter for Today's Deals - show all
       // But apply other filters
@@ -143,11 +145,9 @@ export function TodaysDealsCarousel({
         })
       })
 
-      setRestaurants(prev =>
-        reset ? todaysDealsRestaurants : [...prev, ...todaysDealsRestaurants],
-      )
-      setHasMore(false)
-      setCurrentPage(1)
+      setRestaurants(prev => reset ? todaysDealsRestaurants : [...prev, ...todaysDealsRestaurants])
+      setHasMore(data.pagination?.hasNextPage || false)
+      setCurrentPage(page)
     } catch (error) {
       console.error('Error fetching restaurants for Today\'s Deals:', error)
     } finally {

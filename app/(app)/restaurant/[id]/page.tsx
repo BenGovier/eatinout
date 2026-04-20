@@ -51,7 +51,7 @@ interface UIState {
 export default function RestaurantPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const slugParam = params.slug as string
+  const { id } = params
   const offerId = searchParams?.get('offerId')
   const offerSlug = searchParams?.get('offer')
   const router = useRouter()
@@ -188,7 +188,7 @@ export default function RestaurantPage() {
       toast.error("An error occurred while redeeming the offer");
       setRedeemState(prev => ({ ...prev, error: true, loadingId: null }));
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, id, router]);
 
   const handleAnimationComplete = useCallback(() => {
     setRedeemState(prev => ({ ...prev, showAnimation: false, loadingId: null }));
@@ -204,7 +204,7 @@ export default function RestaurantPage() {
       setRestaurantState({ loading: true, error: null, data: null })
 
       try {
-        const response = await fetch(`/api/restaurants/${encodeURIComponent(slugParam)}`)
+        const response = await fetch(`/api/restaurants/${params.id}`)
 
         if (!response.ok) {
           throw new Error("Failed to fetch restaurant data")
@@ -223,10 +223,10 @@ export default function RestaurantPage() {
       }
     }
 
-    if (slugParam) {
+    if (params.id) {
       fetchRestaurant()
     }
-  }, [slugParam])
+  }, [params.id])
 
   // Optimized auto-scroll to specific offer if offerId or offer slug is in URL
   useEffect(() => {

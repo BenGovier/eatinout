@@ -12,12 +12,6 @@ export interface IVoucher extends Document {
   description: string;
   stripeCouponId: string;
   stripePromotionCodeId: string;
-  /** Stripe Coupon `name` (Checkout label); empty/null means same as `code` */
-  stripeCouponName?: string | null;
-  /** Stripe coupon duration: once | repeating | forever */
-  duration?: "once" | "repeating" | "forever";
-  /** Required when duration is repeating (Stripe duration_in_months) */
-  durationInMonths?: number | null;
   calculatedPercentOff: number;
   createdAt: Date;
   updatedAt: Date;
@@ -76,20 +70,6 @@ const VoucherSchema: Schema = new Schema(
     },
     stripePromotionCodeId: {
       type: String,
-      default: null,
-    },
-    stripeCouponName: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-    duration: {
-      type: String,
-      enum: ["once", "repeating", "forever"],
-      default: "once",
-    },
-    durationInMonths: {
-      type: Number,
       default: null,
     },
     calculatedPercentOff: {
