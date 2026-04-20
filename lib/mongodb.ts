@@ -204,10 +204,13 @@ import mongoose from "mongoose"
 import dotenv from "dotenv"
 
 dotenv.config()
-const MONGODB_URI = process.env.MONGODB_URI || ""
 
-if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable")
+function getMongoUri(): string {
+  const uri = process.env.MONGODB_URI?.trim() ?? ""
+  if (!uri) {
+    throw new Error("Please define the MONGODB_URI environment variable")
+  }
+  return uri
 }
 
 interface MongooseCache {
@@ -226,6 +229,8 @@ if (!cached) {
 }
 
 async function connectToDatabase() {
+  const MONGODB_URI = getMongoUri()
+
   const currentState = mongoose.connection.readyState
   console.log(`[${new Date().toISOString()}]  Connection state: ${currentState} (0=disconnected, 1=connected, 2=connecting, 3=disconnecting)`)
 
