@@ -1,25 +1,38 @@
-import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Restaurant from "@/models/Restaurant"
-import User from "@/models/User"
-import jwt from "jsonwebtoken"
-import Tag from "@/models/Tag"
+import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/mongodb";
+import Restaurant from "@/models/Restaurant";
+import User from "@/models/User";
+import jwt from "jsonwebtoken";
+import Tag from "@/models/Tag";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
-import dotenv from "dotenv"
-import { render } from "@react-email/render"
-import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegistrationEmail"
-import sendEmail from "@/lib/sendEmail"
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+import dotenv from "dotenv";
+import { render } from "@react-email/render";
+import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegistrationEmail";
+import sendEmail from "@/lib/sendEmail";
+import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug";
+import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { geoPointFromLatLng } from "@/lib/restaurant-geo";
 
-dotenv.config()
-export async function POST(req : any) {
+/** Accept JSON numbers or numeric strings from the client. */
+function parseCoord(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number.parseFloat(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+dotenv.config();
+export async function POST(req: any) {
   try {
     // Connect to database
     try {
-      await connectToDatabase()
-      console.log("Connected to database for registration")
+      await connectToDatabase();
+      console.log("Connected to database for registration");
     } catch (dbError: any) {
-      console.error("Database connection error during registration:", dbError)
+      console.error("Database connection error during registration:", dbError);
       return NextResponse.json(
         {
           success: false,
@@ -27,32 +40,42 @@ export async function POST(req : any) {
           error: dbError.message,
         },
         { status: 500 },
-      )
+      );
     }
 
     // Parse the request body
-    const data = await req.json()
-    const { firstName, lastName, email, password } = data
-    console.log("Parsed request body:", { ...data, password: "[REDACTED]" })
+    const data = await req.json();
+    const { firstName, lastName, email, password } = data;
+    console.log("Parsed request body:", { ...data, password: "[REDACTED]" });
 
     if (!firstName || !lastName || !email || !password) {
-      console.error("Missing required fields")
-      return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 })
+      console.error("Missing required fields");
+      return NextResponse.json(
+        { success: false, message: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     // Check if user already exists
     try {
-      const existingUser = await User.findOne({ email }) 
-      const existingRestaurant = await Restaurant.findOne({ email })
+      const existingUser = await User.findOne({ email });
+      const existingRestaurant = await Restaurant.findOne({ email });
       if (existingUser || existingRestaurant) {
-        return NextResponse.json({ success: false, message: "User already exists" }, { status: 400 })
+        return NextResponse.json(
+          { success: false, message: "User already exists" },
+          { status: 400 },
+        );
       }
     } catch (findError: any) {
-      console.error("Error checking for existing user:", findError)
+      console.error("Error checking for existing user:", findError);
       return NextResponse.json(
-        { success: false, message: "Error checking for existing user", error: findError.message },
+        {
+          success: false,
+          message: "Error checking for existing user",
+          error: findError.message,
+        },
         { status: 500 },
-      )
+      );
     }
 
     // Create user account for restaurant owner
@@ -63,13 +86,23 @@ export async function POST(req : any) {
       password,
       role: "restaurant",
       zipCode: data.zipCode,
-    })
+    });
 
-    await user.save()
+    await user.save();
 
-    // Create restaurant record
+    const slug = await generateUniqueRestaurantSlug(data.restaurantName ?? "");
+
+    // Create restaurant record — lat/lng/location from geocode on join-restaurant (or map defaults)
+    const regLat = parseCoord(data.lat) ?? DEFAULT_MAP_CENTER_LAT_LNG.lat;
+    const regLng = parseCoord(data.lng) ?? DEFAULT_MAP_CENTER_LAT_LNG.lng;
+    const location = geoPointFromLatLng(regLat, regLng) ?? {
+      type: "Point" as const,
+      coordinates: [regLng, regLat] as [number, number],
+    };
+
     const restaurant = new Restaurant({
       name: data.restaurantName,
+      slug,
       description: data.description,
       cuisine: data.cuisine,
       priceRange: data.priceRange,
@@ -77,6 +110,9 @@ export async function POST(req : any) {
       city: data.city,
       state: data.state,
       zipCode: data.zipCode,
+      lat: regLat,
+      lng: regLng,
+      location,
       area: data.area,
       phone: data.phone,
       email: data.email,
@@ -91,18 +127,18 @@ export async function POST(req : any) {
       dineOut: data.dineOut,
       deliveryAvailable: data.deliveryAvailable,
       menuPdfUrls: data.menuPdfUrls || [],
-      searchTags: data.searchTags || [], 
-    })
-    await restaurant.save()
+      searchTags: data.searchTags || [],
+    });
+    await restaurant.save();
 
     // 🔗 Sync Tags → Restaurant
-if (data.searchTags?.length > 0) {
-  await Tag.updateMany(
-    { _id: { $in: data.searchTags } },
-    { $addToSet: { restaurants: restaurant._id } }
-  )
-}
-    
+    if (data.searchTags?.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: data.searchTags } },
+        { $addToSet: { restaurants: restaurant._id } },
+      );
+    }
+
     // Send registration email (non-blocking)
     let emailError = null;
     try {
@@ -110,22 +146,26 @@ if (data.searchTags?.length > 0) {
         RestaurantRegistrationEmail({
           ownerName: `${firstName} ${lastName}`,
           restaurantName: data.restaurantName,
-          restaurantImage: data.images?.[0] || "https://via.placeholder.com/600x300?text=Your+Restaurant",
-        })
+          restaurantImage:
+            data.images?.[0] ||
+            "https://via.placeholder.com/600x300?text=Your+Restaurant",
+        }),
       );
-      console.log("Email HTML:", "sending email to:", user.email)
+      console.log("Email HTML:", "sending email to:", user.email);
       await sendEmail(
         user.email,
         `Eatinout - We've received your registration for ${data.restaurantName}`,
-        emailHtml
+        emailHtml,
       );
       console.log("Registration email sent successfully to:", user.email);
     } catch (error: any) {
       console.error("Error sending registration email:", error);
       emailError = `Registration email failed: ${error.message}`;
     }
-  
-    console.log(`Created restaurant: ${restaurant._id}, status: pending, linked to user: ${user._id}`)
+
+    console.log(
+      `Created restaurant: ${restaurant._id}, status: pending, linked to user: ${user._id}`,
+    );
 
     // Create JWT token for authentication
     const token = jwt.sign(
@@ -139,13 +179,13 @@ if (data.searchTags?.length > 0) {
       },
       JWT_SECRET,
       { expiresIn: "7d" },
-    )
-    
+    );
+
     // Create response
-    const responseMessage = emailError 
+    const responseMessage = emailError
       ? "Restaurant registered successfully, but confirmation email failed to send"
       : "Restaurant registered successfully";
-    
+
     const response = NextResponse.json(
       {
         success: true,
@@ -160,7 +200,7 @@ if (data.searchTags?.length > 0) {
         emailError: emailError || undefined,
       },
       { status: 201 },
-    )
+    );
 
     // Set auth cookie
     response.cookies.set({
@@ -170,11 +210,11 @@ if (data.searchTags?.length > 0) {
       path: "/",
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 1, // 7 days
-    })
+    });
 
-    return response
-  } catch (error :any) {
-    console.error("Restaurant registration error:", error)
+    return response;
+  } catch (error: any) {
+    console.error("Restaurant registration error:", error);
     return NextResponse.json(
       {
         success: false,
@@ -182,7 +222,6 @@ if (data.searchTags?.length > 0) {
         error: error.message,
       },
       { status: 500 },
-    )
+    );
   }
 }
-

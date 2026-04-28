@@ -275,6 +275,7 @@ export default function RestaurantListingPage() {
     if (filters.selectedMealTimes.length > 0) {
       params.append('mealTimes', filters.selectedMealTimes.join(','))
     }
+    params.append('browsePinSort', '1')
 
     const requestKey = `${params.toString()}-${page}`
 
