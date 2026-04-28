@@ -9,14 +9,14 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
-import { WelcomeLocationModal } from "@/components/welcome-location-modal";
+import { MapLocationModal } from "@/components/map-location-modal";
 import {
   USER_LAT_LNG_SESSION_KEY,
   USER_LOCATION_STORAGE_EVENT,
 } from "@/lib/user-location-session";
 
 type LocationConsentContextValue = {
-  /** Opens the location consent modal (e.g. from map control). */
+  /** Opens the map GPS location modal (recenter control when no saved pin). */
   requestLocationModal: () => void;
 };
 
@@ -27,21 +27,10 @@ export function useLocationConsent() {
   return useContext(LocationConsentContext);
 }
 
-const RESTAURANTS_LIST_PATH = "/restaurants";
-const JOIN_RESTAURANT_PATH = "/join-restaurant";
-const DASHBOARD_RESTAURANT_CREATE_PATH = "/dashboard/restaurant/create";
+const MAP_PATH = "/map";
 
-function isLocationModalRoute(pathname: string | null): boolean {
-  if (!pathname) return false;
-  if (
-    pathname === RESTAURANTS_LIST_PATH ||
-    pathname === JOIN_RESTAURANT_PATH ||
-    pathname === DASHBOARD_RESTAURANT_CREATE_PATH
-  ) {
-    return true;
-  }
-  if (pathname.startsWith("/dashboard/restaurant/edit/")) return true;
-  return false;
+function isMapLocationRoute(pathname: string | null): boolean {
+  return pathname === MAP_PATH;
 }
 
 export default function LocationConsentProvider({
@@ -52,31 +41,25 @@ export default function LocationConsentProvider({
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  const onLocationModalRoute = isLocationModalRoute(pathname);
+  const onMapRoute = isMapLocationRoute(pathname);
 
   const requestLocationModal = useCallback(() => {
-    if (!isLocationModalRoute(pathname)) return;
+    if (!isMapLocationRoute(pathname)) return;
     setIsOpen(true);
   }, [pathname]);
 
   const syncOpenFromStorage = useCallback(() => {
     try {
-      if (!isLocationModalRoute(pathname)) {
+      if (!isMapLocationRoute(pathname)) {
         setIsOpen(false);
         return;
       }
-      // Auto-prompt only on the main restaurants list, not on join flow (button opens modal there).
-      if (pathname === RESTAURANTS_LIST_PATH) {
-        setIsOpen(!sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY));
-      } else {
-        setIsOpen(false);
-      }
+      setIsOpen(!sessionStorage.getItem(USER_LAT_LNG_SESSION_KEY));
     } catch {
       setIsOpen(false);
     }
   }, [pathname]);
 
-  // On /restaurants: offer the location modal when nothing is stored (and on storage events).
   useEffect(() => {
     syncOpenFromStorage();
   }, [pathname, syncOpenFromStorage]);
@@ -102,10 +85,7 @@ export default function LocationConsentProvider({
   return (
     <LocationConsentContext.Provider value={contextValue}>
       {children}
-      <WelcomeLocationModal
-        isOpen={isOpen && onLocationModalRoute}
-        onClose={handleClose}
-      />
+      <MapLocationModal isOpen={isOpen && onMapRoute} onClose={handleClose} />
     </LocationConsentContext.Provider>
   );
 }

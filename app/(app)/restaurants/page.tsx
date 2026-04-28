@@ -29,6 +29,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { toast } from "react-toastify"
 import { useAuth } from "@/context/auth-context"
+import { WelcomeLocationModal } from "@/components/welcome-location-modal"
 
 type Category = {
   id: string
@@ -294,6 +295,8 @@ export default function RestaurantsPage() {
     'available-everywhere': true,
   })
 
+  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(true)
+
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
 
@@ -460,6 +463,30 @@ export default function RestaurantsPage() {
   useEffect(() => {
     restoreFilterState()
   }, [restoreFilterState])
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("restaurantFilters")
+      if (!raw) return
+      const s = JSON.parse(raw) as {
+        selectedLocationId?: string
+        selectedLocation?: string
+      }
+      if (s.selectedLocationId === "all") {
+        setShowWelcomeLocationModal(false)
+        return
+      }
+      if (s.selectedLocationId && s.selectedLocationId !== "") {
+        setShowWelcomeLocationModal(false)
+        return
+      }
+      if (s.selectedLocation && s.selectedLocation !== "") {
+        setShowWelcomeLocationModal(false)
+      }
+    } catch {
+      /* keep modal visible */
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -780,6 +807,36 @@ export default function RestaurantsPage() {
     return names.length > 0 ? names.join(", ") : "Location not available"
   }, [])
 
+  const handleWelcomeLocationSelect = useCallback((locationName: string) => {
+    if (locationName === "") {
+      setFilterState((prev) => ({
+        ...prev,
+        selectedLocation: "",
+        selectedLocationId: "all",
+      }))
+    } else {
+      setFilterState((prev) => ({
+        ...prev,
+        selectedLocation: locationName,
+      }))
+    }
+    setShowWelcomeLocationModal(false)
+  }, [])
+
+  useEffect(() => {
+    if (filterState.selectedLocation && metaState.areas.length > 0) {
+      const match = metaState.areas.find(
+        (a) => a.label === filterState.selectedLocation,
+      )
+      if (match) {
+        setFilterState((prev) => ({
+          ...prev,
+          selectedLocationId: match.value,
+        }))
+      }
+    }
+  }, [filterState.selectedLocation, metaState.areas])
+
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
     // Check if the user is a normal user without an active subscription
     if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
@@ -974,6 +1031,7 @@ export default function RestaurantsPage() {
   // }, [metaState.areas, filterState.selectedLocationId])
   useEffect(() => {
     if (!filterState.selectedLocationId) return
+    saveFilterState()
     clearScrollPosition()
     window.scrollTo({
       top: 0,
@@ -1541,7 +1599,11 @@ export default function RestaurantsPage() {
           )}
         </section>
 
-
+        <WelcomeLocationModal
+          isOpen={showWelcomeLocationModal}
+          onClose={() => setShowWelcomeLocationModal(false)}
+          onLocationSelect={handleWelcomeLocationSelect}
+        />
       </main>
     </>
   )

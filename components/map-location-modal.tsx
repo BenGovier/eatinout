@@ -7,21 +7,17 @@ import {
   notifyUserLocationStorageChanged,
 } from "@/lib/user-location-session";
 
-interface WelcomeLocationModalProps {
+export interface MapLocationModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 type LatLng = { lat: number; lng: number };
 
-export function WelcomeLocationModal({
-  isOpen,
-  onClose,
-}: WelcomeLocationModalProps) {
+export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
 
   const storeLatLng = useCallback((coords: LatLng) => {
-    // Store in session storage so users can change location later in-session.
     sessionStorage.setItem(USER_LAT_LNG_SESSION_KEY, JSON.stringify(coords));
     notifyUserLocationStorageChanged();
   }, []);
@@ -45,7 +41,6 @@ export function WelcomeLocationModal({
         onClose();
       },
       () => {
-        // If the user denies or the request fails, just hide the modal.
         setIsRequestingLocation(false);
         onClose();
       },
@@ -71,7 +66,7 @@ export function WelcomeLocationModal({
         className="relative z-10 w-[320px] sm:w-[340px] rounded-2xl bg-white p-5 sm:p-6 shadow-xl flex flex-col"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="welcome-location-title"
+        aria-labelledby="map-location-title"
       >
         <button
           onClick={onClose}
@@ -83,7 +78,7 @@ export function WelcomeLocationModal({
         </button>
 
         <h2
-          id="welcome-location-title"
+          id="map-location-title"
           className="text-base sm:text-[17px] font-bold text-gray-900 pr-6"
         >
           See restaurant deals near you
