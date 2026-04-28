@@ -99,6 +99,8 @@ function useDebounce<T>(value: T, delay: number): T {
 interface PageState {
   restaurants: Restaurant[]
   loading: boolean
+  /** True while a page-1 / filter reset fetch is in flight (show list skeleton, hide stale cards). */
+  loadingListReset: boolean
   error: string | null
   isRestoringScroll: boolean
   pagination: {
@@ -245,6 +247,7 @@ export default function RestaurantsPage() {
   const [pageState, setPageState] = useState<PageState>({
     restaurants: [],
     loading: true,
+    loadingListReset: false,
     error: null,
     isRestoringScroll: false,
     pagination: {
@@ -401,7 +404,12 @@ export default function RestaurantsPage() {
       fetchingRef.current.add(requestKey)
 
       if (reset) {
-        setPageState(prev => ({ ...prev, loading: true, error: null }))
+        setPageState(prev => ({
+          ...prev,
+          loading: true,
+          loadingListReset: true,
+          error: null,
+        }))
       }
 
       const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
@@ -427,6 +435,7 @@ export default function RestaurantsPage() {
         ...prev,
         restaurants: reset ? data.restaurants : [...prev.restaurants, ...data.restaurants],
         loading: false,
+        loadingListReset: false,
         pagination: {
           currentPage: data.pagination?.currentPage || page,
           totalPages: data.pagination?.totalPages || 1,
@@ -439,6 +448,7 @@ export default function RestaurantsPage() {
         ...prev,
         error: errorMessage,
         loading: false,
+        loadingListReset: false,
         restaurants: reset ? [] : prev.restaurants
       }))
     } finally {
@@ -804,6 +814,13 @@ export default function RestaurantsPage() {
   const visibleRestaurants = useMemo(() => {
     return pageState.restaurants.filter((restaurant) => (restaurant.offers?.length ?? 0) > 0)
   }, [pageState.restaurants])
+
+  const showMainListSkeleton = useMemo(
+    () =>
+      pageState.loadingListReset ||
+      (pageState.loading && pageState.restaurants.length === 0),
+    [pageState.loadingListReset, pageState.loading, pageState.restaurants.length]
+  )
 
   const hasFilters = useMemo(() => {
     return !!(
@@ -1298,7 +1315,12 @@ export default function RestaurantsPage() {
         <section className="px-4 py-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{sectionTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleRestaurants.map((restaurant) => {
+            {showMainListSkeleton &&
+              [1, 2, 3, 4, 5, 6].map((i) => (
+                <RestaurantCardSkeleton key={i} />
+              ))}
+            {!pageState.loadingListReset &&
+              visibleRestaurants.map((restaurant) => {
               const location = Array.isArray(restaurant.area)
                 ? getAreaNames(restaurant.area, metaState.areas)
                 : restaurant.location
@@ -1465,7 +1487,10 @@ export default function RestaurantsPage() {
                 </div>
               )
             })}
-            {!pageState.loading && hasFilters && visibleRestaurants.length === 0 && (
+            {!pageState.loading &&
+              !pageState.loadingListReset &&
+              hasFilters &&
+              visibleRestaurants.length === 0 && (
               <div className="col-span-full">
                 <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
@@ -1504,7 +1529,9 @@ export default function RestaurantsPage() {
             )}
           </div>
 
-          {pageState.loading && pageState.restaurants.length > 0 && (
+          {pageState.loading &&
+            pageState.restaurants.length > 0 &&
+            !pageState.loadingListReset && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               {[1, 2, 3].map((i) => (
                 <RestaurantCardSkeleton key={i} />
