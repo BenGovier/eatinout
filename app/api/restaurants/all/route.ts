@@ -45,6 +45,8 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get("sortBy")?.trim() || "closest";
     /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
     const isWelcomeList = searchParams.get("welcome") === "1";
+    /** Home /restaurants & / (welcome) grid + horizontal carousels — pinning sort. Omit on /map (distance sort). */
+    const useBrowsePinSort = searchParams.get("browsePinSort") === "1";
 
     const areaFilter = searchParams.get("area");
     const search = searchParams.get("search");
@@ -455,24 +457,31 @@ export async function GET(request: Request) {
       ({ validDays, ...rest }: any) => rest,
     );
 
-    // Sort (closest first). `sortBy` reserved for future options; only `closest` today.
+    // Browse pages: home / area pinning. Map & other callers: distance / createdAt (`sortBy`).
     let sortedRestaurants: typeof cleanedRestaurants;
-    switch (sortBy) {
-      case "closest":
-      default:
-        if (skipGeoFilter) {
-          sortedRestaurants = [...cleanedRestaurants].sort(
-            (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
-              new Date(b.createdAt ?? 0).getTime() -
-              new Date(a.createdAt ?? 0).getTime(),
-          );
-        } else {
-          sortedRestaurants = [...cleanedRestaurants].sort(
-            (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
-              (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
-              (b.distanceMiles ?? Number.POSITIVE_INFINITY),
-          );
-        }
+    if (useBrowsePinSort) {
+      sortedRestaurants = sortRestaurantsByPinning(
+        cleanedRestaurants,
+        areaFilter && areaFilter !== "all" ? areaFilter : null,
+      );
+    } else {
+      switch (sortBy) {
+        case "closest":
+        default:
+          if (skipGeoFilter) {
+            sortedRestaurants = [...cleanedRestaurants].sort(
+              (a: { createdAt?: Date }, b: { createdAt?: Date }) =>
+                new Date(b.createdAt ?? 0).getTime() -
+                new Date(a.createdAt ?? 0).getTime(),
+            );
+          } else {
+            sortedRestaurants = [...cleanedRestaurants].sort(
+              (a: { distanceMiles?: number }, b: { distanceMiles?: number }) =>
+                (a.distanceMiles ?? Number.POSITIVE_INFINITY) -
+                (b.distanceMiles ?? Number.POSITIVE_INFINITY),
+            );
+          }
+      }
     }
 
     const finalRestaurants = sortedRestaurants.map(
@@ -659,4 +668,96 @@ function sortOffersByPinning(offers: any[]): any[] {
 
   // Return pinned offers first (newest pinned → older pinned), then non-pinned (newest → oldest)
   return [...pinnedOffers, ...nonPinnedOffers];
+}
+
+/** Restaurant list order for /restaurants and / (welcome); not used for map distance sort. */
+function sortRestaurantsByPinning(
+  restaurants: any[],
+  areaFilter: string | null,
+): any[] {
+  const homePinned: any[] = [];
+  const areaPinned: any[] = [];
+  const areaMatchedNonPinned: any[] = [];
+  const regular: any[] = [];
+
+  restaurants.forEach((restaurant) => {
+    if (areaFilter) {
+      const areaPin = Array.isArray(restaurant.areaPins)
+        ? restaurant.areaPins.find(
+            (p: any) =>
+              p.areaId === areaFilter && p.priority !== null && p.priority !== undefined,
+          )
+        : null;
+
+      if (areaPin) {
+        areaPinned.push(restaurant);
+        return;
+      }
+
+      if (
+        Array.isArray(restaurant.area) &&
+        restaurant.area.map(String).includes(areaFilter)
+      ) {
+        areaMatchedNonPinned.push(restaurant);
+        return;
+      }
+
+      regular.push(restaurant);
+      return;
+    }
+
+    const homePin = restaurant.homePin || {};
+
+    if (homePin.isPinned === true && homePin.priority !== null) {
+      homePinned.push(restaurant);
+      return;
+    }
+
+    regular.push(restaurant);
+  });
+
+  areaPinned.sort((a, b) => {
+    const pinA = a.areaPins.find((p: any) => p.areaId === areaFilter);
+    const pinB = b.areaPins.find((p: any) => p.areaId === areaFilter);
+
+    const prioA = pinA?.priority ?? 999;
+    const prioB = pinB?.priority ?? 999;
+    if (prioA !== prioB) return prioA - prioB;
+
+    const dateA = pinA?.pinnedAt ? new Date(pinA.pinnedAt).getTime() : 0;
+    const dateB = pinB?.pinnedAt ? new Date(pinB.pinnedAt).getTime() : 0;
+
+    return dateB - dateA;
+  });
+
+  areaMatchedNonPinned.sort((a, b) => {
+    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dB - dA;
+  });
+
+  homePinned.sort((a, b) => {
+    const pA = a.homePin?.priority ?? 999;
+    const pB = b.homePin?.priority ?? 999;
+    if (pA !== pB) return pA - pB;
+
+    const dA = a.homePin?.pinnedAt
+      ? new Date(a.homePin.pinnedAt).getTime()
+      : 0;
+    const dB = b.homePin?.pinnedAt
+      ? new Date(b.homePin.pinnedAt).getTime()
+      : 0;
+
+    return dB - dA;
+  });
+
+  regular.sort((a, b) => {
+    const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dB - dA;
+  });
+
+  return areaFilter
+    ? [...areaPinned, ...areaMatchedNonPinned, ...regular]
+    : [...homePinned, ...regular];
 }

@@ -130,6 +130,8 @@ export function CategoryCarousel({
         params.append('search', searchTerm.trim())
       }
 
+      params.append('browsePinSort', '1')
+
       const response = await fetch(`/api/restaurants/all?${params.toString()}`)
       if (!response.ok) throw new Error('Failed to fetch restaurants')
 
