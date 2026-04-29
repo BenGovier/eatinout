@@ -8,6 +8,7 @@ import L, { type LeafletMouseEvent } from "leaflet";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { UK_LEAFLET_MAP_OPTIONS, UK_MAP_BOUNDS } from "@/lib/leaflet-uk-bounds";
 import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
@@ -172,6 +173,7 @@ export default function UserLocationMap({
       }
 
       const map = L.map(container, {
+        ...UK_LEAFLET_MAP_OPTIONS,
         center,
         zoom,
         zoomControl: false,
@@ -180,7 +182,7 @@ export default function UserLocationMap({
         doubleClickZoom: true,
       });
 
-      L.tileLayer(tileUrl, {}).addTo(map);
+      L.tileLayer(tileUrl, { bounds: UK_MAP_BOUNDS }).addTo(map);
 
       const marker = L.marker(center, {
         icon: USER_LOCATION_ICON,

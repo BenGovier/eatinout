@@ -5,6 +5,7 @@ import L from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { UK_LEAFLET_MAP_OPTIONS, UK_MAP_BOUNDS } from "@/lib/leaflet-uk-bounds";
 import {
   USER_MARKER_LEAFLET_ICON_ANCHOR,
   USER_MARKER_LEAFLET_ICON_SIZE,
@@ -97,12 +98,14 @@ export default function JoinRestaurantLocationMap({
     );
 
     const map = L.map(el, {
+      ...UK_LEAFLET_MAP_OPTIONS,
       center,
       zoom: 12,
       scrollWheelZoom: true,
     });
 
     L.tileLayer(tileUrl, {
+      bounds: UK_MAP_BOUNDS,
       attribution: usingMapTiler
         ? "© MapTiler © OpenStreetMap contributors"
         : "© OpenStreetMap contributors",
