@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { LocateFixed, Minus, Plus } from "lucide-react";
 import L, { type LeafletMouseEvent } from "leaflet";
+import "leaflet.markercluster";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/user-location-session";
 
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
 
 type LatLng = { lat: number; lng: number };
 type RestaurantMarker = {
@@ -64,6 +66,26 @@ const RESTAURANT_MAP_ICON = L.icon({
   popupAnchor: [0, -49],
 });
 
+/** Only merge markers within roughly this ground span; cap pixels so clusters still split when zooming in. */
+const CLUSTER_MAX_SPAN_MILES = 5;
+const CLUSTER_RADIUS_PIXEL_CAP = 4;
+const CLUSTER_RADIUS_PIXEL_MIN = 10;
+
+function metersPerPixelAtLatitude(latitude: number, zoom: number): number {
+  const latRad = (latitude * Math.PI) / 180;
+  return (156543.03392 * Math.cos(latRad)) / Math.pow(2, zoom);
+}
+
+function restaurantClusterRadiusPx(latitude: number, zoom: number): number {
+  const mpp = metersPerPixelAtLatitude(latitude, zoom);
+  const meters = CLUSTER_MAX_SPAN_MILES * 1609.344;
+  const milesPx = meters / mpp;
+  return Math.min(
+    Math.max(milesPx, CLUSTER_RADIUS_PIXEL_MIN),
+    CLUSTER_RADIUS_PIXEL_CAP,
+  );
+}
+
 function formatDistanceMiles(miles?: number): string {
   if (typeof miles !== "number" || !Number.isFinite(miles) || miles < 0)
     return "";
@@ -88,7 +110,7 @@ export default function UserLocationMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
-  const restaurantLayerRef = useRef<L.LayerGroup | null>(null);
+  const restaurantLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   /** When true, next coords sync uses flyTo instead of setView (user-initiated). */
   const userRequestedRecenterRef = useRef(false);
   /** Map pick updates storage+coords; skip flyTo so the view stays where the user clicked. */
@@ -191,7 +213,15 @@ export default function UserLocationMap({
       marker.bindPopup(
         getStoredUserLatLng() ? "You are here" : "Explore this area",
       );
-      restaurantLayerRef.current = L.layerGroup();
+      const clusterLat = DEFAULT_MAP_CENTER_LAT_LNG.lat;
+      restaurantLayerRef.current = L.markerClusterGroup({
+        maxClusterRadius: (z: number) =>
+          restaurantClusterRadiusPx(clusterLat, z),
+        iconCreateFunction: () => RESTAURANT_MAP_ICON,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+      });
       map.addLayer(restaurantLayerRef.current);
 
       map.on("click", (e: LeafletMouseEvent) => {
