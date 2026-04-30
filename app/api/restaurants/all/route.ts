@@ -16,6 +16,19 @@ function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** `/map` list only — narrower Mongo projections + smaller JSON (see `mapList` query param). */
+const RESTAURANT_SELECT_MAP_LIST =
+  "name slug lat lng city zipCode images area";
+
+const RESTAURANT_SELECT_FULL =
+  "name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt";
+
+const OFFER_SELECT_MAP_LIST =
+  "title validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id";
+
+const OFFER_SELECT_FULL =
+  "title associatedId validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id";
+
 const EARTH_RADIUS_MILES = 3958.8;
 
 function haversineDistanceMiles(
@@ -47,6 +60,8 @@ export async function GET(request: Request) {
     const isWelcomeList = searchParams.get("welcome") === "1";
     /** Home /restaurants & / (welcome) grid + horizontal carousels — pinning sort. Omit on /map (distance sort). */
     const useBrowsePinSort = searchParams.get("browsePinSort") === "1";
+    /** Map restaurant list (`/map`) — slim DB fields + response shape only; must not be set by other callers. */
+    const isMapList = searchParams.get("mapList") === "1";
 
     const areaFilter = searchParams.get("area");
     const search = searchParams.get("search");
@@ -163,9 +178,7 @@ export async function GET(request: Request) {
     }
 
     const restaurants = await Restaurant.find(query)
-      .select(
-        "name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt",
-      )
+      .select(isMapList ? RESTAURANT_SELECT_MAP_LIST : RESTAURANT_SELECT_FULL)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -176,22 +189,27 @@ export async function GET(request: Request) {
     const areas = await Area.find({ _id: { $in: uniqueAreaIds } }).lean();
     const areaMap = new Map(areas.map((a: any) => [a._id.toString(), a]));
 
-    const allCategoryIds = restaurants.flatMap((r) =>
-      Array.isArray(r.category) ? r.category : [r.category],
-    );
-    const uniqueCategoryIds = [...new Set(allCategoryIds.map(String))];
-    const categories = await Category.find({
-      _id: { $in: uniqueCategoryIds },
-    }).lean();
-    const categoryMap = new Map(
-      categories.map((c: any) => [c._id.toString(), c]),
-    );
+    const categoryMap = new Map<string, any>();
+    if (!isMapList) {
+      const allCategoryIds = restaurants.flatMap((r: any) =>
+        Array.isArray(r.category) ? r.category : [r.category],
+      );
+      const uniqueCategoryIds = [
+        ...new Set(allCategoryIds.filter(Boolean).map(String)),
+      ];
+      if (uniqueCategoryIds.length > 0) {
+        const categories = await Category.find({
+          _id: { $in: uniqueCategoryIds },
+        }).lean();
+        for (const c of categories) {
+          categoryMap.set((c as any)._id.toString(), c);
+        }
+      }
+    }
 
     const restaurantIds = restaurants.map((r: any) => r._id.toString());
     const offersRaw = await Offer.find({ restaurantId: { $in: restaurantIds } })
-      .select(
-        "title associatedId validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id",
-      )
+      .select(isMapList ? OFFER_SELECT_MAP_LIST : OFFER_SELECT_FULL)
       .lean();
 
     const now = new Date();
@@ -275,6 +293,33 @@ export async function GET(request: Request) {
         // Sort offers by pinning status: newest pinned → older pinned → newest unpinned → older unpinned
         const activeOffers = sortOffersByPinning(activeOffersRaw);
         const offerValidDays = activeOffers.map((o: any) => o.validDays);
+
+        if (isMapList) {
+          return {
+            id: restaurantId,
+            slug: restaurant.slug ?? "",
+            name: restaurant.name,
+            city: restaurant.city || "",
+            zipCode: restaurant.zipCode || "",
+            lat: restaurant.lat ?? null,
+            lng: restaurant.lng ?? null,
+            imageUrl:
+              restaurant.images?.[0] ||
+              "/placeholder.svg?sheight=400&width=800",
+            dealsCount: activeOffers.length,
+            offers: activeOffers.map((offer: any) => ({
+              id: offer._id.toString(),
+              title: offer.title,
+              totalCodes: offer.maxRedemptionLimit
+                ? offer.maxRedemptionLimit
+                : null,
+              codesRedeemed: offer.redeemCount || 0,
+              isUnlimited: offer.isUnlimited || false,
+            })),
+            validDays: offerValidDays,
+            area: restaurant.area,
+          };
+        }
 
         const categoriesData = (
           Array.isArray(restaurant.category)

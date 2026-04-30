@@ -177,6 +177,8 @@ function buildRestaurantsListParams(
   params.append("userLat", String(f.userLat));
   params.append("userLng", String(f.userLng));
   params.append("sortBy", f.sortBy);
+  /** Slim DB projection + payload for /map list only (see `/api/restaurants/all`). */
+  params.append("mapList", "1");
   return params;
 }
 
