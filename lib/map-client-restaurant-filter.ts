@@ -131,7 +131,9 @@ export function applyMapClientRestaurantFilters(
       .split(",")
       .map((mt) => mt.trim())
       .map(parseMealTimeRange)
-      .filter((range): range is { start: number; end: number } => range !== null);
+      .filter(
+        (range): range is { start: number; end: number } => range !== null,
+      );
 
     if (mealRanges.length > 0) {
       out = out.filter((r) => {

@@ -58,6 +58,10 @@ import {
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { cn } from "@/lib/utils";
 import { applyMapClientRestaurantFilters } from "@/lib/map-client-restaurant-filter";
+import {
+  MAP_LIST_VIRTUAL_THRESHOLD,
+  MapRestaurantsVirtualList,
+} from "@/components/map-restaurants-virtual-list";
 
 const UserLocationMap = dynamic(
   () => import("@/components/user-location-map"),
@@ -1401,17 +1405,35 @@ export default function MapPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
           {sectionTitle}
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-4">
           {listErrorMessage && (
-            <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {listErrorMessage}
             </div>
           )}
           {listLoadingInitial &&
             !listErrorMessage &&
-            restaurants.length === 0 &&
-            [1, 2, 3, 4, 5, 6].map((i) => <RestaurantCardSkeleton key={i} />)}
-          {visibleRestaurants.map((restaurant) => {
+            restaurants.length === 0 && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <RestaurantCardSkeleton key={i} />
+                ))}
+              </div>
+            )}
+          {!listLoadingInitial && visibleRestaurants.length > 0 && (
+            visibleRestaurants.length >= MAP_LIST_VIRTUAL_THRESHOLD ? (
+              <MapRestaurantsVirtualList
+                restaurants={visibleRestaurants}
+                favorites={favorites}
+                favoritesLoading={favoritesLoading}
+                onNavigate={(segment) => {
+                  void handleRestaurantNavigate(segment);
+                }}
+                onHeartClick={handleHeartClick}
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {visibleRestaurants.map((restaurant) => {
             const offers =
               restaurant.offers?.map((offer) => ({
                 discount: offer.title,
@@ -1600,12 +1622,15 @@ export default function MapPage() {
                 </div>
               </div>
             );
-          })}
+                })}
+              </div>
+            )
+          )}
           {!listLoadingInitial &&
             !listErrorMessage &&
             hasFilters &&
             visibleRestaurants.length === 0 && (
-              <div className="col-span-full">
+              <div className="w-full">
                 <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
                     <Search className="h-6 w-6" />

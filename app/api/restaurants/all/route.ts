@@ -707,7 +707,9 @@ function sortRestaurantsByPinning(
       const areaPin = Array.isArray(restaurant.areaPins)
         ? restaurant.areaPins.find(
             (p: any) =>
-              p.areaId === areaFilter && p.priority !== null && p.priority !== undefined,
+              p.areaId === areaFilter &&
+              p.priority !== null &&
+              p.priority !== undefined,
           )
         : null;
 
@@ -763,12 +765,8 @@ function sortRestaurantsByPinning(
     const pB = b.homePin?.priority ?? 999;
     if (pA !== pB) return pA - pB;
 
-    const dA = a.homePin?.pinnedAt
-      ? new Date(a.homePin.pinnedAt).getTime()
-      : 0;
-    const dB = b.homePin?.pinnedAt
-      ? new Date(b.homePin.pinnedAt).getTime()
-      : 0;
+    const dA = a.homePin?.pinnedAt ? new Date(a.homePin.pinnedAt).getTime() : 0;
+    const dB = b.homePin?.pinnedAt ? new Date(b.homePin.pinnedAt).getTime() : 0;
 
     return dB - dA;
   });
