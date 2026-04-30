@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/popover";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { cn } from "@/lib/utils";
+import { applyMapClientRestaurantFilters } from "@/lib/map-client-restaurant-filter";
 
 const UserLocationMap = dynamic(
   () => import("@/components/user-location-map"),
@@ -73,13 +74,15 @@ type Category = {
 type OfferData = {
   id: string;
   title: string;
-  tags: string[];
+  tags?: string[];
   startDate?: string;
   expiryDate?: string;
-  status: string;
-  totalCodes: number;
+  status?: string;
+  totalCodes: number | null;
   codesRedeemed: number;
   expiresAt?: string;
+  isUnlimited?: boolean;
+  validHours?: string;
 };
 
 type Restaurant = {
@@ -91,23 +94,27 @@ type Restaurant = {
   lat?: number | null;
   lng?: number | null;
   cuisine?: string;
-  location: string;
+  location?: string;
   address?: string;
   city?: string;
   state?: string;
   zipCode?: string;
   addressLink?: string;
-  area: string | string[];
-  rating: number;
+  area?: string | string[];
+  /** Map API (`mapList`): category ObjectIds for client-side filtering. */
+  categoryIds?: string[];
+  /** Map API: raw offer valid-days blobs for client-side day filters. */
+  validDays?: unknown;
+  rating?: number;
   dealsCount: number;
   offers: OfferData[];
   imageUrl: string;
-  dineIn: boolean;
-  dineOut: boolean;
-  priceRange: string;
-  openingHours: string;
-  category: Category[];
-  deliveryAvailable: boolean;
+  dineIn?: boolean;
+  dineOut?: boolean;
+  priceRange?: string;
+  openingHours?: string;
+  category?: Category[];
+  deliveryAvailable?: boolean;
 };
 
 type RestaurantsListPageResponse = {
@@ -555,7 +562,18 @@ export default function MapPage() {
     placeholderData: keepPreviousData,
   });
 
-  const restaurants = restaurantsListResponse?.restaurants ?? [];
+  const apiRestaurants = restaurantsListResponse?.restaurants ?? [];
+
+  /** While a filtered request is in flight, narrow previous (`keepPreviousData`) rows on the client first. */
+  const restaurants = useMemo(() => {
+    if (isRestaurantsFetching && apiRestaurants.length > 0) {
+      return applyMapClientRestaurantFilters(
+        apiRestaurants,
+        restaurantsListFilters,
+      ) as Restaurant[];
+    }
+    return apiRestaurants;
+  }, [apiRestaurants, isRestaurantsFetching, restaurantsListFilters]);
 
   const listErrorMessage =
     restaurantsQueryError instanceof Error

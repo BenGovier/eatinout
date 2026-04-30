@@ -6,6 +6,11 @@ import {
   isRestaurantDistanceFilterMiles,
 } from "@/lib/constants";
 import connectToDatabase from "@/lib/mongodb";
+import {
+  parseMealTimeRange,
+  parseValidHours,
+  timeRangesOverlap,
+} from "@/lib/restaurant-offer-time-filters";
 import Restaurant from "@/models/Restaurant";
 import Offer from "@/models/Offer";
 import { Category } from "@/models/Categories";
@@ -18,7 +23,7 @@ function escapeRegex(str: string) {
 
 /** `/map` list only — narrower Mongo projections + smaller JSON (see `mapList` query param). */
 const RESTAURANT_SELECT_MAP_LIST =
-  "name slug lat lng city zipCode images area";
+  "name slug lat lng city zipCode images area category dineIn dineOut";
 
 const RESTAURANT_SELECT_FULL =
   "name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt";
@@ -295,6 +300,13 @@ export async function GET(request: Request) {
         const offerValidDays = activeOffers.map((o: any) => o.validDays);
 
         if (isMapList) {
+          const categoryIdsRaw = Array.isArray(restaurant.category)
+            ? restaurant.category
+            : restaurant.category != null
+              ? [restaurant.category]
+              : [];
+          const categoryIds = categoryIdsRaw.map((id: any) => String(id));
+
           return {
             id: restaurantId,
             slug: restaurant.slug ?? "",
@@ -307,15 +319,24 @@ export async function GET(request: Request) {
               restaurant.images?.[0] ||
               "/placeholder.svg?sheight=400&width=800",
             dealsCount: activeOffers.length,
-            offers: activeOffers.map((offer: any) => ({
-              id: offer._id.toString(),
-              title: offer.title,
-              totalCodes: offer.maxRedemptionLimit
-                ? offer.maxRedemptionLimit
-                : null,
-              codesRedeemed: offer.redeemCount || 0,
-              isUnlimited: offer.isUnlimited || false,
-            })),
+            dineIn: restaurant.dineIn ?? false,
+            dineOut: restaurant.dineOut ?? false,
+            categoryIds,
+            offers: activeOffers.map((offer: any) => {
+              const row: Record<string, unknown> = {
+                id: offer._id.toString(),
+                title: offer.title,
+                totalCodes: offer.maxRedemptionLimit
+                  ? offer.maxRedemptionLimit
+                  : null,
+                codesRedeemed: offer.redeemCount || 0,
+                isUnlimited: offer.isUnlimited || false,
+              };
+              if (offer.validHours) {
+                row.validHours = offer.validHours;
+              }
+              return row;
+            }),
             validDays: offerValidDays,
             area: restaurant.area,
           };
@@ -503,9 +524,13 @@ export async function GET(request: Request) {
       : finalFormattedRestaurants;
 
     // Remove validDays from all restaurants
-    const cleanedRestaurants = finalFormattedRestaurants.map(
-      ({ validDays, ...rest }: any) => rest,
-    );
+    const cleanedRestaurants = finalFormattedRestaurants.map((r: any) => {
+      const { validDays, ...rest } = r;
+      if (isMapList) {
+        return { ...rest, validDays };
+      }
+      return rest;
+    });
 
     // Browse pages: home / area pinning. Map & other callers: distance / createdAt (`sortBy`).
     let sortedRestaurants: typeof cleanedRestaurants;
@@ -633,59 +658,6 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-}
-
-// Helper function to parse meal time range from string like "Morning 7am-12pm"
-function parseMealTimeRange(
-  mealTimeStr: string,
-): { start: number; end: number } | null {
-  const lowerStr = mealTimeStr.toLowerCase();
-
-  if (lowerStr.includes("morning") || lowerStr.includes("7am-12pm")) {
-    return { start: 7, end: 12 };
-  } else if (lowerStr.includes("afternoon") || lowerStr.includes("12pm-5pm")) {
-    return { start: 12, end: 17 };
-  } else if (lowerStr.includes("evening") || lowerStr.includes("5pm-late")) {
-    return { start: 17, end: 24 };
-  }
-
-  return null;
-}
-
-// Helper function to parse validHours from format "HH:MM - HH:MM" (24-hour format)
-function parseValidHours(
-  validHours: string,
-): { start: number; end: number } | null {
-  try {
-    // Expected format: "01:00 - 03:00" or "14:00 - 18:00"
-    const parts = validHours.split("-").map((p) => p.trim());
-    if (parts.length !== 2) return null;
-
-    const startHour = parseInt(parts[0].split(":")[0], 10);
-    const endHour = parseInt(parts[1].split(":")[0], 10);
-
-    if (isNaN(startHour) || isNaN(endHour)) return null;
-
-    // Handle cases where end time is smaller than start (crosses midnight)
-    if (endHour < startHour) {
-      // For now, treat as continuing past midnight
-      return { start: startHour, end: endHour + 24 };
-    }
-
-    return { start: startHour, end: endHour };
-  } catch (e) {
-    return null;
-  }
-}
-
-// Helper function to check if two time ranges overlap
-function timeRangesOverlap(
-  range1: { start: number; end: number },
-  range2: { start: number; end: number },
-): boolean {
-  // Check if ranges overlap
-  // Overlap occurs if one range starts before the other ends
-  return range1.start < range2.end && range2.start < range1.end;
 }
 
 // Helper function to sort offers by pinning status
