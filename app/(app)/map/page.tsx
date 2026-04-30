@@ -37,10 +37,12 @@ import { useAuth } from "@/context/auth-context";
 import {
   DEFAULT_MAP_CENTER_LAT_LNG,
   DEFAULT_MAP_LOCATION_LABEL,
+  DEFAULT_MAP_DISTANCE_FILTER_SELECTION,
   DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+  RESTAURANT_DISTANCE_FILTER_ALL,
   RESTAURANT_DISTANCE_OPTIONS_MILES,
-  isRestaurantDistanceFilterMiles,
-  type RestaurantDistanceFilterMiles,
+  isRestaurantDistanceFilterSelection,
+  type RestaurantDistanceFilterSelection,
 } from "@/lib/constants";
 import {
   USER_LAT_LNG_SESSION_KEY,
@@ -129,6 +131,19 @@ function isRestaurantListSort(v: unknown): v is RestaurantListSort {
   return v === DEFAULT_RESTAURANT_LIST_SORT;
 }
 
+/** Session restore: map default is All; legacy saves used 25 mi as the old default. */
+function restoredMapMaxDistanceMiles(
+  raw: unknown,
+): RestaurantDistanceFilterSelection {
+  if (raw === DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) {
+    return DEFAULT_MAP_DISTANCE_FILTER_SELECTION;
+  }
+  if (isRestaurantDistanceFilterSelection(raw)) {
+    return raw;
+  }
+  return DEFAULT_MAP_DISTANCE_FILTER_SELECTION;
+}
+
 type RestaurantsListFilters = {
   search: string;
   categoryId: string;
@@ -136,7 +151,7 @@ type RestaurantsListFilters = {
   dineOut: boolean;
   days: string;
   mealTimes: string;
-  maxDistanceMiles: RestaurantDistanceFilterMiles;
+  maxDistanceMiles: RestaurantDistanceFilterSelection;
   userLat: number;
   userLng: number;
   sortBy: RestaurantListSort;
@@ -224,7 +239,7 @@ interface FilterState {
   selectedDayValues: string[];
   selectedDining: string[];
   selectedMealTimes: string[];
-  maxDistanceMiles: RestaurantDistanceFilterMiles;
+  maxDistanceMiles: RestaurantDistanceFilterSelection;
   listSort: RestaurantListSort;
 }
 
@@ -390,7 +405,7 @@ export default function MapPage() {
     selectedDayValues: [],
     selectedDining: [],
     selectedMealTimes: [],
-    maxDistanceMiles: DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+    maxDistanceMiles: DEFAULT_MAP_DISTANCE_FILTER_SELECTION,
     listSort: DEFAULT_RESTAURANT_LIST_SORT,
   });
 
@@ -475,11 +490,9 @@ export default function MapPage() {
           selectedDayValues: savedState.selectedDayValues || [],
           selectedDining: savedState.selectedDining || [],
           selectedMealTimes: savedState.selectedMealTimes || [],
-          maxDistanceMiles:
-            typeof savedState.maxDistanceMiles === "number" &&
-            isRestaurantDistanceFilterMiles(savedState.maxDistanceMiles)
-              ? savedState.maxDistanceMiles
-              : DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+          maxDistanceMiles: restoredMapMaxDistanceMiles(
+            savedState.maxDistanceMiles,
+          ),
           listSort: isRestaurantListSort(savedState.listSort)
             ? savedState.listSort
             : DEFAULT_RESTAURANT_LIST_SORT,
@@ -806,8 +819,8 @@ export default function MapPage() {
   }, []);
 
   const setMaxDistanceMiles = useCallback(
-    (miles: RestaurantDistanceFilterMiles) => {
-      setFilterState((prev) => ({ ...prev, maxDistanceMiles: miles }));
+    (value: RestaurantDistanceFilterSelection) => {
+      setFilterState((prev) => ({ ...prev, maxDistanceMiles: value }));
     },
     [],
   );
@@ -926,7 +939,7 @@ export default function MapPage() {
       filterState.selectedDayValues.length > 0 ||
       filterState.selectedMealTimes.length > 0 ||
       filterState.maxDistanceMiles !==
-        DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES ||
+        DEFAULT_MAP_DISTANCE_FILTER_SELECTION ||
       debouncedSearchTerm
     );
   }, [
@@ -1067,7 +1080,7 @@ export default function MapPage() {
           filterState.selectedDays.length > 0 ||
           filterState.selectedDining.length > 0 ||
           filterState.maxDistanceMiles !==
-            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES) && (
+            DEFAULT_MAP_DISTANCE_FILTER_SELECTION) && (
           <div
             className={cn(
               "flex flex-wrap items-center gap-2",
@@ -1116,12 +1129,15 @@ export default function MapPage() {
                 {dining === "dine-in" ? "Dine In" : "Takeaway"}
               </Badge>
             ))}
-            <Badge
-              variant="secondary"
-              className="bg-primary/10 text-primary border-primary/20"
-            >
-              Within {filterState.maxDistanceMiles} mi
-            </Badge>
+            {filterState.maxDistanceMiles !==
+              RESTAURANT_DISTANCE_FILTER_ALL && (
+              <Badge
+                variant="secondary"
+                className="bg-primary/10 text-primary border-primary/20"
+              >
+                Within {filterState.maxDistanceMiles} mi
+              </Badge>
+            )}
           </div>
         )}
 
@@ -1235,6 +1251,26 @@ export default function MapPage() {
               </p>
             )}
             <div className={cn("flex flex-wrap gap-2", compact && "gap-1.5")}>
+              <Button
+                type="button"
+                variant={
+                  filterState.maxDistanceMiles === RESTAURANT_DISTANCE_FILTER_ALL
+                    ? "default"
+                    : "outline"
+                }
+                size="sm"
+                onClick={() =>
+                  setMaxDistanceMiles(RESTAURANT_DISTANCE_FILTER_ALL)
+                }
+                className={cn(
+                  filterState.maxDistanceMiles === RESTAURANT_DISTANCE_FILTER_ALL
+                    ? "rounded-2xl bg-primary text-white hover:bg-primary/90"
+                    : "rounded-2xl",
+                  compact && "h-8 min-w-[2.75rem] px-2 text-xs",
+                )}
+              >
+                All
+              </Button>
               {RESTAURANT_DISTANCE_OPTIONS_MILES.map((miles) => (
                 <Button
                   key={miles}
@@ -1286,7 +1322,7 @@ export default function MapPage() {
                   selectedDayValues: [],
                   selectedDining: [],
                   selectedMealTimes: [],
-                  maxDistanceMiles: DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                  maxDistanceMiles: DEFAULT_MAP_DISTANCE_FILTER_SELECTION,
                   listSort: DEFAULT_RESTAURANT_LIST_SORT,
                 });
                 clearScrollPosition();
@@ -1573,7 +1609,7 @@ export default function MapPage() {
                           selectedDining: [],
                           selectedMealTimes: [],
                           maxDistanceMiles:
-                            DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
+                            DEFAULT_MAP_DISTANCE_FILTER_SELECTION,
                           listSort: DEFAULT_RESTAURANT_LIST_SORT,
                         });
                         clearScrollPosition();
