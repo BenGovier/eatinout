@@ -57,9 +57,11 @@ export async function GET(request: Request) {
     const days = searchParams.get("days");
     const mealTimes = searchParams.get("mealTimes");
     const maxDistanceMilesRaw = searchParams.get("maxDistanceMiles");
+    const distanceFilterAll =
+      maxDistanceMilesRaw?.trim().toLowerCase() === "all";
 
     let maxDistanceMiles: number = DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES;
-    if (maxDistanceMilesRaw) {
+    if (maxDistanceMilesRaw && !distanceFilterAll) {
       const parsed = parseInt(maxDistanceMilesRaw, 10);
       if (isRestaurantDistanceFilterMiles(parsed)) {
         maxDistanceMiles = parsed;
@@ -81,7 +83,7 @@ export async function GET(request: Request) {
     /**
      * Browse-by-area (home /restaurants, carousels): no map pin — only `area` should constrain
      * geography. Default $geoWithin around Blackpool would intersect away every other region.
-     * Map view always sends userLat/userLng so radius still applies there.
+     * Map view sends `maxDistanceMiles=all` to skip radius; otherwise userLat/userLng set the origin.
      */
     const isAreaListingWithoutPin =
       Boolean(areaFilter && areaFilter !== "all") && !hasUserCoords;
@@ -150,7 +152,8 @@ export async function GET(request: Request) {
 
     // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
     // Welcome / area browse omit user coords — do not apply default radius (see skipGeoFilter).
-    if (!skipGeoFilter) {
+    // `maxDistanceMiles=all` skips radius only; response still includes distances from origin for sort/UI.
+    if (!skipGeoFilter && !distanceFilterAll) {
       const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
       query.location = {
         $geoWithin: {
@@ -434,9 +437,10 @@ export async function GET(request: Request) {
       }
     }
 
-    finalFormattedRestaurants = skipGeoFilter
-      ? finalFormattedRestaurants
-      : finalFormattedRestaurants.map((restaurant: any) => {
+    const attachDistanceFromOrigin = !skipGeoFilter || distanceFilterAll;
+
+    finalFormattedRestaurants = attachDistanceFromOrigin
+      ? finalFormattedRestaurants.map((restaurant: any) => {
           const lat = restaurant.lat;
           const lng = restaurant.lng;
           if (
@@ -450,7 +454,8 @@ export async function GET(request: Request) {
           const miles = haversineDistanceMiles(originLat, originLng, lat, lng);
           const distanceMiles = Math.round(miles * 10) / 10;
           return { ...restaurant, distanceMiles };
-        });
+        })
+      : finalFormattedRestaurants;
 
     // Remove validDays from all restaurants
     const cleanedRestaurants = finalFormattedRestaurants.map(
