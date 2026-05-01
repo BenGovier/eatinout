@@ -11,6 +11,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
 // Create subscription
 export async function POST(req: Request) {
   try {
@@ -25,10 +27,7 @@ export async function POST(req: Request) {
     }
 
     // Decode token to get userId
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as {
+    const decodedToken = jwt.verify(token, JWT_SECRET) as {
       userId: string;
     };
 
@@ -89,10 +88,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as {
+    const decodedToken = jwt.verify(token, JWT_SECRET) as {
       userId: string;
     };
 
@@ -171,10 +167,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as {
+    const decodedToken = jwt.verify(token, JWT_SECRET) as {
       userId: string;
     };
 
@@ -190,13 +183,31 @@ export async function GET(req: Request) {
         user.subscriptionId
       );
 
-      // Get payment method details
-      const paymentMethods = await stripe.paymentMethods.list({
-        customer: user.stripeCustomerId,
-        type: "card",
-      });
+      const customerIdFromSub =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id;
 
-      const defaultPaymentMethod = paymentMethods.data[0];
+      const customerId =
+        customerIdFromSub || user.stripeCustomerId || undefined;
+
+      if (customerIdFromSub && !user.stripeCustomerId) {
+        try {
+          user.stripeCustomerId = customerIdFromSub;
+          await user.save();
+        } catch (syncErr) {
+          console.error("Error syncing stripeCustomerId from subscription:", syncErr);
+        }
+      }
+
+      let defaultPaymentMethod: Stripe.PaymentMethod | undefined;
+      if (customerId) {
+        const paymentMethods = await stripe.paymentMethods.list({
+          customer: customerId,
+          type: "card",
+        });
+        defaultPaymentMethod = paymentMethods.data[0];
+      }
 
 
       // Determine access based on subscription status and dates
@@ -281,6 +292,7 @@ export async function GET(req: Request) {
       });
     }
   } catch (error) {
+    console.error("GET /api/subscriptions:", error);
     return NextResponse.json(
       { error: "Error fetching subscription status" },
       { status: 500 }
@@ -301,10 +313,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as {
+    const decodedToken = jwt.verify(token, JWT_SECRET) as {
       userId: string;
     };
 
