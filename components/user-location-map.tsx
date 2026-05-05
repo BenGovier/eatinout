@@ -8,8 +8,13 @@ import L, { type LeafletMouseEvent } from "leaflet";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
-import { UK_LEAFLET_MAP_OPTIONS, UK_MAP_BOUNDS } from "@/lib/leaflet-uk-bounds";
-import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
+import {
+  UK_LEAFLET_MAP_OPTIONS,
+  UK_MAP_BOUNDS,
+  UK_MAP_MAX_BOUNDS_LNG_LAT,
+} from "@/lib/leaflet-uk-bounds";
+import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
+import { getMapTilerLeafletBasemapConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
   USER_MARKER_LEAFLET_ICON_ANCHOR,
@@ -22,6 +27,7 @@ import {
 } from "@/lib/user-location-session";
 
 import "leaflet/dist/leaflet.css";
+import "@maptiler/sdk/dist/maptiler-sdk.css";
 
 /** Restaurant pins only at this zoom and above; below this, regional hub pins are shown instead. */
 const RESTAURANT_PINS_MIN_ZOOM = 10;
@@ -180,7 +186,8 @@ export default function UserLocationMap({
       window.removeEventListener(USER_LOCATION_STORAGE_EVENT, onStorage);
   }, []);
 
-  const { tileUrl, usingMapTiler } = getMapTilerLeafletTileConfig();
+  const { usingMapTiler, osmRasterTileUrl, mapTilerVector } =
+    getMapTilerLeafletBasemapConfig();
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -204,7 +211,15 @@ export default function UserLocationMap({
         doubleClickZoom: true,
       });
 
-      L.tileLayer(tileUrl, { bounds: UK_MAP_BOUNDS }).addTo(map);
+      if (mapTilerVector) {
+        new MaptilerLayer({
+          apiKey: mapTilerVector.apiKey,
+          style: mapTilerVector.styleUrl,
+          maxBounds: UK_MAP_MAX_BOUNDS_LNG_LAT,
+        } as ConstructorParameters<typeof MaptilerLayer>[0]).addTo(map);
+      } else {
+        L.tileLayer(osmRasterTileUrl, { bounds: UK_MAP_BOUNDS }).addTo(map);
+      }
 
       const marker = L.marker(center, {
         icon: USER_LOCATION_ICON,
@@ -289,7 +304,14 @@ export default function UserLocationMap({
         getStoredUserLatLng() ? "You are here" : "Explore this area",
       );
     }
-  }, [coords, tileUrl, usingMapTiler, zoom]);
+  }, [
+    coords,
+    mapTilerVector?.apiKey,
+    mapTilerVector?.styleUrl,
+    osmRasterTileUrl,
+    usingMapTiler,
+    zoom,
+  ]);
 
   useEffect(() => {
     if (!mapPopover) {

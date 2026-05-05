@@ -9,6 +9,12 @@ export const UK_MAP_BOUNDS = L.latLngBounds(
   [60.95, 1.95],
 );
 
+/** SW / NE corners as `[lng, lat]` for MapTiler SDK / `MaptilerLayer` maxBounds. */
+export const UK_MAP_MAX_BOUNDS_LNG_LAT: [[number, number], [number, number]] = [
+  [UK_MAP_BOUNDS.getWest(), UK_MAP_BOUNDS.getSouth()],
+  [UK_MAP_BOUNDS.getEast(), UK_MAP_BOUNDS.getNorth()],
+];
+
 /** Most zoomed-out level: keeps focus on the British Isles, not a world view. */
 export const UK_MAP_MIN_ZOOM = 5;
 

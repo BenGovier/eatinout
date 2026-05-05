@@ -5,12 +5,17 @@ import L from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useLocationConsent } from "@/components/location-consent-provider";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
-import { UK_LEAFLET_MAP_OPTIONS, UK_MAP_BOUNDS } from "@/lib/leaflet-uk-bounds";
+import {
+  UK_LEAFLET_MAP_OPTIONS,
+  UK_MAP_BOUNDS,
+  UK_MAP_MAX_BOUNDS_LNG_LAT,
+} from "@/lib/leaflet-uk-bounds";
+import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
 import {
   USER_MARKER_LEAFLET_ICON_ANCHOR,
   USER_MARKER_LEAFLET_ICON_SIZE,
 } from "@/lib/leaflet-user-marker";
-import { getMapTilerLeafletTileConfig } from "@/lib/maptiler-leaflet";
+import { getMapTilerLeafletBasemapConfig } from "@/lib/maptiler-leaflet";
 import { cn } from "@/lib/utils";
 import {
   getStoredUserLatLng,
@@ -19,6 +24,7 @@ import {
 } from "@/lib/user-location-session";
 
 import "leaflet/dist/leaflet.css";
+import "@maptiler/sdk/dist/maptiler-sdk.css";
 
 /** Same icon as `/restaurants` user marker (`user-location-map`). */
 const JOIN_MAP_PICK_ICON = L.icon({
@@ -82,7 +88,7 @@ export default function JoinRestaurantLocationMap({
     };
   }, [syncUserGpsFromStorage]);
 
-  const { tileUrl, usingMapTiler } = getMapTilerLeafletTileConfig();
+  const { osmRasterTileUrl, mapTilerVector } = getMapTilerLeafletBasemapConfig();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -104,12 +110,18 @@ export default function JoinRestaurantLocationMap({
       scrollWheelZoom: true,
     });
 
-    L.tileLayer(tileUrl, {
-      bounds: UK_MAP_BOUNDS,
-      attribution: usingMapTiler
-        ? "© MapTiler © OpenStreetMap contributors"
-        : "© OpenStreetMap contributors",
-    }).addTo(map);
+    if (mapTilerVector) {
+      new MaptilerLayer({
+        apiKey: mapTilerVector.apiKey,
+        style: mapTilerVector.styleUrl,
+        maxBounds: UK_MAP_MAX_BOUNDS_LNG_LAT,
+      } as ConstructorParameters<typeof MaptilerLayer>[0]).addTo(map);
+    } else {
+      L.tileLayer(osmRasterTileUrl, {
+        bounds: UK_MAP_BOUNDS,
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+    }
 
     const clickHandler = (e: L.LeafletMouseEvent) => {
       onPickRef.current?.(e.latlng.lat, e.latlng.lng);
@@ -124,7 +136,7 @@ export default function JoinRestaurantLocationMap({
       map.remove();
       setMapInstance(null);
     };
-  }, [tileUrl, usingMapTiler]);
+  }, [mapTilerVector?.apiKey, mapTilerVector?.styleUrl, osmRasterTileUrl]);
 
   useEffect(() => {
     if (!mapInstance) return;
