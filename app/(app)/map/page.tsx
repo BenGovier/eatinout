@@ -1377,13 +1377,6 @@ export default function MapPage() {
 
   const renderPostMapContent = () => (
     <>
-      <FlavourSection
-        cuisineTypes={metaState.cuisineTypes}
-        selectedCuisineIds={filterState.selectedCuisineIds}
-        onCuisineClick={toggleCuisine}
-        isLoading={metaState.cuisineTypesLoading}
-      />
-
       {shouldShowCarousels && (
         <div className="bg-[#FFFBF7] pb-6 md:block hidden" id="restaurant-list">
           <AuthCarouselList
