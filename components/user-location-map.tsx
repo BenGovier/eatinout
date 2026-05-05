@@ -23,6 +23,26 @@ import {
 
 import "leaflet/dist/leaflet.css";
 
+/** Restaurant pins only at this zoom and above; below this, regional hub pins are shown instead. */
+const RESTAURANT_PINS_MIN_ZOOM = 10;
+
+/**
+ * Zoom after clicking a regional hub. Set to {@link RESTAURANT_PINS_MIN_ZOOM} so restaurant pins
+ * appear (the product spec uses 10+ for restaurants).
+ */
+const AREA_HUB_FOCUS_ZOOM = RESTAURANT_PINS_MIN_ZOOM + 1;
+
+/** Approximate town / city centres (North West England) for low-zoom hub markers. */
+const AREA_HUB_LOCATIONS: readonly { name: string; lat: number; lng: number }[] = [
+  { name: "Blackpool", lat: 53.8175, lng: -3.0357 },
+  { name: "Bolton", lat: 53.5789, lng: -2.4297 },
+  { name: "Preston", lat: 53.7632, lng: -2.7031 },
+  { name: "Lytham St Annes", lat: 53.7369, lng: -3.0097 },
+  { name: "Liverpool", lat: 53.4084, lng: -2.9916 },
+  { name: "Blackburn", lat: 53.7488, lng: -2.4874 },
+  { name: "Wigan", lat: 53.545, lng: -2.6325 },
+];
+
 type LatLng = { lat: number; lng: number };
 type RestaurantMarker = {
   id: string;
@@ -72,7 +92,7 @@ function formatDistanceMiles(miles?: number): string {
 
 export default function UserLocationMap({
   className,
-  zoom = 13,
+  zoom = 9,
   restaurants = [],
   onViewDeal,
   isInteractionLocked = false,
@@ -89,10 +109,17 @@ export default function UserLocationMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const restaurantLayerRef = useRef<L.LayerGroup | null>(null);
+  const areaHubLayerRef = useRef<L.LayerGroup | null>(null);
   /** When true, next coords sync uses flyTo instead of setView (user-initiated). */
   const userRequestedRecenterRef = useRef(false);
   /** Map pick updates storage+coords; skip flyTo so the view stays where the user clicked. */
   const skipFlyOnNextStorageSyncRef = useRef(false);
+  /**
+   * Hub markers use `flyTo` for zoom; syncing coords triggers an effect that calls `setView`, which
+   * cancels Leaflet's fly animation and leaves zoom stuck. Skip that one `setView` when a hub click
+   * is driving the update (map tap still recentres via `setView` as before).
+   */
+  const suppressNextCoordsEffectSetViewRef = useRef(false);
   const locationConsent = useLocationConsent();
   const [coords, setCoords] = useState<LatLng>({
     lat: DEFAULT_MAP_CENTER_LAT_LNG.lat,
@@ -105,11 +132,6 @@ export default function UserLocationMap({
     top: number;
   } | null>(null);
   const [portalReady, setPortalReady] = useState(false);
-  /** Latest props for restaurant-driven fitBounds (effect is keyed only on `restaurants`). */
-  const coordsRef = useRef(coords);
-  coordsRef.current = coords;
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
 
   useEffect(() => {
     setPortalReady(true);
@@ -192,13 +214,51 @@ export default function UserLocationMap({
         getStoredUserLatLng() ? "You are here" : "Explore this area",
       );
       restaurantLayerRef.current = L.layerGroup();
-      map.addLayer(restaurantLayerRef.current);
+      areaHubLayerRef.current = L.layerGroup();
+
+      const syncRestaurantAndHubLayers = () => {
+        const restaurantsLayer = restaurantLayerRef.current;
+        const hubsLayer = areaHubLayerRef.current;
+        if (!restaurantsLayer || !hubsLayer) return;
+        const z = map.getZoom();
+        if (z >= RESTAURANT_PINS_MIN_ZOOM) {
+          if (!map.hasLayer(restaurantsLayer)) map.addLayer(restaurantsLayer);
+          if (map.hasLayer(hubsLayer)) map.removeLayer(hubsLayer);
+        } else {
+          if (map.hasLayer(restaurantsLayer)) map.removeLayer(restaurantsLayer);
+          if (!map.hasLayer(hubsLayer)) map.addLayer(hubsLayer);
+        }
+      };
+
+      for (const hub of AREA_HUB_LOCATIONS) {
+        const hubMarker = L.marker([hub.lat, hub.lng], {
+          icon: RESTAURANT_MAP_ICON,
+        });
+        hubMarker.on("click", (e: LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          setMapPopover(null);
+          suppressNextCoordsEffectSetViewRef.current = true;
+          skipFlyOnNextStorageSyncRef.current = true;
+          persistUserLatLng(hub.lat, hub.lng);
+          map.flyTo(L.latLng(hub.lat, hub.lng), AREA_HUB_FOCUS_ZOOM, {
+            duration: 0.85,
+          });
+        });
+        hubMarker.addTo(areaHubLayerRef.current);
+      }
+
+      syncRestaurantAndHubLayers();
 
       map.on("click", (e: LeafletMouseEvent) => {
         setMapPopover(null);
         const { lat, lng } = e.latlng;
         skipFlyOnNextStorageSyncRef.current = true;
         persistUserLatLng(lat, lng);
+      });
+
+      map.on("zoomend", () => {
+        syncRestaurantAndHubLayers();
+        if (map.getZoom() < RESTAURANT_PINS_MIN_ZOOM) setMapPopover(null);
       });
 
       mapInstanceRef.current = map;
@@ -216,13 +276,19 @@ export default function UserLocationMap({
       userRequestedRecenterRef.current = false;
       const z = Math.max(map.getZoom(), zoom);
       map.flyTo(center, z, { duration: 1.15 });
+    } else if (suppressNextCoordsEffectSetViewRef.current) {
+      suppressNextCoordsEffectSetViewRef.current = false;
+      markerRef.current?.setLatLng(center);
+      markerRef.current?.setPopupContent(
+        getStoredUserLatLng() ? "You are here" : "Explore this area",
+      );
     } else {
       map.setView(center, map.getZoom());
+      markerRef.current?.setLatLng(center);
+      markerRef.current?.setPopupContent(
+        getStoredUserLatLng() ? "You are here" : "Explore this area",
+      );
     }
-    markerRef.current?.setLatLng(center);
-    markerRef.current?.setPopupContent(
-      getStoredUserLatLng() ? "You are here" : "Explore this area",
-    );
   }, [coords, tileUrl, usingMapTiler, zoom]);
 
   useEffect(() => {
@@ -320,42 +386,14 @@ export default function UserLocationMap({
       });
       marker.addTo(layer);
     });
-
-    // After fetch/refetch (`restaurants` updates), fit everything visible once; user can pan/zoom freely until the next update.
-    const userLatLng =
-      markerRef.current?.getLatLng() ??
-      L.latLng(coordsRef.current.lat, coordsRef.current.lng);
-    const defaultZoom = zoomRef.current;
-    const fitPoints: L.LatLng[] = [
-      ...validRestaurants.map((r) => L.latLng(r.lat, r.lng)),
-      userLatLng,
-    ];
-
-    let bounds = L.latLngBounds(fitPoints);
-    if (!bounds.isValid()) {
-      map.setView(userLatLng, defaultZoom);
-      return;
-    }
-
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
-    // Degenerate bounds: getBoundsZoom / fitBounds need a non-zero area.
-    if (sw.lat === ne.lat && sw.lng === ne.lng) {
-      const eps = 0.002;
-      bounds = L.latLngBounds(
-        L.latLng(sw.lat - eps, sw.lng - eps),
-        L.latLng(ne.lat + eps, ne.lng + eps),
-      );
-    }
-
-    // fitBounds uses getBoundsZoom internally — max zoom that still fits, with padding (no extra maxZoom cap).
-    map.fitBounds(bounds, { padding: [40, 48] });
   }, [restaurants]);
 
   useEffect(() => {
     return () => {
       restaurantLayerRef.current?.clearLayers();
       restaurantLayerRef.current = null;
+      areaHubLayerRef.current?.clearLayers();
+      areaHubLayerRef.current = null;
       markerRef.current?.remove();
       markerRef.current = null;
       mapInstanceRef.current?.remove();
