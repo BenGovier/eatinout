@@ -86,8 +86,8 @@ const USER_LOCATION_ICON = L.icon({
 const RESTAURANT_MAP_ICON = L.icon({
   iconUrl: "/Marker.svg",
   iconSize: [36, 51],
-  iconAnchor: [18, 51],
-  popupAnchor: [0, -49],
+  iconAnchor: [18, 45],
+  popupAnchor: [0, -70],
 });
 
 function formatDistanceMiles(miles?: number): string {
