@@ -359,6 +359,15 @@ useEffect(() => {
         autoClose: 2000
       });
 
+      // Fire only after real registration success (not on failed client validation or API errors).
+      // Point GTM tags at custom event `signup_complete` instead of Form Submission to avoid
+      // misfires when password/confirm mismatch or other checks block submit.
+      if (typeof window !== "undefined") {
+        const w = window as Window & { dataLayer?: Record<string, unknown>[] }
+        w.dataLayer = w.dataLayer ?? []
+        w.dataLayer.push({ event: "signup_complete" })
+      }
+
       // Store redirect URL for use after payment success - store it multiple times to ensure it persists
       const currentRedirectUrl = redirectUrl || searchParams.get("redirect");
       if (currentRedirectUrl) {
