@@ -312,6 +312,13 @@ useEffect(() => {
     setFormData((prev) => ({ ...prev, agreeToTerms: checked }))
   }
 
+  const pushDataLayerEvent = (eventName: string) => {
+    if (typeof window === "undefined") return
+    const w = window as Window & { dataLayer?: Record<string, unknown>[] }
+    w.dataLayer = w.dataLayer ?? []
+    w.dataLayer.push({ event: eventName })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowValidationErrors(true);
@@ -328,6 +335,9 @@ useEffect(() => {
       setIsLoading(false);
       return;
     }
+
+    // GTM: fire only after passwords match and strength rules pass (not on invalid submit).
+    pushDataLayerEvent("signup_validation_passed")
 
     try {
       console.log('📤 Submitting registration with referral:', referral);
@@ -359,14 +369,8 @@ useEffect(() => {
         autoClose: 2000
       });
 
-      // Fire only after real registration success (not on failed client validation or API errors).
-      // Point GTM tags at custom event `signup_complete` instead of Form Submission to avoid
-      // misfires when password/confirm mismatch or other checks block submit.
-      if (typeof window !== "undefined") {
-        const w = window as Window & { dataLayer?: Record<string, unknown>[] }
-        w.dataLayer = w.dataLayer ?? []
-        w.dataLayer.push({ event: "signup_complete" })
-      }
+      // GTM: fire after registration API succeeds (use a separate trigger from signup_validation_passed).
+      pushDataLayerEvent("signup_complete")
 
       // Store redirect URL for use after payment success - store it multiple times to ensure it persists
       const currentRedirectUrl = redirectUrl || searchParams.get("redirect");

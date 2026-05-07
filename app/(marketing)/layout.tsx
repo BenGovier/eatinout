@@ -10,6 +10,7 @@ import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { GoogleTagManager } from "@/components/google-tag-manager"
 
 const ROLE_TO_DASHBOARD: Record<string, string> = {
   admin: "/admin/dashboard",
@@ -33,15 +34,26 @@ export default function MarketingLayout({
   }, [authLoading, isAuthenticated, user, router])
 
   if (authLoading) {
-    return <Spinner />
+    return (
+      <>
+        <GoogleTagManager />
+        <Spinner />
+      </>
+    )
   }
 
   if (isAuthenticated && user) {
-    return <Spinner />
+    return (
+      <>
+        <GoogleTagManager />
+        <Spinner />
+      </>
+    )
   }
 
   return (
     <>
+      <GoogleTagManager />
       <div className="flex flex-col min-h-screen">
         {authError && (
           <div className="sticky top-0 z-[71] flex items-center justify-between gap-3 bg-destructive/10 border-b border-destructive/20 px-4 py-2.5 text-sm text-destructive">
