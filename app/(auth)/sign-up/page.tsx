@@ -355,7 +355,7 @@ useEffect(() => {
         throw new Error(data.message || "Registration failed");
       }
 
-      toast.success("Account created successfully! Redirecting to payment...", {
+      toast.success("Account created successfully!", {
         autoClose: 2000
       });
 
@@ -379,9 +379,8 @@ useEffect(() => {
       }
 
       sessionStorage.setItem('triggeredLogin', 'true');
-      
-      // Redirect to Stripe checkout immediately (no delay)
-      await redirectToStripeCheckout(data.user.email || formData.email);
+
+      router.push("/sign-up/thank-you");
     } catch (error: any) {
       toast.error(error.message || "Failed to create account");
     } finally {
