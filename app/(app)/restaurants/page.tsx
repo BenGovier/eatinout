@@ -29,6 +29,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { toast } from "react-toastify"
 import { useAuth } from "@/context/auth-context"
+import { WelcomeLocationModal } from "@/components/welcome-location-modal"
 
 type Category = {
   id: string
@@ -99,6 +100,8 @@ function useDebounce<T>(value: T, delay: number): T {
 interface PageState {
   restaurants: Restaurant[]
   loading: boolean
+  /** True while a page-1 / filter reset fetch is in flight (show list skeleton, hide stale cards). */
+  loadingListReset: boolean
   error: string | null
   isRestoringScroll: boolean
   pagination: {
@@ -245,6 +248,7 @@ export default function RestaurantsPage() {
   const [pageState, setPageState] = useState<PageState>({
     restaurants: [],
     loading: true,
+    loadingListReset: false,
     error: null,
     isRestoringScroll: false,
     pagination: {
@@ -290,6 +294,8 @@ export default function RestaurantsPage() {
   const [carouselVisibility, setCarouselVisibility] = useState<Record<string, boolean>>({
     'available-everywhere': true,
   })
+
+  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(true)
 
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
@@ -390,6 +396,7 @@ export default function RestaurantsPage() {
     if (filters.selectedMealTimes.length > 0) {
       params.append('mealTimes', filters.selectedMealTimes.join(','))
     }
+    params.append('browsePinSort', '1')
 
     const requestKey = `${params.toString()}-${page}`
 
@@ -401,7 +408,12 @@ export default function RestaurantsPage() {
       fetchingRef.current.add(requestKey)
 
       if (reset) {
-        setPageState(prev => ({ ...prev, loading: true, error: null }))
+        setPageState(prev => ({
+          ...prev,
+          loading: true,
+          loadingListReset: true,
+          error: null,
+        }))
       }
 
       const response = await fetch(`/api/restaurants/all?${params.toString()}`, {
@@ -427,6 +439,7 @@ export default function RestaurantsPage() {
         ...prev,
         restaurants: reset ? data.restaurants : [...prev.restaurants, ...data.restaurants],
         loading: false,
+        loadingListReset: false,
         pagination: {
           currentPage: data.pagination?.currentPage || page,
           totalPages: data.pagination?.totalPages || 1,
@@ -439,6 +452,7 @@ export default function RestaurantsPage() {
         ...prev,
         error: errorMessage,
         loading: false,
+        loadingListReset: false,
         restaurants: reset ? [] : prev.restaurants
       }))
     } finally {
@@ -449,6 +463,30 @@ export default function RestaurantsPage() {
   useEffect(() => {
     restoreFilterState()
   }, [restoreFilterState])
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("restaurantFilters")
+      if (!raw) return
+      const s = JSON.parse(raw) as {
+        selectedLocationId?: string
+        selectedLocation?: string
+      }
+      if (s.selectedLocationId === "all") {
+        setShowWelcomeLocationModal(false)
+        return
+      }
+      if (s.selectedLocationId && s.selectedLocationId !== "") {
+        setShowWelcomeLocationModal(false)
+        return
+      }
+      if (s.selectedLocation && s.selectedLocation !== "") {
+        setShowWelcomeLocationModal(false)
+      }
+    } catch {
+      /* keep modal visible */
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -769,6 +807,36 @@ export default function RestaurantsPage() {
     return names.length > 0 ? names.join(", ") : "Location not available"
   }, [])
 
+  const handleWelcomeLocationSelect = useCallback((locationName: string) => {
+    if (locationName === "") {
+      setFilterState((prev) => ({
+        ...prev,
+        selectedLocation: "",
+        selectedLocationId: "all",
+      }))
+    } else {
+      setFilterState((prev) => ({
+        ...prev,
+        selectedLocation: locationName,
+      }))
+    }
+    setShowWelcomeLocationModal(false)
+  }, [])
+
+  useEffect(() => {
+    if (filterState.selectedLocation && metaState.areas.length > 0) {
+      const match = metaState.areas.find(
+        (a) => a.label === filterState.selectedLocation,
+      )
+      if (match) {
+        setFilterState((prev) => ({
+          ...prev,
+          selectedLocationId: match.value,
+        }))
+      }
+    }
+  }, [filterState.selectedLocation, metaState.areas])
+
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
     // Check if the user is a normal user without an active subscription
     if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
@@ -804,6 +872,13 @@ export default function RestaurantsPage() {
   const visibleRestaurants = useMemo(() => {
     return pageState.restaurants.filter((restaurant) => (restaurant.offers?.length ?? 0) > 0)
   }, [pageState.restaurants])
+
+  const showMainListSkeleton = useMemo(
+    () =>
+      pageState.loadingListReset ||
+      (pageState.loading && pageState.restaurants.length === 0),
+    [pageState.loadingListReset, pageState.loading, pageState.restaurants.length]
+  )
 
   const hasFilters = useMemo(() => {
     return !!(
@@ -956,6 +1031,7 @@ export default function RestaurantsPage() {
   // }, [metaState.areas, filterState.selectedLocationId])
   useEffect(() => {
     if (!filterState.selectedLocationId) return
+    saveFilterState()
     clearScrollPosition()
     window.scrollTo({
       top: 0,
@@ -1298,7 +1374,12 @@ export default function RestaurantsPage() {
         <section className="px-4 py-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{sectionTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleRestaurants.map((restaurant) => {
+            {showMainListSkeleton &&
+              [1, 2, 3, 4, 5, 6].map((i) => (
+                <RestaurantCardSkeleton key={i} />
+              ))}
+            {!pageState.loadingListReset &&
+              visibleRestaurants.map((restaurant) => {
               const location = Array.isArray(restaurant.area)
                 ? getAreaNames(restaurant.area, metaState.areas)
                 : restaurant.location
@@ -1465,7 +1546,10 @@ export default function RestaurantsPage() {
                 </div>
               )
             })}
-            {!pageState.loading && hasFilters && visibleRestaurants.length === 0 && (
+            {!pageState.loading &&
+              !pageState.loadingListReset &&
+              hasFilters &&
+              visibleRestaurants.length === 0 && (
               <div className="col-span-full">
                 <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
@@ -1504,7 +1588,9 @@ export default function RestaurantsPage() {
             )}
           </div>
 
-          {pageState.loading && pageState.restaurants.length > 0 && (
+          {pageState.loading &&
+            pageState.restaurants.length > 0 &&
+            !pageState.loadingListReset && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               {[1, 2, 3].map((i) => (
                 <RestaurantCardSkeleton key={i} />
@@ -1513,7 +1599,11 @@ export default function RestaurantsPage() {
           )}
         </section>
 
-
+        <WelcomeLocationModal
+          isOpen={showWelcomeLocationModal}
+          onClose={() => setShowWelcomeLocationModal(false)}
+          onLocationSelect={handleWelcomeLocationSelect}
+        />
       </main>
     </>
   )
