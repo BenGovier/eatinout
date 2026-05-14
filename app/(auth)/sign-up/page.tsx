@@ -355,6 +355,11 @@ useEffect(() => {
         throw new Error(data.message || "Registration failed");
       }
 
+      if (typeof window !== "undefined") {
+        const dataLayer = (window as Window & { dataLayer?: Record<string, unknown>[] }).dataLayer
+        dataLayer?.push({ event: "signup_complete" })
+      }
+
       toast.success("Account created successfully! Redirecting to payment...", {
         autoClose: 2000
       });

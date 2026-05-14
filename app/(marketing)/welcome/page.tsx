@@ -539,18 +539,18 @@ export default function RestaurantListingPage() {
     )
   }, [metaState.areas, filterState.locationSearch])
 
-const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
-  const isAdding = !filterState.selectedCuisineIds.includes(cuisineId)
-  setFilterState(prev => ({
-    ...prev,
-    selectedCuisineIds: isAdding
-      ? [...prev.selectedCuisineIds, cuisineId]
-      : prev.selectedCuisineIds.filter(id => id !== cuisineId),
-    selectedCuisines: isAdding
-      ? [...prev.selectedCuisines, cuisineLabel]
-      : prev.selectedCuisines.filter(label => label !== cuisineLabel),
-  }))
-}, [filterState.selectedCuisineIds, filterState.selectedCuisines])
+  const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
+    const isAdding = !filterState.selectedCuisineIds.includes(cuisineId)
+    setFilterState(prev => ({
+      ...prev,
+      selectedCuisineIds: isAdding
+        ? [...prev.selectedCuisineIds, cuisineId]
+        : prev.selectedCuisineIds.filter(id => id !== cuisineId),
+      selectedCuisines: isAdding
+        ? [...prev.selectedCuisines, cuisineLabel]
+        : prev.selectedCuisines.filter(label => label !== cuisineLabel),
+    }))
+  }, [filterState.selectedCuisineIds, filterState.selectedCuisines])
 
   const toggleDay = useCallback((dayValue: string, dayLabel: string) => {
     setFilterState(prev => ({
@@ -770,33 +770,33 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
                             : 'hover:bg-gray-50 text-gray-700'
                           }`}
                       > */}
-                        <button
-                          onClick={() => {
-                            setFilterState(prev => ({
-                              ...prev,
-                              selectedLocation: "",
-                              selectedLocationId: "all",
-                            }))
-                            clearScrollPosition()
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth"
-                            })
-                            setPageState(prev => ({
-                              ...prev,
-                              pagination: {
-                                ...prev.pagination,
-                                currentPage: 1
-                              }
-                            }))
-                            setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                            fetchRestaurants(1, true)
-                          }}
-                          className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                            ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                            : 'hover:bg-gray-50 text-gray-700'
+                      <button
+                        onClick={() => {
+                          setFilterState(prev => ({
+                            ...prev,
+                            selectedLocation: "",
+                            selectedLocationId: "all",
+                          }))
+                          clearScrollPosition()
+                          window.scrollTo({
+                            top: 0,
+                            behavior: "smooth"
+                          })
+                          setPageState(prev => ({
+                            ...prev,
+                            pagination: {
+                              ...prev.pagination,
+                              currentPage: 1
+                            }
+                          }))
+                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
+                          fetchRestaurants(1, true)
+                        }}
+                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
+                          ? 'bg-[#DC3545]/5 text-[#DC3545]'
+                          : 'hover:bg-gray-50 text-gray-700'
                           }`}
-                        >
+                      >
                         <div className="flex items-center gap-2">
                           <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
                           <span>All Locations</span>
@@ -818,8 +818,8 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
                               setUIState(prev => ({ ...prev, showLocationDropdown: false }))
                             }}
                             className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
-                                ? 'bg-[#DC3545]/5 font-semibold'
-                                : 'hover:bg-gray-50'
+                              ? 'bg-[#DC3545]/5 font-semibold'
+                              : 'hover:bg-gray-50'
                               }`}
                           >
                             <div className="flex items-center gap-2">
@@ -1150,11 +1150,13 @@ const toggleCuisine = useCallback((cuisineId: string, cuisineLabel: string) => {
           </div>
         )}
 
-        <WelcomeLocationModal
-          isOpen={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
-          onLocationSelect={handleWelcomeLocationSelect}
-        />
+        {isAuthenticated && (
+          <WelcomeLocationModal
+            isOpen={showWelcomeModal}
+            onClose={() => setShowWelcomeModal(false)}
+            onLocationSelect={handleWelcomeLocationSelect}
+          />
+        )}
       </main>
     </>
   )
