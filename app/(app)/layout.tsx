@@ -36,6 +36,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return;
       }
       if (user && user.role === "user") {
+        if (user.subscriptionStatus === "inactive") {
+          router.push("/conversion-popup");
+          return;
+        }
         setLayoutReady(true);
       }
     }

@@ -219,7 +219,7 @@ export default function SignInPage() {
         restaurantId: data.restaurantId || null,
         subscriptionStatus: data.subscriptionStatus || "inactive",
       };
-      
+
       setAuthState(userData, true);
 
       // If redirect URL is provided, handle it with priority (fast path)
@@ -252,14 +252,14 @@ export default function SignInPage() {
         console.log("Subscription access check:", subscriptionData);
 
         if (!subscriptionData.hasAccess) {
-          console.log("Access denied, redirecting to restaurants:", subscriptionData.accessReason);
+          console.log("Access denied, redirecting to conversion-popup:", subscriptionData.accessReason);
           sessionStorage.setItem('triggeredLogin', 'true');
-          // Store email for checkout and redirect to restaurants
+          // Store email for checkout and redirect to conversion-popup
           const checkoutEmail = data.email || email;
           if (checkoutEmail) {
             sessionStorage.setItem('checkoutEmail', checkoutEmail);
           }
-          router.push('/restaurants');
+          router.push('/conversion-popup');
           return;
         } else {
           console.log("Access granted:", subscriptionData.accessReason);

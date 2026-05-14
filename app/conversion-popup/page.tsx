@@ -60,18 +60,18 @@ export default function AbandonedOfferPage() {
       await fetch("/api/auth/logout", {
         method: "POST",
       })
-      
+
       // Clear NextAuth session
       await signOut({ callbackUrl: "/", redirect: false })
-      
+
       // Clear client-side auth token cookie
       document.cookie = "auth_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
-      
+
       // Clear sessionStorage
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("checkoutEmail")
       }
-      
+
       // Redirect to home page
       router.push("/")
     } catch (error) {

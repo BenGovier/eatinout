@@ -1,0 +1,97 @@
+/* app/asignup/asignup-styles.css */
+
+.asignup-container {
+  /* Exact OKLCH values from new-pages */
+  --primary-oklch: oklch(0.55 0.22 25);
+  --primary-foreground-oklch: oklch(1 0 0);
+  --background-oklch: oklch(1 0 0);
+  --foreground-oklch: oklch(0.15 0 0);
+  --card-oklch: oklch(1 0 0);
+  --card-foreground-oklch: oklch(0.15 0 0);
+  --border-oklch: oklch(0.92 0 0);
+  --muted-oklch: oklch(0.96 0 0);
+  --muted-foreground-oklch: oklch(0.45 0 0);
+
+  /* Force these colors within the container */
+  background-color: var(--background-oklch);
+  color: var(--foreground-oklch);
+}
+
+/* Override Tailwind classes to use the exact OKLCH colors */
+.asignup-container .bg-primary {
+  background-color: var(--primary-oklch) !important;
+}
+
+.asignup-container .text-primary {
+  color: var(--primary-oklch) !important;
+}
+
+.asignup-container .bg-primary\/10 {
+  background-color: color-mix(in oklch, var(--primary-oklch), transparent 90%) !important;
+}
+
+.asignup-container .bg-primary\/90:hover {
+  background-color: color-mix(in oklch, var(--primary-oklch), transparent 10%) !important;
+}
+
+.asignup-container .bg-foreground {
+  background-color: var(--foreground-oklch) !important;
+}
+
+.asignup-container .text-background {
+  color: var(--background-oklch) !important;
+}
+
+.asignup-container .text-background\/60 {
+  color: color-mix(in oklch, var(--background-oklch), transparent 40%) !important;
+}
+
+.asignup-container .text-background\/70 {
+  color: color-mix(in oklch, var(--background-oklch), transparent 30%) !important;
+}
+
+.asignup-container .text-background\/90 {
+  color: color-mix(in oklch, var(--background-oklch), transparent 10%) !important;
+}
+
+.asignup-container .bg-background {
+  background-color: var(--background-oklch) !important;
+}
+
+.asignup-container .bg-background\/95 {
+  background-color: color-mix(in oklch, var(--background-oklch), transparent 5%) !important;
+}
+
+.asignup-container .text-foreground {
+  color: var(--foreground-oklch) !important;
+}
+
+.asignup-container .text-foreground\/80 {
+  color: color-mix(in oklch, var(--foreground-oklch), transparent 20%) !important;
+}
+
+.asignup-container .bg-card,
+.asignup-container .bg-card\/95 {
+  background-color: var(--card-oklch) !important;
+}
+
+.asignup-container .text-card-foreground {
+  color: var(--card-foreground-oklch) !important;
+}
+
+.asignup-container .text-muted-foreground {
+  color: var(--muted-foreground-oklch) !important;
+}
+
+.asignup-container .border-border,
+.asignup-container .border {
+  border-color: var(--border-oklch) !important;
+}
+
+.asignup-container .border-background\/10 {
+  border-color: color-mix(in oklch, var(--background-oklch), transparent 90%) !important;
+}
+
+.asignup-container .bg-gradient-to-b.from-background\/30 {
+  --tw-gradient-from: color-mix(in oklch, var(--background-oklch), transparent 70%) !important;
+}

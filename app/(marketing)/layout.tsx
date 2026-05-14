@@ -27,8 +27,12 @@ export default function MarketingLayout({
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/restaurants"
-      router.replace(dashboardRoute)
+      if (user.role === "user" && user.subscriptionStatus === "inactive") {
+        router.replace("/conversion-popup")
+      } else {
+        const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/restaurants"
+        router.replace(dashboardRoute)
+      }
     }
   }, [authLoading, isAuthenticated, user, router])
 
