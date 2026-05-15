@@ -330,7 +330,7 @@ const handleLogin = async (e: any) => {
       subscriptionStatus: data.subscriptionStatus || "inactive",
     };
 
-    // ✅ Admin & Restaurant - Direct redirect, no subscription check needed
+    //  Admin & Restaurant - Direct redirect, no subscription check needed
     if (data?.role === "admin") {
       setAuthState(userData, true);
       router.push("/admin/dashboard");
@@ -343,18 +343,17 @@ const handleLogin = async (e: any) => {
       return;
     }
 
-    // ✅ Regular User - PEHLE subscription check, PHIR redirect
-    // Ab koi double redirect nahi hoga
+    //  Regular User - subscription check, then redirect
     if (data?.role === "user" || !data?.role) {
       
-      // Loading state rakhein jab tak subscription check ho
+      // Loading state  subscription check 
       let subscriptionData;
       try {
         subscriptionData = await fetchProfileAndSubscription();
         console.log("Subscription check result:", subscriptionData);
       } catch (err) {
         console.error("Subscription check failed:", err);
-        // Subscription check fail - safe side pe conversion-popup
+       
         subscriptionData = { hasAccess: false, periodEnd: 0, accessReason: "Check failed" };
       }
 
@@ -367,10 +366,9 @@ const handleLogin = async (e: any) => {
       if (!subscriptionData.hasAccess) {
         console.log("No access → conversion-popup:", subscriptionData.accessReason);
         
-        // Auth state set karo but hasAccess false
+        // Auth state set  but hasAccess false
         setAuthState(userData, false);
-        
-        // Redirect URL store karo agar tha
+     
         if (redirectUrl) {
           sessionStorage.setItem('redirectUrl', redirectUrl);
         }
@@ -379,7 +377,7 @@ const handleLogin = async (e: any) => {
         return;
       }
 
-      // ✅ User has access
+      // User has access
       console.log("Access granted:", subscriptionData.accessReason);
       setAuthState(userData, true);
 
@@ -418,7 +416,6 @@ const handleLogin = async (e: any) => {
 
   const logoutUserHandler: any = async () => {
     try {
-      // Logout user to clear auth cookies and prevent redirect loops
       await fetch("/api/auth/logout", {
         method: "POST",
       })
