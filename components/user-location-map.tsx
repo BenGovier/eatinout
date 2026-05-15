@@ -208,6 +208,7 @@ export default function UserLocationMap({
         zoomControl: false,
         scrollWheelZoom: true,
         dragging: true,
+        touchZoom: "center",
         doubleClickZoom: true,
       });
 
