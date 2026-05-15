@@ -11,14 +11,12 @@ import ClientWrapper from "@/components/client-wrapper";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
-import { signOut } from "next-auth/react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, authLoading } = useAuth();
   const subscriptionCheckRef = useRef(false);
-  const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/");
@@ -42,67 +40,63 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [authLoading, user, router, isPublicRestaurantPage]);
 
   useEffect(() => {
-    if (checkTimeoutRef.current) {
-      clearTimeout(checkTimeoutRef.current);
-    }
-
-    if (subscriptionCheckRef.current || pathname === "/conversion-popup" || isPublicRestaurantPage) {
-      setLayoutReady(true);
+    if (
+      subscriptionCheckRef.current ||
+      pathname === "/conversion-popup" ||
+      isPublicRestaurantPage
+    ) {
       return;
     }
 
-    if (!authLoading && user && user.role === "user") {
-      setLayoutReady(true);
+    if (!authLoading && user?.role === "user") {
+      subscriptionCheckRef.current = true;
 
-      if (!subscriptionCheckRef.current) {
-        subscriptionCheckRef.current = true;
+      const runCheck = async () => {
+        try {
+          const response = await fetch("/api/subscriptions", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          });
 
-        const runCheck = async () => {
-          try {
-            const response = await fetch("/api/subscriptions", {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            })
+          const data = await response.json().catch(() => ({}));
 
-            if (response.status === 500) {
-              console.error("Subscription API returned 500, logging out user")
-              try {
-                await fetch("/api/auth/logout", {
-                  method: "POST",
-                })
-                await signOut({ callbackUrl: "/conversion-popup" })
-              } catch (logoutError) {
-                console.error("Error during logout:", logoutError)
-                window.location.href = "/conversion-popup"
+          // Only redirect when API explicitly flags abandoned-checkout (never on 500/auth errors)
+          if (
+            response.ok &&
+            data.checkStatus === "ok" &&
+            data.showConversionPopup === true
+          ) {
+            const inCheckoutFunnel =
+              sessionStorage.getItem("checkoutEmail") ||
+              sessionStorage.getItem("triggeredLogin");
+
+            if (inCheckoutFunnel) {
+              if (data.email && !sessionStorage.getItem("checkoutEmail")) {
+                sessionStorage.setItem("checkoutEmail", data.email);
               }
+              router.push("/conversion-popup");
             }
-          } catch (error) {
-            console.error("Error checking subscription:", error)
-          } finally {
-            setTimeout(() => {
-              subscriptionCheckRef.current = false;
-            }, 5000);
           }
-        };
-
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(runCheck, { timeout: 2000 });
-        } else {
-          setTimeout(runCheck, 0);
+        } catch (error) {
+          console.error("Error checking subscription:", error);
+        } finally {
+          setTimeout(() => {
+            subscriptionCheckRef.current = false;
+          }, 30000);
         }
-      }
-    } else if (!authLoading) {
-      setLayoutReady(true);
-    }
+      };
 
-    return () => {
-      if (checkTimeoutRef.current) {
-        clearTimeout(checkTimeoutRef.current);
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        (window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void }).requestIdleCallback(
+          runCheck,
+          { timeout: 2000 }
+        );
+      } else {
+        setTimeout(runCheck, 0);
       }
-    };
-  }, [authLoading, user, pathname, isPublicRestaurantPage]);
+    }
+  }, [authLoading, user, pathname, isPublicRestaurantPage, router]);
 
   if (isPublicRestaurantPage) {
     return (
