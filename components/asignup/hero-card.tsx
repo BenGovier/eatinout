@@ -24,7 +24,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-3 md:py-6"
                         >
-                            <Link href="/start?path=learn">
+                            <Link href="/start">
                                 How do I save?
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
@@ -35,7 +35,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full rounded-full text-sm md:text-base font-medium py-3 md:py-6 border-border hover:bg-secondary"
                         >
-                            <Link href="/start">Start 7 days free</Link>
+                            <Link href="/start?path=learn">Start 7 days free</Link>
                         </Button>
                     </div>
 
