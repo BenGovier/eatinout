@@ -185,229 +185,229 @@ export default function SignInPage() {
     }
   };
 
-  // const handleLogin = async (e: any) => {
-  //   e.preventDefault();
-  //   setIsLoading(true);
-  //   setError("");
-  //   setMessage("");
-  //   setPendingApproval(false);
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setMessage("");
+    setPendingApproval(false);
 
-  //   try {
-  //     const response = await fetch("/api/auth/login", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ email, password }),
-  //     });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-  //     const data = await response.json();
-  //     if (!response.ok) {
-  //       console.log(`Login failed: ${data.message}`);
-  //       setError(data.message || "Login failed");
-  //       return;
-  //     }
-
-  //     console.log(`Login successful, role: ${data.role}`);
-  //     setMessage("Login successful! Redirecting...");
-  //     // ✅ Update global auth context
-  //     // setAuthState(data, data?.role === "user" && data.subscriptionStatus !== "inactive");
-  //     const userData = {
-  //       userId: data.userId,
-  //       email: data.email,
-  //       role: data.role || "user",
-  //       firstName: data.firstName || "",
-  //       lastName: data.lastName || "",
-  //       restaurantId: data.restaurantId || null,
-  //       subscriptionStatus: data.subscriptionStatus || "inactive",
-  //     };
-
-  //     setAuthState(userData, true);
-
-  //     // If redirect URL is provided, handle it with priority (fast path)
-  //     if (redirectUrl) {
-  //       // For non-admin and non-restaurant users, check subscription access first
-  //       if (data?.role !== "restaurant" && data?.role !== "admin") {
-  //         const subscriptionData = await fetchProfileAndSubscription();
-  //         console.log("Subscription access check:", subscriptionData);
-
-  //         if (!subscriptionData.hasAccess) {
-  //           console.log("Access denied, redirecting to restaurants:", subscriptionData.accessReason);
-  //           sessionStorage.setItem('triggeredLogin', 'true');
-  //           const checkoutEmail = data.email || email;
-  //           if (checkoutEmail) {
-  //             sessionStorage.setItem('checkoutEmail', checkoutEmail);
-  //           }
-  //           sessionStorage.setItem('redirectUrl', redirectUrl);
-  //           router.push('/restaurants');
-  //           return;
-  //         }
-  //       }
-  //       // User has access or is admin/restaurant - redirect immediately (no delay)
-  //       router.push(decodeURIComponent(redirectUrl));
-  //       return;
-  //     }
-
-  //     // For non-admin and non-restaurant users, check subscription access
-  //     if (data?.role !== "restaurant" && data?.role !== "admin") {
-  //       const subscriptionData = await fetchProfileAndSubscription();
-  //       console.log("Subscription access check:", subscriptionData);
-
-  //       if (!subscriptionData.hasAccess) {
-  //         console.log("Access denied, redirecting to conversion-popup:", subscriptionData.accessReason);
-  //         sessionStorage.setItem('triggeredLogin', 'true');
-  //         // Store email for checkout and redirect to conversion-popup
-  //         const checkoutEmail = data.email || email;
-  //         if (checkoutEmail) {
-  //           sessionStorage.setItem('checkoutEmail', checkoutEmail);
-  //         }
-  //         router.push('/conversion-popup');
-  //         return;
-  //       } else {
-  //         console.log("Access granted:", subscriptionData.accessReason);
-  //       }
-  //     }
-
-  //     // Redirect based on fromRestaurants or role (no delay)
-  //     // Priority 1: fromRestaurants parameter
-  //     if (fromRestaurants && restaurantId) {
-  //       router.push(`/restaurant/${restaurantId}`);
-  //       return;
-  //     }
-
-  //     // Priority 2: Show onboarding for first-time users
-  //     if (data.role === "user") {
-  //       const isFirstLogin = checkFirstLoginOnDevice();
-  //       if (isFirstLogin) {
-  //         router.push("/how-it-works");
-  //         return;
-  //       }
-  //     }
-
-  //     // Priority 3: Fallback redirect based on role
-  //     if (data.role === "admin") {
-  //       router.push("/admin/dashboard");
-  //     } else if (data.role === "restaurant") {
-  //       router.push("/dashboard");
-  //     } else if (data.role === "user") {
-  //       router.push("/restaurants");
-  //     }
-  //   } catch (err: any) {
-  //     console.error("Login error:", err);
-  //     setError("Network error. Please try again.");
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-const handleLogin = async (e: any) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError("");
-  setMessage("");
-  setPendingApproval(false);
-
-  try {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      setError(data.message || "Login failed");
-      return;
-    }
-
-    setMessage("Login successful! Redirecting...");
-
-    const userData = {
-      userId: data.userId,
-      email: data.email,
-      role: data.role || "user",
-      firstName: data.firstName || "",
-      lastName: data.lastName || "",
-      restaurantId: data.restaurantId || null,
-      subscriptionStatus: data.subscriptionStatus || "inactive",
-    };
-
-    //  Admin & Restaurant - Direct redirect, no subscription check needed
-    if (data?.role === "admin") {
-      setAuthState(userData, true);
-      router.push("/admin/dashboard");
-      return;
-    }
-
-    if (data?.role === "restaurant") {
-      setAuthState(userData, true);
-      router.push("/dashboard");
-      return;
-    }
-
-    //  Regular User - subscription check, then redirect
-    if (data?.role === "user" || !data?.role) {
-      
-      // Loading state  subscription check 
-      let subscriptionData;
-      try {
-        subscriptionData = await fetchProfileAndSubscription();
-        console.log("Subscription check result:", subscriptionData);
-      } catch (err) {
-        console.error("Subscription check failed:", err);
-       
-        subscriptionData = { hasAccess: false, periodEnd: 0, accessReason: "Check failed" };
-      }
-
-      // Store email for checkout
-      const checkoutEmail = data.email || email;
-      if (checkoutEmail) {
-        sessionStorage.setItem('checkoutEmail', checkoutEmail);
-      }
-
-      if (!subscriptionData.hasAccess) {
-        console.log("No access → conversion-popup:", subscriptionData.accessReason);
-        
-        // Auth state set  but hasAccess false
-        setAuthState(userData, false);
-     
-        if (redirectUrl) {
-          sessionStorage.setItem('redirectUrl', redirectUrl);
-        }
-        
-        router.push('/conversion-popup');
+      const data = await response.json();
+      if (!response.ok) {
+        console.log(`Login failed: ${data.message}`);
+        setError(data.message || "Login failed");
         return;
       }
 
-      // User has access
-      console.log("Access granted:", subscriptionData.accessReason);
+      console.log(`Login successful, role: ${data.role}`);
+      setMessage("Login successful! Redirecting...");
+      // ✅ Update global auth context
+      // setAuthState(data, data?.role === "user" && data.subscriptionStatus !== "inactive");
+      const userData = {
+        userId: data.userId,
+        email: data.email,
+        role: data.role || "user",
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        restaurantId: data.restaurantId || null,
+        subscriptionStatus: data.subscriptionStatus || "inactive",
+      };
+
       setAuthState(userData, true);
 
-      // Redirect URL priority
+      // If redirect URL is provided, handle it with priority (fast path)
       if (redirectUrl) {
+        // For non-admin and non-restaurant users, check subscription access first
+        if (data?.role !== "restaurant" && data?.role !== "admin") {
+          const subscriptionData = await fetchProfileAndSubscription();
+          console.log("Subscription access check:", subscriptionData);
+
+          if (!subscriptionData.hasAccess) {
+            console.log("Access denied, redirecting to restaurants:", subscriptionData.accessReason);
+            sessionStorage.setItem('triggeredLogin', 'true');
+            const checkoutEmail = data.email || email;
+            if (checkoutEmail) {
+              sessionStorage.setItem('checkoutEmail', checkoutEmail);
+            }
+            sessionStorage.setItem('redirectUrl', redirectUrl);
+            router.push('/restaurants');
+            return;
+          }
+        }
+        // User has access or is admin/restaurant - redirect immediately (no delay)
         router.push(decodeURIComponent(redirectUrl));
         return;
       }
 
+      // For non-admin and non-restaurant users, check subscription access
+      if (data?.role !== "restaurant" && data?.role !== "admin") {
+        const subscriptionData = await fetchProfileAndSubscription();
+        console.log("Subscription access check:", subscriptionData);
+
+        if (!subscriptionData.hasAccess) {
+          console.log("Access denied, redirecting to conversion-popup:", subscriptionData.accessReason);
+          sessionStorage.setItem('triggeredLogin', 'true');
+          // Store email for checkout and redirect to conversion-popup
+          const checkoutEmail = data.email || email;
+          if (checkoutEmail) {
+            sessionStorage.setItem('checkoutEmail', checkoutEmail);
+          }
+          router.push('/conversion-popup');
+          return;
+        } else {
+          console.log("Access granted:", subscriptionData.accessReason);
+        }
+      }
+
+      // Redirect based on fromRestaurants or role (no delay)
+      // Priority 1: fromRestaurants parameter
       if (fromRestaurants && restaurantId) {
         router.push(`/restaurant/${restaurantId}`);
         return;
       }
 
-      const isFirstLogin = checkFirstLoginOnDevice();
-      if (isFirstLogin) {
-        router.push("/how-it-works");
-        return;
+      // Priority 2: Show onboarding for first-time users
+      if (data.role === "user") {
+        const isFirstLogin = checkFirstLoginOnDevice();
+        if (isFirstLogin) {
+          router.push("/how-it-works");
+          return;
+        }
       }
 
-      router.push("/restaurants");
+      // Priority 3: Fallback redirect based on role
+      if (data.role === "admin") {
+        router.push("/admin/dashboard");
+      } else if (data.role === "restaurant") {
+        router.push("/dashboard");
+      } else if (data.role === "user") {
+        router.push("/restaurants");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError("Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
+  };
+// const handleLogin = async (e: any) => {
+//   e.preventDefault();
+//   setIsLoading(true);
+//   setError("");
+//   setMessage("");
+//   setPendingApproval(false);
 
-  } catch (err: any) {
-    console.error("Login error:", err);
-    setError("Network error. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+//   try {
+//     const response = await fetch("/api/auth/login", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ email, password }),
+//     });
+
+//     const data = await response.json();
+    
+//     if (!response.ok) {
+//       setError(data.message || "Login failed");
+//       return;
+//     }
+
+//     setMessage("Login successful! Redirecting...");
+
+//     const userData = {
+//       userId: data.userId,
+//       email: data.email,
+//       role: data.role || "user",
+//       firstName: data.firstName || "",
+//       lastName: data.lastName || "",
+//       restaurantId: data.restaurantId || null,
+//       subscriptionStatus: data.subscriptionStatus || "inactive",
+//     };
+
+//     //  Admin & Restaurant - Direct redirect, no subscription check needed
+//     if (data?.role === "admin") {
+//       setAuthState(userData, true);
+//       router.push("/admin/dashboard");
+//       return;
+//     }
+
+//     if (data?.role === "restaurant") {
+//       setAuthState(userData, true);
+//       router.push("/dashboard");
+//       return;
+//     }
+
+//     //  Regular User - subscription check, then redirect
+//     if (data?.role === "user" || !data?.role) {
+      
+//       // Loading state  subscription check 
+//       let subscriptionData;
+//       try {
+//         subscriptionData = await fetchProfileAndSubscription();
+//         console.log("Subscription check result:", subscriptionData);
+//       } catch (err) {
+//         console.error("Subscription check failed:", err);
+       
+//         subscriptionData = { hasAccess: false, periodEnd: 0, accessReason: "Check failed" };
+//       }
+
+//       // Store email for checkout
+//       const checkoutEmail = data.email || email;
+//       if (checkoutEmail) {
+//         sessionStorage.setItem('checkoutEmail', checkoutEmail);
+//       }
+
+//       if (!subscriptionData.hasAccess) {
+//         console.log("No access → conversion-popup:", subscriptionData.accessReason);
+        
+//         // Auth state set  but hasAccess false
+//         setAuthState(userData, false);
+     
+//         if (redirectUrl) {
+//           sessionStorage.setItem('redirectUrl', redirectUrl);
+//         }
+        
+//         router.push('/conversion-popup');
+//         return;
+//       }
+
+//       // User has access
+//       console.log("Access granted:", subscriptionData.accessReason);
+//       setAuthState(userData, true);
+
+//       // Redirect URL priority
+//       if (redirectUrl) {
+//         router.push(decodeURIComponent(redirectUrl));
+//         return;
+//       }
+
+//       if (fromRestaurants && restaurantId) {
+//         router.push(`/restaurant/${restaurantId}`);
+//         return;
+//       }
+
+//       const isFirstLogin = checkFirstLoginOnDevice();
+//       if (isFirstLogin) {
+//         router.push("/how-it-works");
+//         return;
+//       }
+
+//       router.push("/restaurants");
+//     }
+
+//   } catch (err: any) {
+//     console.error("Login error:", err);
+//     setError("Network error. Please try again.");
+//   } finally {
+//     setIsLoading(false);
+//   }
+// };
   if (isPending) {
     return (
       <Spinner />
