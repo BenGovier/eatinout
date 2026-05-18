@@ -31,7 +31,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full rounded-full text-sm md:text-base font-medium py-3 md:py-6 border-border hover:bg-secondary"
                         >
-                            <Link href="/start?path=learn">Start 7 days free</Link>
+                            <Link href="/start?path=learn">Learn more</Link>
                         </Button>
                     </div>
 
