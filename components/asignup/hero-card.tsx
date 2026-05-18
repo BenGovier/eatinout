@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
 
 export function HeroCard() {
     return (
@@ -24,10 +23,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-3 md:py-6"
                         >
-                            <Link href="/start">
-                                How do I save?
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Link>
+                            <Link href="/start">How do I save?</Link>
                         </Button>
                         <Button
                             asChild
