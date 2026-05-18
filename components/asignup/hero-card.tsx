@@ -8,12 +8,12 @@ export function HeroCard() {
                 <div className="text-center space-y-2 md:space-y-5">
                     {/* Main Headline */}
                     <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-card-foreground text-balance">
-                        Get up to 50% off restaurants near you
+                        Get up to 50% off when dining out
                     </h1>
 
                     {/* Supporting Copy */}
                     <p className="text-xs md:text-base text-muted-foreground leading-relaxed text-pretty">
-                        Unlock offers at restaurants, cafés, bars and more — including 2-for-1 deals, freebies and exclusive local discounts.
+                        Your go-to for dining out deals near you — with offers at restaurants, cafés, bars and more.
                     </p>
 
                     {/* CTAs */}
