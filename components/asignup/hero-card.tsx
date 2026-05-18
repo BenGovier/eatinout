@@ -29,10 +29,10 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-4 md:py-6"
                         >
-                            <a href="https://www.eatinout.com/sign-up">
+                            <Link href="/sign-up">
                                 Get 7 days free now!
                                 <ArrowRight className="ml-2 h-4 w-4" />
-                            </a>
+                            </Link>
                         </Button>
                         <Button
                             asChild

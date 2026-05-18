@@ -2,7 +2,6 @@ import { Header } from "@/components/asignup/header"
 import { Footer } from "@/components/asignup/footer"
 import { PromoStrip } from "@/components/asignup/promo-strip"
 import "./asignup-styles.css"
-
 export default function AsignupLayout({
     children,
 }: {
