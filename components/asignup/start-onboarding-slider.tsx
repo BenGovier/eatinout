@@ -262,7 +262,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                 </Button>
                             )}
 
-                            <div className="flex justify-center gap-6">
+                            <div className="flex items-center justify-center gap-6">
                                 {!isFirstSlide && (
                                     <button
                                         onClick={goToPrevious}
@@ -273,7 +273,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                 )}
                                 <a
                                     href="/sign-up"
-                                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                    className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary transition-colors"
                                 >
                                     Skip straight to sign up
                                 </a>
