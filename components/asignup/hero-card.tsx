@@ -45,8 +45,8 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-4 md:py-6"
                         >
-                            <Link href="/start">
-                                Start 7 days free
+                            <Link href="/start?path=learn">
+                                How do I save?
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
                         </Button>
@@ -56,9 +56,14 @@ export function HeroCard() {
                             size="lg"
                             className="w-full rounded-full text-sm md:text-base font-medium py-4 md:py-6 border-border hover:bg-secondary"
                         >
-                            <Link href="/start?path=learn">See how you can save</Link>
+                            <Link href="/start">Start 7 days free</Link>
                         </Button>
                     </div>
+
+                    {/* Pricing info */}
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                        7 days free, then just £4.99/month. Cancel anytime.
+                    </p>
 
                     {/* Text link */}
                     <a
