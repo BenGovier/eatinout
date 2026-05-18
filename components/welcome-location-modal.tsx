@@ -260,10 +260,10 @@ export function WelcomeLocationModal({
   //       onClick={onClose}
   //       aria-hidden="true"
   //     />
-  
+
   //     {/* Modal */}
   //     <div className="relative z-10 w-[320px] sm:w-[340px] max-h-[59vh] sm:max-h-[70vh] rounded-2xl bg-white p-5 sm:p-6 shadow-xl flex flex-col">
-        
+
   //       {/* Close button */}
   //       <button
   //         onClick={onClose}
@@ -272,16 +272,16 @@ export function WelcomeLocationModal({
   //       >
   //         <X className="h-5 w-5" />
   //       </button>
-  
+
   //       {/* Header */}
   //       <h2 className="text-lg font-bold text-gray-900 pr-6">Choose your location</h2>
   //       <p className="mt-1 text-sm text-gray-500">
   //         Find the best deals near you.
   //       </p>
-  
+
   //       {/* Location list */}
   //       <div className="mt-4 sm:mt-5 flex flex-col gap-2.5 sm:gap-3 overflow-y-auto flex-1 scrollbar-hide pr-1">
-          
+
   //         {/* Loading skeleton */}
   //         {loading &&
   //           [1, 2, 3, 4, 5].map((i) => (
@@ -290,7 +290,7 @@ export function WelcomeLocationModal({
   //               className="w-full h-11 sm:h-12 bg-gray-200 animate-pulse rounded-xl"
   //             />
   //           ))}
-  
+
   //         {/* All Locations Option */}
   //         {!loading && (
   //           <button
@@ -301,7 +301,7 @@ export function WelcomeLocationModal({
   //             <span>All Locations</span>
   //           </button>
   //         )}
-  
+
   //         {/* Individual Locations */}
   //         {!loading &&
   //           areas.map((area) => (
@@ -314,7 +314,7 @@ export function WelcomeLocationModal({
   //               <span>{area.name}</span>
   //             </button>
   //           ))}
-  
+
   //         {/* No locations */}
   //         {!loading && areas.length === 0 && (
   //           <p className="text-center text-sm text-gray-500 py-6">
@@ -333,10 +333,10 @@ export function WelcomeLocationModal({
         onClick={onClose}
         aria-hidden="true"
       />
-  
+
       {/* Modal */}
       <div className="relative z-10 w-[320px] sm:w-[340px] max-h-[60vh] sm:max-h-[70vh] rounded-2xl bg-white p-4 sm:p-5 shadow-xl flex flex-col">
-        
+
         {/* Close button */}
         <button
           onClick={onClose}
@@ -345,16 +345,16 @@ export function WelcomeLocationModal({
         >
           <X className="h-4 w-4" />
         </button>
-  
+
         {/* Header - Font size reduced slightly */}
         <h2 className="text-base sm:text-[17px] font-bold text-gray-900 pr-6">Choose your location</h2>
         <p className="mt-0.5 text-xs sm:text-sm text-gray-500">
           Find the best deals near you.
         </p>
-  
+
         {/* Location list - Reduced gap to fit more items */}
         <div className="mt-3 sm:mt-4 flex flex-col gap-2 overflow-y-auto flex-1 scrollbar-hide pr-1">
-          
+
           {/* Loading skeleton */}
           {loading &&
             [1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -363,9 +363,9 @@ export function WelcomeLocationModal({
                 className="w-full h-9 sm:h-10 bg-gray-200 animate-pulse rounded-lg"
               />
             ))}
-  
+
           {/* All Locations Option */}
-          {!loading && (
+          {/* {!loading && (
             <button
               onClick={() => handleLocationSelect("")}
               // Reduced padding (py-2) and changed to rounded-lg for compact look
@@ -374,8 +374,8 @@ export function WelcomeLocationModal({
               <MapPin className="h-4 w-4 shrink-0 text-[#eb221c]" />
               <span>All Locations</span>
             </button>
-          )}
-  
+          )} */}
+
           {/* Individual Locations */}
           {!loading &&
             areas.map((area) => (
@@ -389,7 +389,7 @@ export function WelcomeLocationModal({
                 <span>{area.name}</span>
               </button>
             ))}
-  
+
           {/* No locations */}
           {!loading && areas.length === 0 && (
             <p className="text-center text-sm text-gray-500 py-6">
