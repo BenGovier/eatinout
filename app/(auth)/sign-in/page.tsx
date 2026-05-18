@@ -297,117 +297,117 @@ export default function SignInPage() {
       setIsLoading(false);
     }
   };
-// const handleLogin = async (e: any) => {
-//   e.preventDefault();
-//   setIsLoading(true);
-//   setError("");
-//   setMessage("");
-//   setPendingApproval(false);
+  // const handleLogin = async (e: any) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setError("");
+  //   setMessage("");
+  //   setPendingApproval(false);
 
-//   try {
-//     const response = await fetch("/api/auth/login", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({ email, password }),
-//     });
+  //   try {
+  //     const response = await fetch("/api/auth/login", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ email, password }),
+  //     });
 
-//     const data = await response.json();
-    
-//     if (!response.ok) {
-//       setError(data.message || "Login failed");
-//       return;
-//     }
+  //     const data = await response.json();
 
-//     setMessage("Login successful! Redirecting...");
+  //     if (!response.ok) {
+  //       setError(data.message || "Login failed");
+  //       return;
+  //     }
 
-//     const userData = {
-//       userId: data.userId,
-//       email: data.email,
-//       role: data.role || "user",
-//       firstName: data.firstName || "",
-//       lastName: data.lastName || "",
-//       restaurantId: data.restaurantId || null,
-//       subscriptionStatus: data.subscriptionStatus || "inactive",
-//     };
+  //     setMessage("Login successful! Redirecting...");
 
-//     //  Admin & Restaurant - Direct redirect, no subscription check needed
-//     if (data?.role === "admin") {
-//       setAuthState(userData, true);
-//       router.push("/admin/dashboard");
-//       return;
-//     }
+  //     const userData = {
+  //       userId: data.userId,
+  //       email: data.email,
+  //       role: data.role || "user",
+  //       firstName: data.firstName || "",
+  //       lastName: data.lastName || "",
+  //       restaurantId: data.restaurantId || null,
+  //       subscriptionStatus: data.subscriptionStatus || "inactive",
+  //     };
 
-//     if (data?.role === "restaurant") {
-//       setAuthState(userData, true);
-//       router.push("/dashboard");
-//       return;
-//     }
+  //     //  Admin & Restaurant - Direct redirect, no subscription check needed
+  //     if (data?.role === "admin") {
+  //       setAuthState(userData, true);
+  //       router.push("/admin/dashboard");
+  //       return;
+  //     }
 
-//     //  Regular User - subscription check, then redirect
-//     if (data?.role === "user" || !data?.role) {
-      
-//       // Loading state  subscription check 
-//       let subscriptionData;
-//       try {
-//         subscriptionData = await fetchProfileAndSubscription();
-//         console.log("Subscription check result:", subscriptionData);
-//       } catch (err) {
-//         console.error("Subscription check failed:", err);
-       
-//         subscriptionData = { hasAccess: false, periodEnd: 0, accessReason: "Check failed" };
-//       }
+  //     if (data?.role === "restaurant") {
+  //       setAuthState(userData, true);
+  //       router.push("/dashboard");
+  //       return;
+  //     }
 
-//       // Store email for checkout
-//       const checkoutEmail = data.email || email;
-//       if (checkoutEmail) {
-//         sessionStorage.setItem('checkoutEmail', checkoutEmail);
-//       }
+  //     //  Regular User - subscription check, then redirect
+  //     if (data?.role === "user" || !data?.role) {
 
-//       if (!subscriptionData.hasAccess) {
-//         console.log("No access → conversion-popup:", subscriptionData.accessReason);
-        
-//         // Auth state set  but hasAccess false
-//         setAuthState(userData, false);
-     
-//         if (redirectUrl) {
-//           sessionStorage.setItem('redirectUrl', redirectUrl);
-//         }
-        
-//         router.push('/conversion-popup');
-//         return;
-//       }
+  //       // Loading state  subscription check 
+  //       let subscriptionData;
+  //       try {
+  //         subscriptionData = await fetchProfileAndSubscription();
+  //         console.log("Subscription check result:", subscriptionData);
+  //       } catch (err) {
+  //         console.error("Subscription check failed:", err);
 
-//       // User has access
-//       console.log("Access granted:", subscriptionData.accessReason);
-//       setAuthState(userData, true);
+  //         subscriptionData = { hasAccess: false, periodEnd: 0, accessReason: "Check failed" };
+  //       }
 
-//       // Redirect URL priority
-//       if (redirectUrl) {
-//         router.push(decodeURIComponent(redirectUrl));
-//         return;
-//       }
+  //       // Store email for checkout
+  //       const checkoutEmail = data.email || email;
+  //       if (checkoutEmail) {
+  //         sessionStorage.setItem('checkoutEmail', checkoutEmail);
+  //       }
 
-//       if (fromRestaurants && restaurantId) {
-//         router.push(`/restaurant/${restaurantId}`);
-//         return;
-//       }
+  //       if (!subscriptionData.hasAccess) {
+  //         console.log("No access → conversion-popup:", subscriptionData.accessReason);
 
-//       const isFirstLogin = checkFirstLoginOnDevice();
-//       if (isFirstLogin) {
-//         router.push("/how-it-works");
-//         return;
-//       }
+  //         // Auth state set  but hasAccess false
+  //         setAuthState(userData, false);
 
-//       router.push("/restaurants");
-//     }
+  //         if (redirectUrl) {
+  //           sessionStorage.setItem('redirectUrl', redirectUrl);
+  //         }
 
-//   } catch (err: any) {
-//     console.error("Login error:", err);
-//     setError("Network error. Please try again.");
-//   } finally {
-//     setIsLoading(false);
-//   }
-// };
+  //         router.push('/conversion-popup');
+  //         return;
+  //       }
+
+  //       // User has access
+  //       console.log("Access granted:", subscriptionData.accessReason);
+  //       setAuthState(userData, true);
+
+  //       // Redirect URL priority
+  //       if (redirectUrl) {
+  //         router.push(decodeURIComponent(redirectUrl));
+  //         return;
+  //       }
+
+  //       if (fromRestaurants && restaurantId) {
+  //         router.push(`/restaurant/${restaurantId}`);
+  //         return;
+  //       }
+
+  //       const isFirstLogin = checkFirstLoginOnDevice();
+  //       if (isFirstLogin) {
+  //         router.push("/how-it-works");
+  //         return;
+  //       }
+
+  //       router.push("/restaurants");
+  //     }
+
+  //   } catch (err: any) {
+  //     console.error("Login error:", err);
+  //     setError("Network error. Please try again.");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
   if (isPending) {
     return (
       <Spinner />
