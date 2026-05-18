@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, UtensilsCrossed, Coffee, Wine } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 export function HeroCard() {
     return (
@@ -11,27 +11,6 @@ export function HeroCard() {
                     <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-card-foreground text-balance">
                         Get up to 50% off restaurants near you
                     </h1>
-
-                    {/* Clarification Line */}
-                    <p className="text-sm md:text-base font-medium text-muted-foreground">
-                        Not takeaway. Not delivery. Real dining-out deals at places you visit.
-                    </p>
-
-                    {/* Category Pills */}
-                    <div className="flex justify-center gap-1.5 md:gap-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
-                            <UtensilsCrossed className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                            Restaurants
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
-                            <Coffee className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                            Cafés
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
-                            <Wine className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                            Bars
-                        </span>
-                    </div>
 
                     {/* Supporting Copy */}
                     <p className="text-xs md:text-base text-muted-foreground leading-relaxed text-pretty">
