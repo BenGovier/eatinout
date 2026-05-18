@@ -45,7 +45,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-4 md:py-6"
                         >
-                            <Link href="/sign-up">
+                            <Link href="/start">
                                 Start 7 days free
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
