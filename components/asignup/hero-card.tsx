@@ -1,25 +1,41 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, UtensilsCrossed, Coffee, Wine } from "lucide-react"
 
 export function HeroCard() {
     return (
         <div className="relative z-10 mx-auto max-w-lg px-4 py-2 md:py-0">
             <div className="rounded-2xl md:rounded-3xl bg-card/95 backdrop-blur-sm p-4 md:p-10 shadow-2xl border border-border/50">
-                <div className="text-center space-y-2.5 md:space-y-5">
-                    {/* Headline */}
-                    <h1 className="text-xl md:text-4xl font-bold tracking-tight text-card-foreground text-balance">
-                        Your go-to for dining out deals
+                <div className="text-center space-y-3 md:space-y-5">
+                    {/* Main Headline */}
+                    <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-card-foreground text-balance">
+                        Get up to 50% off restaurants near you
                     </h1>
 
-                    {/* Subheadline */}
-                    <p className="text-sm md:text-xl font-semibold text-card-foreground">
-                        Eatinout saves you money.
+                    {/* Clarification Line */}
+                    <p className="text-sm md:text-base font-medium text-muted-foreground">
+                        Not takeaway. Not delivery. Real dining-out deals at places you visit.
                     </p>
 
-                    {/* Body */}
+                    {/* Category Pills */}
+                    <div className="flex justify-center gap-2 md:gap-3">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
+                            <UtensilsCrossed className="h-3.5 w-3.5" />
+                            Restaurants
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
+                            <Coffee className="h-3.5 w-3.5" />
+                            Cafés
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs md:text-sm font-medium">
+                            <Wine className="h-3.5 w-3.5" />
+                            Bars
+                        </span>
+                    </div>
+
+                    {/* Supporting Copy */}
                     <p className="text-xs md:text-base text-muted-foreground leading-relaxed text-pretty">
-                        Unlock offers at restaurants, cafes, bars & more near you — including up to 50% off, 2-for-1 deals and freebies.
+                        Unlock offers at restaurants, cafés, bars and more — including 2-for-1 deals, freebies and exclusive local discounts.
                     </p>
 
                     {/* CTAs */}
@@ -30,7 +46,7 @@ export function HeroCard() {
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-4 md:py-6"
                         >
                             <Link href="/sign-up">
-                                Get 7 days free now!
+                                Start 7 days free
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
                         </Button>
@@ -40,7 +56,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full rounded-full text-sm md:text-base font-medium py-4 md:py-6 border-border hover:bg-secondary"
                         >
-                            <Link href="/start?path=learn">Learn more about Eatinout</Link>
+                            <Link href="/start?path=learn">See how you can save</Link>
                         </Button>
                     </div>
 
