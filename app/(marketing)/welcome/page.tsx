@@ -1150,13 +1150,13 @@ export default function RestaurantListingPage() {
           </div>
         )}
 
-        {/* {isAuthenticated && ( */}
-        <WelcomeLocationModal
-          isOpen={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
-          onLocationSelect={handleWelcomeLocationSelect}
-        />
-        {/* )} */}
+        {isAuthenticated && (
+          <WelcomeLocationModal
+            isOpen={showWelcomeModal}
+            onClose={() => setShowWelcomeModal(false)}
+            onLocationSelect={handleWelcomeLocationSelect}
+          />
+        )}
       </main>
     </>
   )
