@@ -533,7 +533,7 @@ useEffect(() => {
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="text-primary text-base mt-0.5">&#10003;</div>
-                      <div className="text-foreground text-sm">Access offers at 400+ local venues</div>
+                      <div className="text-foreground text-sm">Access 1000&apos;s of local offers</div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="text-primary text-base mt-0.5">&#10003;</div>
