@@ -1,3 +1,4 @@
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 
 const categories = [
@@ -11,6 +12,24 @@ const categories = [
     "2-for-1 offers",
     "Freebies",
     "Up to 50% off",
+]
+
+const featuredVenues = [
+    {
+        name: "Nuvo",
+        logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/nuvo%20logo-gvF5ZkJ1Hd82Lcy81oAUt0DpNS00hM.webp",
+        offer: "Up to 50% off!",
+    },
+    {
+        name: "Turtle Bay",
+        logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/turtlebay-xJ4TaYlfNl8ljPMkOEuCUTavIlPR1n.png",
+        offer: "Up to 50% off!",
+    },
+    {
+        name: "Olive Tree Brasserie",
+        logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/olive%20tree%20brasserie-Z3sY33DhyknOhlUQq42wOHqrFJU1rD.png",
+        offer: "Up to 50% off!",
+    },
 ]
 
 export function WhereCanISave() {
@@ -39,16 +58,24 @@ export function WhereCanISave() {
                     ))}
                 </div>
 
-                {/* Featured Venues Placeholder */}
+                {/* Featured Venues */}
                 <div className="grid gap-4 md:gap-6 md:grid-cols-3 max-w-4xl mx-auto mb-10">
-                    {[1, 2, 3].map((index) => (
+                    {featuredVenues.map((venue) => (
                         <div
-                            key={index}
+                            key={venue.name}
                             className="bg-card rounded-2xl p-6 shadow-sm border border-border/50 text-center"
                         >
-                            <div className="w-12 h-12 rounded-full bg-secondary mx-auto mb-4" />
-                            <p className="text-sm font-medium text-foreground mb-1">Featured venue</p>
-                            <p className="text-xs text-muted-foreground">Exclusive member offer</p>
+                            <div className="w-20 h-20 rounded-xl mx-auto mb-4 overflow-hidden flex items-center justify-center bg-white">
+                                <Image
+                                    src={venue.logo}
+                                    alt={venue.name}
+                                    width={80}
+                                    height={80}
+                                    className="object-contain w-full h-full"
+                                />
+                            </div>
+                            <p className="text-sm font-medium text-foreground mb-1">{venue.name}</p>
+                            <p className="text-xs font-semibold text-primary">{venue.offer}</p>
                         </div>
                     ))}
                 </div>
