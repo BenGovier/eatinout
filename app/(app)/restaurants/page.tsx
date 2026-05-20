@@ -1093,7 +1093,7 @@ export default function RestaurantsPage() {
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                   >
                     <MapPin className="w-4 h-4" />
-                    <span>{filterState.selectedLocation || "Choose locationZZZ"}</span>
+                    <span>{filterState.selectedLocation || "Choose location"}</span>
                     {filterState.selectedLocation && (
                       <>
                         <span className="text-[#DC3545]/60">·</span>
