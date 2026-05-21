@@ -9,6 +9,7 @@ const footerLinks = {
             { label: "About us", href: "/about" },
             { label: "How Eatinout works", href: "/how-it-works" },
             { label: "For restaurants", href: "/for-restaurants" },
+            { label: "Businesses", href: "https://corporate.eatinout.co.uk/" },
         ],
     },
     support: {
