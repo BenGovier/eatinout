@@ -134,7 +134,7 @@ export default function PartnerInfoPage() {
                   onClick={scrollToDemo}
                   className="text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
-                  Get a demo
+                  Learn more
                 </Button>
               </div>
 
@@ -662,7 +662,7 @@ export default function PartnerInfoPage() {
               onClick={scrollToDemo}
               className="border-2 border-white text-white bg-white/10 hover:bg-white hover:text-[#DC3545] text-lg px-8 py-6 rounded-xl"
             >
-              Get a demo
+              Learn more
             </Button>
           </div>
         </div>
