@@ -11,7 +11,6 @@ import ClientWrapper from "@/components/client-wrapper";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
-import { signOut } from "next-auth/react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -71,16 +70,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })
 
             if (response.status === 500) {
-              console.error("Subscription API returned 500, logging out user")
-              try {
-                await fetch("/api/auth/logout", {
-                  method: "POST",
-                })
-                await signOut({ callbackUrl: "/conversion-popup" })
-              } catch (logoutError) {
-                console.error("Error during logout:", logoutError)
-                window.location.href = "/conversion-popup"
-              }
+              console.error("[Subscription Check] API returned 500 - keeping user session intact, not redirecting")
+              // Do not logout or redirect on API errors - user may be a valid subscriber
             }
           } catch (error) {
             console.error("Error checking subscription:", error)

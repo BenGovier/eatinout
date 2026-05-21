@@ -73,29 +73,19 @@ function SignUpPageContent() {
 
   const testimonials = [
     {
-      text: "Saved £38 on our bill. It's already paid for itself for the next 7 months!",
+      text: "Saved £38 on our bill. It paid for itself straight away.",
       name: "Mark L.",
-      image: "/testimonial-michael-brown.webp",
+      initials: "ML",
     },
     {
-      text: "I was skeptical, but the app is so easy. I love finding new local restaurants that I didn't know were included.",
-      name: "Sarah J.",
-      image: "/testimonial-sarah-johnson.webp",
+      text: "Really easy — picked an offer, showed the code, and saved money.",
+      name: "Sarah, Preston",
+      initials: "SP",
     },
     {
-      text: "Best decision ever! We eat out twice a week and this has saved us hundreds already. The deals are incredible.",
-      name: "David M.",
-      image: "/testimonial-james-williams.webp",
-    },
-    {
-      text: "So many great restaurants to choose from. The app makes it super simple to find deals near me. Highly recommend!",
-      name: "Emma R.",
-      image: "/testimonial-emma-davies.webp",
-    },
-    {
-      text: "I've tried other discount apps but this one is by far the best. Real savings at quality restaurants, not just fast food.",
-      name: "James T.",
-      image: "/testimonial-james-williams.webp",
+      text: "Great for finding local places without paying full price.",
+      name: "Emma, Lytham St Annes",
+      initials: "EL",
     },
   ]
 
@@ -479,489 +469,442 @@ useEffect(() => {
   }, [])
 
   return (
-    <div className="min-h-screen relative flex flex-col">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: 'url("/delicious-gourmet-restaurant-food-spread.webp")',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
-      </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* Image Section - Hidden on mobile when showing form */}
+        <div className={`relative h-[30vh] lg:h-auto lg:w-1/2 ${step !== 'main' ? 'hidden lg:block' : ''}`}>
+          <Image
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg"
+            alt="Italian dinner table with pasta dishes and wine glasses"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col px-6 py-6 pb-8">
-        {/* Back Button */}
-        <Link href="/" className="absolute top-6 left-6 z-20 text-white/90 hover:text-white transition-colors flex items-center gap-2">
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span className="text-base font-medium">Back</span>
-        </Link>
-        
-        {/* Logo Section */}
-        <Link href="/" className="flex-shrink-0 mb-6">
-          <div className="text-center">
-            <Image src="/eatinout-logo.webp" alt="Eatinout" width={180} height={72} className="mx-auto" priority />
-          </div>
-        </Link>
-
-        {step === 'main' ? (
-          /* Main Buttons Section */
-          <div className="space-y-4 max-w-sm mx-auto w-full">
-            <div className="text-center px-3 py-4 bg-black/30 rounded-xl backdrop-blur-sm border border-white/20">
-              <p className="text-2xl font-black text-white mb-1.5 text-balance leading-tight tracking-tight font-sans">
-                Save £100s Every Month
-              </p>
-              <p className="text-sm text-white/90 font-medium">
-                Get a 7-day free trial & access up to 50% off at 400+ restaurants
-              </p>
-            </div>
-
-            {/* Benefits List */}
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/20 space-y-2">
-              <div className="flex items-start gap-2">
-                <div className="text-green-400 text-base mt-0.5">✔</div>
-                <div className="text-white text-xs">Unlimited access to 1,000s of offers</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="text-green-400 text-base mt-0.5">✔</div>
-                <div className="text-white text-xs">Valid at 400+ restaurants</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="text-green-400 text-base mt-0.5">✔</div>
-                <div className="text-white text-xs">No complex booking—just get your code & go</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="text-green-400 text-base mt-0.5">✔</div>
-                <div className="text-white text-xs">Exclusive new deals added daily</div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Button
-                onClick={() => setStep('register')}
-                className="w-full h-14 text-lg font-bold rounded-xl text-white border-0 hover:opacity-90 transition-opacity shadow-lg shadow-red-500/30"
-                style={{ backgroundColor: "#eb221c" }}
-              >
-                Start My Free Trial
-              </Button>
-
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    if (redirectUrl) {
-                      router.push(`/sign-in?redirect=${encodeURIComponent(redirectUrl)}`);
-                    } else {
-                      router.push('/sign-in');
-                    }
-                  }}
-                  className="text-sm text-white/90 hover:text-white underline font-medium transition-colors"
+        {/* Content Section */}
+        <div className="flex-1 lg:w-1/2 flex flex-col bg-background overflow-y-auto">
+          <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10">
+            <div className="max-w-md mx-auto w-full">
+              {/* Header with Logo and Back */}
+              <div className="flex items-center justify-between mb-6 lg:mb-8">
+                <Link href="/">
+                  <Image
+                    src="/eatinout-logo.webp"
+                    alt="Eatinout"
+                    width={120}
+                    height={32}
+                    className="h-7 lg:h-9 w-auto"
+                  />
+                </Link>
+                <Link
+                  href="/"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Already a member? Log in
-                </button>
-              </div>
-            </div>
-
-            <div className="text-center space-y-1 pt-1">
-              <p className="text-xs text-white font-semibold">
-                Then only £4.99/month. <span className="line-through opacity-70">£8.99/month.</span>
-              </p>
-              <p className="text-[10px] text-white/70">Cancel anytime • No commitment • Secure payment</p>
-            </div>
-
-            {/* Social Proof Section */}
-            <div className="mt-6 space-y-4">
-              {/* Testimonials Section */}
-              <div className="space-y-3">
-                <h3 className="text-center text-white text-lg font-bold">What Our Members Say</h3>
-                <div className="relative overflow-hidden">
-                  <div
-                    className="flex transition-transform duration-500 ease-in-out"
-                    style={{ transform: `translateX(-${currentTestimonial * 100}%)` }}
-                  >
-                    {testimonials.map((testimonial, index) => (
-                      <div key={index} className="w-full flex-shrink-0 px-1">
-                        <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                          {/* 5 Star Rating */}
-                          <div className="flex gap-1 mb-3">
-                            {[...Array(5)].map((_, i) => (
-                              <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
-                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                              </svg>
-                            ))}
-                          </div>
-                          <p className="text-white text-sm mb-3">"{testimonial.text}"</p>
-                          <div className="flex items-center gap-3">
-                            <Image
-                              src={testimonial.image || "/placeholder.svg"}
-                              alt={testimonial.name}
-                              width={48}
-                              height={48}
-                              className="rounded-full"
-                            />
-                            <p className="text-white/90 text-sm font-semibold">{testimonial.name}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Pagination Dots */}
-                  <div className="flex justify-center gap-2 mt-3">
-                    {testimonials.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentTestimonial(index)}
-                        className={`w-2 h-2 rounded-full transition-all ${index === currentTestimonial ? "bg-white w-6" : "bg-white/40"
-                          }`}
-                        aria-label={`Go to testimonial ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Back</span>
+                </Link>
               </div>
 
-              {/* <div className="space-y-3">
-                <h3 className="text-center text-white text-lg font-bold">Find Deals Near You</h3>
-                <p className="text-center text-white/90 text-sm">See what's on offer in your local area</p>
-
-                {!isLoadingDeals ? (
-                  <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="relative">
-                      <button
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        disabled={areasLoading}
-                        className="w-full h-14 px-4 rounded-xl bg-white text-gray-900 text-base font-semibold hover:bg-gray-50 transition-colors shadow-md flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span>{areasLoading ? "Loading areas..." : (selectedArea || "Select your area")}</span>
-                        <svg
-                          className={`w-5 h-5 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-
-                      {isDropdownOpen && !areasLoading && areas.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl overflow-hidden z-50 border border-gray-200 max-h-60 overflow-y-auto">
-                          {areas.map((area) => (
-                            <button
-                              key={area.value}
-                              onClick={() => handleAreaSelect(area.value, area.label)}
-                              className="w-full px-4 py-3 text-left text-gray-900 hover:bg-red-50 transition-colors text-base font-medium border-b border-gray-100 last:border-b-0"
-                            >
-                              {area.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {isDropdownOpen && !areasLoading && areas.length === 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl overflow-hidden z-50 border border-gray-200 p-4">
-                          <p className="text-gray-500 text-sm text-center">No areas available</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-black/40 backdrop-blur-sm rounded-xl p-8 border border-white/20 flex flex-col items-center justify-center space-y-4">
-                    <div className="flex space-x-2">
-                      <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div
-                        className="w-3 h-3 bg-white rounded-full animate-bounce"
-                        style={{ animationDelay: "150ms" }}
-                      />
-                      <div
-                        className="w-3 h-3 bg-white rounded-full animate-bounce"
-                        style={{ animationDelay: "300ms" }}
-                      />
-                    </div>
-                    <p className="text-white text-base font-medium text-center">
-                      Scanning for the best deals in {selectedArea}...
+              {step === 'main' ? (
+                /* Main Section */
+                <div className="space-y-6">
+                  {/* Headline */}
+                  <div className="space-y-3">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                      Get up to 50% off when dining out
+                    </h1>
+                    <p className="text-base text-muted-foreground">
+                      Start with 7 days free and unlock offers at restaurants, cafés, bars and more.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Then just £4.99/month. Cancel anytime.
                     </p>
                   </div>
-                )}
-              </div> */}
 
-              {/* Final CTA Section */}
-              <div className="space-y-3 pt-2">
-                <Button
-                  onClick={() => setStep('register')}
-                  className="w-full h-14 text-lg font-semibold rounded-xl text-white border-0 hover:opacity-90 transition-opacity shadow-lg shadow-red-500/30"
-                  style={{ backgroundColor: "#eb221c" }}
-                >
-                  Start My Free Trial
-                </Button>
+                  {/* Benefits List */}
+                  <div className="bg-card rounded-2xl p-5 border border-border space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="text-primary text-base mt-0.5">&#10003;</div>
+                      <div className="text-foreground text-sm">Up to 50% off dining out</div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-primary text-base mt-0.5">&#10003;</div>
+                      <div className="text-foreground text-sm">Access 1000&apos;s of local offers</div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-primary text-base mt-0.5">&#10003;</div>
+                      <div className="text-foreground text-sm">Show your code at the restaurant</div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-primary text-base mt-0.5">&#10003;</div>
+                      <div className="text-foreground text-sm">No delivery. No points. Just real savings.</div>
+                    </div>
+                  </div>
 
-                <div className="text-center">
-                  <button
-                    onClick={() => router.push('/sign-in')}
-                    className="text-sm text-white/90 hover:text-white underline font-medium transition-colors"
-                  >
-                    Already a member? Log in
-                  </button>
+                  {/* CTA */}
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => setStep('register')}
+                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: "#eb221c" }}
+                    >
+                      Start my 7-day free trial
+                    </Button>
+
+                    <div className="text-center">
+                      <button
+                        onClick={() => {
+                          if (redirectUrl) {
+                            router.push(`/sign-in?redirect=${encodeURIComponent(redirectUrl)}`);
+                          } else {
+                            router.push('/sign-in');
+                          }
+                        }}
+                        className="text-sm text-muted-foreground hover:text-foreground underline font-medium transition-colors"
+                      >
+                        Already a member? Log in
+                      </button>
+                    </div>
+
+                    <p className="text-center text-xs text-muted-foreground">
+                      Free for 7 days. No commitment.
+                    </p>
+                  </div>
+
+                  {/* Value Card */}
+                  <div className="bg-card rounded-2xl p-5 border border-border">
+                    <p className="text-foreground font-semibold text-sm mb-3">One meal can cover your membership</p>
+                    <div className="space-y-2 text-muted-foreground text-sm">
+                      <p>£50 dinner</p>
+                      <p>50% off offer</p>
+                      <p>£25 saved</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="text-foreground text-sm font-medium">
+                        That&apos;s around 5x the £4.99 monthly membership.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Testimonial */}
+                  <div className="space-y-3">
+                    <h3 className="text-foreground text-sm font-semibold">What members say</h3>
+                    <div className="bg-card rounded-2xl p-4 border border-border">
+                      <p className="text-foreground text-sm mb-3">&quot;{testimonials[currentTestimonial].text}&quot;</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-semibold">
+                          {testimonials[currentTestimonial].initials}
+                        </div>
+                        <p className="text-muted-foreground text-sm">{testimonials[currentTestimonial].name}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FAQ Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-foreground text-sm font-semibold">FAQs</h3>
+                    <div className="space-y-2">
+                      <details className="bg-card rounded-xl border border-border group">
+                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
+                          Is Eatinout a delivery app?
+                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </summary>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">No. Eatinout is for dining out at participating venues.</p>
+                      </details>
+                      <details className="bg-card rounded-xl border border-border group">
+                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
+                          What happens after the free trial?
+                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </summary>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 7 days, membership is £4.99/month unless you cancel.</p>
+                      </details>
+                      <details className="bg-card rounded-xl border border-border group">
+                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
+                          Can I cancel anytime?
+                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </summary>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">Yes. You can cancel your membership anytime.</p>
+                      </details>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <p className="text-center text-muted-foreground text-xs">
+                    No delivery. No hassle. Just dining out deals.
+                  </p>
                 </div>
-              </div>
+              ) : step === 'login' ? (
+                /* Login Form */
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome back</h1>
+                    <p className="text-sm text-muted-foreground">Sign in to your account</p>
+                  </div>
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <div>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: "#eb221c" }}
+                    >
+                      Sign In
+                    </Button>
+                  </form>
+                  <Button
+                    onClick={handleBack}
+                    variant="outline"
+                    className="w-full h-14 text-base font-medium rounded-full border-border hover:bg-muted transition-colors"
+                  >
+                    Back
+                  </Button>
+                </div>
+              ) : (
+                /* Register Form */
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
+                    <p className="text-sm text-muted-foreground">Start your 7-day free trial</p>
+                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        id="firstName"
+                        type="text"
+                        placeholder="First Name"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                      <Input
+                        id="lastName"
+                        type="text"
+                        placeholder="Last Name"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="zipCode"
+                        type="text"
+                        placeholder="Postcode"
+                        value={formData.zipCode}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border"
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={isPasswordVisible ? "text" : "password"}
+                        placeholder="Password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border pr-12"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                      >
+                        {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                    <p className={`text-xs ${formData.password && !passwordValidation.isValid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      Must be at least 8 characters with a number and special character
+                    </p>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={isConfirmPasswordVisible ? "text" : "password"}
+                        placeholder="Confirm Password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="w-full h-14 text-base rounded-xl border-border pr-12"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                      >
+                        {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                    {showValidationErrors && formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                      <p className="text-destructive text-sm -mt-2">
+                        Passwords do not match
+                      </p>
+                    )}
+
+
+                    <div className="p-4 bg-card border border-border rounded-2xl">
+                      <label className="text-foreground text-sm font-medium mb-2 block">
+                        Choose Your Plan
+                      </label>
+
+                      <div className="relative">
+                        {/* Dropdown button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsOpen(!isOpen)}
+                          className="w-full h-14 bg-muted text-foreground text-base rounded-xl pl-4 pr-10 text-left flex items-center justify-between border border-border"
+                        >
+                          {PLANS.find(plan => plan.priceId === selectedPriceId)?.name || PLANS[0].name}
+                          <span className="ml-2">&#9662;</span> {/* Down arrow */}
+                        </button>
+
+                        {/* Dropdown list */}
+                        {isOpen && (
+                          <ul className="absolute top-full w-full mt-1 bg-card rounded-xl max-h-60 overflow-y-auto z-10 shadow-lg border border-border">
+                            {PLANS.map(plan => (
+                              <li
+                                key={plan.id}
+                                onClick={() => {
+                                  setSelectedPriceId(plan.priceId ?? PLANS[0]?.priceId ?? null);
+                                  setIsOpen(false);
+                                }}
+                                className="px-4 py-3 text-foreground hover:bg-muted cursor-pointer"
+                              >
+                                {plan.name} - {plan.price}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Selected plan details */}
+                      {selectedPriceId && (
+                        PLANS.filter(plan => plan.priceId === selectedPriceId).map(plan => (
+                          <div key={plan.id} className="flex items-center justify-between mt-4 text-muted-foreground">
+                            {/* You can add any additional info here */}
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
+                      <Checkbox
+                        id="terms"
+                        checked={formData.agreeToTerms}
+                        onCheckedChange={handleCheckboxChange}
+                        required
+                        className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <label htmlFor="terms" className="text-muted-foreground text-xs leading-relaxed">
+                        I agree to the{" "}
+                        <button
+                          type="button"
+                          onClick={() => handlePolicyNavigation('/terms')}
+                          className="text-primary hover:text-primary/80 underline cursor-pointer"
+                        >
+                          Terms of Service
+                        </button>{" "}
+                        and{" "}
+                        <button
+                          type="button"
+                          onClick={() => handlePolicyNavigation('/privacy')}
+                          className="text-primary hover:text-primary/80 underline cursor-pointer"
+                        >
+                          Privacy Policy
+                        </button>
+                      </label>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={!formData.agreeToTerms || isLoading}
+                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: "#eb221c" }}
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center justify-center">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Creating Account...
+                        </div>
+                      ) : (
+                        "Create Account"
+                      )}
+                    </Button>
+                  </form>
+                  <Button
+                    onClick={handleBack}
+                    variant="outline"
+                    className="w-full h-14 text-base font-medium rounded-full border-border hover:bg-muted transition-colors"
+                  >
+                    Back
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-        ) : step === 'login' ? (
-          /* Login Form */
-          <div className="space-y-6 max-w-sm mx-auto w-full">
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full h-14 text-lg font-semibold rounded-xl text-white border-0 hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: "#eb221c" }}
-              >
-                Sign In
-              </Button>
-            </form>
-            <Button
-              onClick={handleBack}
-              variant="outline"
-              className="w-full h-14 text-lg font-semibold rounded-xl bg-white/90 text-gray-900 border-0 hover:bg-white transition-colors"
-            >
-              Back
-            </Button>
-          </div>
-        ) : (
-          /* Register Form */
-          <div className="space-y-6 max-w-sm mx-auto w-full">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  id="firstName"
-                  type="text"
-                  placeholder="First Name"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full h-14 text-base rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-                <Input
-                  id="lastName"
-                  type="text"
-                  placeholder="Last Name"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full h-14 text-base rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  id="zipCode"
-                  type="text"
-                  placeholder="Zip Code"
-                  value={formData.zipCode}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
-                  required
-                />
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={isPasswordVisible ? "text" : "password"}
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500 pr-12"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                >
-                  {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              <p className={`text-xs ${formData.password && !passwordValidation.isValid ? 'text-red-300' : 'text-white/70'}`}>
-                Must be at least 8 characters with a number and special character
-              </p>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={isConfirmPasswordVisible ? "text" : "password"}
-                  placeholder="Confirm Password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500 pr-12"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                >
-                  {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              {showValidationErrors && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                <p className="text-red-300 text-sm -mt-2">
-                  Passwords do not match
-                </p>
-              )}
-
-
-              <div className="p-4 mb-4 bg-white/10 border border-white/20 rounded-2xl text-white">
-                <label className="text-white/80 text-sm font-medium mb-2 block">
-                  Choose Your Plan
-                </label>
-
-                <div className="relative">
-                  {/* Dropdown button */}
-                  <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full h-14 bg-white/10 text-white/70 text-lg rounded-2xl pl-4 pr-10 text-left flex items-center justify-between"
-                  >
-                    {PLANS.find(plan => plan.priceId === selectedPriceId)?.name || PLANS[0].name}
-                    <span className="ml-2">&#9662;</span> {/* Down arrow */}
-                  </button>
-
-                  {/* Dropdown list */}
-                  {isOpen && (
-                    <ul className="absolute top-0 w-full mt-1 bg-black rounded-2xl max-h-60 overflow-y-auto z-10 shadow-lg">
-                      {PLANS.map(plan => (
-                        <li
-                          key={plan.id}
-                          onClick={() => {
-                            setSelectedPriceId(plan.priceId ?? PLANS[0]?.priceId ?? null);
-                            setIsOpen(false);
-                          }}
-                          className="px-4 py-3 text-white hover:bg-gray-700 cursor-pointer"
-                        >
-                          {plan.name} - {plan.price}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Selected plan details */}
-                {selectedPriceId && (
-                  PLANS.filter(plan => plan.priceId === selectedPriceId).map(plan => (
-                    <div key={plan.id} className="flex items-center justify-between mt-4 text-white/70">
-                      {/* You can add any additional info here */}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="flex items-start space-x-3 p-3 bg-black/30 rounded-xl border border-white/20">
-                <Checkbox
-                  id="terms"
-                  checked={formData.agreeToTerms}
-                  onCheckedChange={handleCheckboxChange}
-                  required
-                  className="mt-0.5 border-white/50 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                />
-                <label htmlFor="terms" className="text-white/90 text-xs leading-relaxed">
-                  I agree to the{" "}
-                  <button
-                    type="button"
-                    onClick={() => handlePolicyNavigation('/terms')}
-                    className="text-red-300 hover:text-red-200 underline cursor-pointer"
-                  >
-                    Terms of Service
-                  </button>{" "}
-                  and{" "}
-                  <button
-                    type="button"
-                    onClick={() => handlePolicyNavigation('/privacy')}
-                    className="text-red-300 hover:text-red-200 underline cursor-pointer"
-                  >
-                    Privacy Policy
-                  </button>
-                </label>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={!formData.agreeToTerms || isLoading}
-                className="w-full h-14 text-lg font-semibold rounded-xl text-white border-0 hover:opacity-90 transition-opacity disabled:opacity-50"
-                style={{ backgroundColor: "#eb221c" }}
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Creating Account...
-                  </div>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </form>
-            <Button
-              onClick={handleBack}
-              variant="outline"
-              className="w-full h-14 text-lg font-semibold rounded-xl bg-white/90 text-gray-900 border-0 hover:bg-white transition-colors"
-            >
-              Back
-            </Button>
-          </div>
-        )}
+        </div>
       </div>
 
       {showDealsModal && (
