@@ -20,7 +20,13 @@ import {
   Building2,
   User,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  Calendar,
+  Clock,
+  BookOpen,
+  Pause,
+  RefreshCw,
+  Settings
 } from "lucide-react"
 
 export default function PartnerInfoPage() {
@@ -60,7 +66,7 @@ export default function PartnerInfoPage() {
     },
     {
       question: "Can I change my offer?",
-      answer: "Yes. You can update, pause, or change your offer whenever you need to. You have full control."
+      answer: "Yes. You can change, pause or update your offer whenever you need. For example, you could run 30% off food Monday–Thursday, 4pm–6pm, bookings only."
     },
     {
       question: "Is it really free to list?",
@@ -315,7 +321,97 @@ export default function PartnerInfoPage() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* You Control The Offer Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Content */}
+            <div className="space-y-8">
+              <div>
+                <span className="inline-block px-4 py-1.5 bg-[#DC3545]/10 text-[#DC3545] rounded-full text-sm font-semibold mb-4">
+                  Full flexibility
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                  You control the offer
+                </h2>
+                <p className="text-lg text-gray-600">
+                  Create an offer that works for your business — then change it, pause it or update it whenever you need.
+                </p>
+              </div>
+
+              {/* Benefit points */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Set the days and times</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Add simple terms like bookings only</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <RefreshCw className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Pause or update your offer anytime</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Example Offer Card */}
+            <div className="flex justify-center lg:justify-end">
+              <div className="relative">
+                {/* Card shadow/glow effect */}
+                <div className="absolute inset-0 bg-[#DC3545]/20 rounded-3xl blur-2xl transform translate-y-4" />
+                
+                {/* Main card */}
+                <div className="relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden max-w-sm">
+                  {/* Card header */}
+                  <div className="bg-gradient-to-r from-[#DC3545] to-[#c82333] px-6 py-4">
+                    <span className="inline-block px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
+                      Example offer
+                    </span>
+                  </div>
+                  
+                  {/* Card body */}
+                  <div className="p-6 space-y-6">
+                    {/* Main offer */}
+                    <div className="text-center">
+                      <h3 className="text-4xl md:text-5xl font-black text-gray-900 mb-2">30% off</h3>
+                      <p className="text-xl text-gray-600 font-medium">food</p>
+                    </div>
+                    
+                    {/* Offer details */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <Calendar className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">Monday – Thursday</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <Clock className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">4pm – 6pm</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <BookOpen className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">Bookings only</span>
+                      </div>
+                    </div>
+                    
+                    {/* Card footer hint */}
+                    <div className="pt-4 border-t border-gray-100 text-center">
+                      <p className="text-sm text-gray-500">Your offer. Your rules. Your control.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="py-20 md:py-28 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
