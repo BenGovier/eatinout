@@ -101,61 +101,27 @@ export default function PartnerInfoPage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-red-50/30" />
-        <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 lg:py-32">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-12 md:py-20 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Content */}
-            <div className="space-y-6 md:space-y-8">
-              {/* Trust proof points - premium mini cards */}
-              <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-3 max-w-md">
-                {/* Card 1 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-md bg-green-600 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="font-semibold text-gray-900 text-sm">Free to list</span>
-                  </div>
-                  <p className="text-xs text-gray-500 pl-8">No setup cost</p>
-                </div>
-                {/* Card 2 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center flex-shrink-0">
-                      <PoundSterling className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="font-semibold text-gray-900 text-sm">No commission</span>
-                  </div>
-                  <p className="text-xs text-gray-500 pl-8">You keep the sale</p>
-                </div>
-                {/* Card 3 - spans full width on mobile */}
-                <div className="col-span-2 md:col-span-1 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-md bg-[#DC3545] flex items-center justify-center flex-shrink-0">
-                      <Users className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="font-semibold text-gray-900 text-sm">500+ venues</span>
-                  </div>
-                  <p className="text-xs text-gray-500 pl-8">Already onboard</p>
-                </div>
-              </div>
-
-              {/* Headline */}
-              <div className="space-y-5">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight">
+            <div className="space-y-5 md:space-y-6">
+              {/* Headline - comes first on mobile */}
+              <div className="space-y-4">
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight">
                   Get more diners.<br />
                   <span className="text-[#DC3545]">Pay no commission.</span>
                 </h1>
-                <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-xl">
+                <p className="text-base md:text-xl text-gray-600 leading-relaxed max-w-xl">
                   List your venue on Eatinout for free and reach local people actively looking for places to eat out. You keep the customer, you take the payment, and you stay in control of your offer.
                 </p>
               </div>
 
               {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
                   asChild 
                   size="lg" 
-                  className="bg-[#DC3545] hover:bg-[#c82333] text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all"
+                  className="bg-[#DC3545] hover:bg-[#c82333] text-white text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-xl shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all"
                 >
                   <Link href="/join-restaurant">
                     Sign up free now
@@ -166,16 +132,34 @@ export default function PartnerInfoPage() {
                   variant="outline" 
                   size="lg" 
                   onClick={scrollToDemo}
-                  className="text-lg px-8 py-6 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
                   Get a demo
                 </Button>
               </div>
+
+              {/* Compact trust strip - after CTAs */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 text-sm text-gray-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  Free to list
+                </span>
+                <span className="hidden sm:inline text-gray-300">|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <PoundSterling className="w-4 h-4 text-blue-600" />
+                  No commission
+                </span>
+                <span className="hidden sm:inline text-gray-300">|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#DC3545]" />
+                  500+ venues
+                </span>
+              </div>
             </div>
 
             {/* Hero Image */}
-            <div className="relative">
-              <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative mt-4 lg:mt-0">
+              <div className="relative aspect-[4/3] rounded-2xl md:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl">
                 <Image
                   src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg"
                   alt="Restaurant dining experience"
@@ -185,8 +169,8 @@ export default function PartnerInfoPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
               </div>
-              {/* Floating card */}
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+              {/* Floating card - hidden on small mobile, visible from sm up */}
+              <div className="hidden sm:block absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-green-600" />
