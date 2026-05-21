@@ -105,20 +105,38 @@ export default function PartnerInfoPage() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Content */}
             <div className="space-y-6 md:space-y-8">
-              {/* Trust badges - compact on mobile */}
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-green-50 text-green-700 rounded-full text-xs md:text-sm font-medium border border-green-100">
-                  <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  Free to list
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-blue-50 text-blue-700 rounded-full text-xs md:text-sm font-medium border border-blue-100">
-                  <PoundSterling className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  No commission
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-orange-50 text-orange-700 rounded-full text-xs md:text-sm font-medium border border-orange-100">
-                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  500+ venues
-                </span>
+              {/* Trust proof points - premium mini cards */}
+              <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-3 max-w-md">
+                {/* Card 1 */}
+                <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-md bg-green-600 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="font-semibold text-gray-900 text-sm">Free to list</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pl-8">No setup cost</p>
+                </div>
+                {/* Card 2 */}
+                <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <PoundSterling className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="font-semibold text-gray-900 text-sm">No commission</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pl-8">You keep the sale</p>
+                </div>
+                {/* Card 3 - spans full width on mobile */}
+                <div className="col-span-2 md:col-span-1 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-md bg-[#DC3545] flex items-center justify-center flex-shrink-0">
+                      <Users className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="font-semibold text-gray-900 text-sm">500+ venues</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pl-8">Already onboard</p>
+                </div>
               </div>
 
               {/* Headline */}
