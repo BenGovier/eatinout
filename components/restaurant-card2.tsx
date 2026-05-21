@@ -61,7 +61,7 @@ export function RestaurantCard({
       onClick={onClick}
     >
       <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100">
-        <div className="relative aspect-square w-full overflow-hidden">
+        <div className="relative h-[130px] w-full overflow-hidden">
           <Image src={image || "/placeholder.svg"} alt={name} fill className="object-cover" />
           
           {/* Hero offer badge in top-left corner */}

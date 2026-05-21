@@ -56,7 +56,7 @@ export function UnsubscribedAllRestaurantsCard({
 
   return (
     <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer" onClick={onClick}>
-      <div className="relative aspect-square w-full overflow-hidden">
+      <div className="relative h-[140px] w-full overflow-hidden">
         <Image src={image || "/placeholder.svg"} alt={name} fill className="object-cover" fetchPriority="low" loading="lazy" />
 
         {discount && (
