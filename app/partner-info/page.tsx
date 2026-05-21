@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Logo } from "@/components/logo"
 import { Footer } from "@/components/asignup/footer"
+import { Header } from "@/components/asignup/header"
 import { 
   CheckCircle, 
   Users, 
@@ -94,26 +95,8 @@ export default function PartnerInfoPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <img src="/images/eatinoutlogo.webp" alt="EATINOUT" className="h-10" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              onClick={scrollToDemo}
-              className="hidden sm:inline-flex border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Get a demo
-            </Button>
-            <Button asChild className="bg-[#DC3545] hover:bg-[#c82333] text-white">
-              <Link href="/join-restaurant">Sign up free</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* Header - using shared site header */}
+      <Header />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
@@ -121,20 +104,20 @@ export default function PartnerInfoPage() {
         <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 lg:py-32">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Content */}
-            <div className="space-y-8">
-              {/* Trust badges */}
-              <div className="flex flex-wrap gap-3">
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold border-2 border-green-200 shadow-sm">
-                  <CheckCircle className="w-5 h-5" />
+            <div className="space-y-6 md:space-y-8">
+              {/* Trust badges - compact on mobile */}
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-green-50 text-green-700 rounded-full text-xs md:text-sm font-medium border border-green-100">
+                  <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   Free to list
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-bold border-2 border-blue-200 shadow-sm">
-                  <PoundSterling className="w-5 h-5" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-blue-50 text-blue-700 rounded-full text-xs md:text-sm font-medium border border-blue-100">
+                  <PoundSterling className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   No commission
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-full text-sm font-bold border-2 border-orange-200 shadow-sm">
-                  <Users className="w-5 h-5" />
-                  500+ venues listed
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 bg-orange-50 text-orange-700 rounded-full text-xs md:text-sm font-medium border border-orange-100">
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  500+ venues
                 </span>
               </div>
 
