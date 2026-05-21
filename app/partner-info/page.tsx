@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Logo } from "@/components/logo"
 import { Footer } from "@/components/asignup/footer"
+import { Header } from "@/components/asignup/header"
 import { 
   CheckCircle, 
   Users, 
@@ -20,7 +21,13 @@ import {
   Building2,
   User,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  Calendar,
+  Clock,
+  BookOpen,
+  Pause,
+  RefreshCw,
+  Settings
 } from "lucide-react"
 
 export default function PartnerInfoPage() {
@@ -60,7 +67,7 @@ export default function PartnerInfoPage() {
     },
     {
       question: "Can I change my offer?",
-      answer: "Yes. You can update, pause, or change your offer whenever you need to. You have full control."
+      answer: "Yes. You can change, pause or update your offer whenever you need. For example, you could run 30% off food Monday–Thursday, 4pm–6pm, bookings only."
     },
     {
       question: "Is it really free to list?",
@@ -88,67 +95,33 @@ export default function PartnerInfoPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <img src="/images/eatinoutlogo.webp" alt="EATINOUT" className="h-10" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              onClick={scrollToDemo}
-              className="hidden sm:inline-flex border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Get a demo
-            </Button>
-            <Button asChild className="bg-[#DC3545] hover:bg-[#c82333] text-white">
-              <Link href="/join-restaurant">Sign up free</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* Header - using shared site header */}
+      <Header />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-red-50/30" />
-        <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 lg:py-32">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-12 md:py-20 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Content */}
-            <div className="space-y-8">
-              {/* Trust badges */}
-              <div className="flex flex-wrap gap-3">
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold border-2 border-green-200 shadow-sm">
-                  <CheckCircle className="w-5 h-5" />
-                  Free to list
-                </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-bold border-2 border-blue-200 shadow-sm">
-                  <PoundSterling className="w-5 h-5" />
-                  No commission
-                </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-full text-sm font-bold border-2 border-orange-200 shadow-sm">
-                  <Users className="w-5 h-5" />
-                  500+ venues listed
-                </span>
-              </div>
-
-              {/* Headline */}
-              <div className="space-y-5">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight">
+            <div className="space-y-5 md:space-y-6">
+              {/* Headline - comes first on mobile */}
+              <div className="space-y-4">
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight">
                   Get more diners.<br />
                   <span className="text-[#DC3545]">Pay no commission.</span>
                 </h1>
-                <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-xl">
+                <p className="text-base md:text-xl text-gray-600 leading-relaxed max-w-xl">
                   List your venue on Eatinout for free and reach local people actively looking for places to eat out. You keep the customer, you take the payment, and you stay in control of your offer.
                 </p>
               </div>
 
               {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
                   asChild 
                   size="lg" 
-                  className="bg-[#DC3545] hover:bg-[#c82333] text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all"
+                  className="bg-[#DC3545] hover:bg-[#c82333] text-white text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-xl shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all"
                 >
                   <Link href="/join-restaurant">
                     Sign up free now
@@ -159,16 +132,34 @@ export default function PartnerInfoPage() {
                   variant="outline" 
                   size="lg" 
                   onClick={scrollToDemo}
-                  className="text-lg px-8 py-6 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
                   Get a demo
                 </Button>
               </div>
+
+              {/* Compact trust strip - after CTAs */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 text-sm text-gray-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  Free to list
+                </span>
+                <span className="hidden sm:inline text-gray-300">|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <PoundSterling className="w-4 h-4 text-blue-600" />
+                  No commission
+                </span>
+                <span className="hidden sm:inline text-gray-300">|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#DC3545]" />
+                  500+ venues
+                </span>
+              </div>
             </div>
 
             {/* Hero Image */}
-            <div className="relative">
-              <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative mt-4 lg:mt-0">
+              <div className="relative aspect-[4/3] rounded-2xl md:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl">
                 <Image
                   src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg"
                   alt="Restaurant dining experience"
@@ -178,8 +169,8 @@ export default function PartnerInfoPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
               </div>
-              {/* Floating card */}
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+              {/* Floating card - hidden on small mobile, visible from sm up */}
+              <div className="hidden sm:block absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-green-600" />
@@ -315,7 +306,97 @@ export default function PartnerInfoPage() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* You Control The Offer Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Content */}
+            <div className="space-y-8">
+              <div>
+                <span className="inline-block px-4 py-1.5 bg-[#DC3545]/10 text-[#DC3545] rounded-full text-sm font-semibold mb-4">
+                  Full flexibility
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                  You control the offer
+                </h2>
+                <p className="text-lg text-gray-600">
+                  Create an offer that works for your business — then change it, pause it or update it whenever you need.
+                </p>
+              </div>
+
+              {/* Benefit points */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Set the days and times</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Add simple terms like bookings only</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <RefreshCw className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <p className="font-medium text-gray-900">Pause or update your offer anytime</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Example Offer Card */}
+            <div className="flex justify-center lg:justify-end">
+              <div className="relative">
+                {/* Card shadow/glow effect */}
+                <div className="absolute inset-0 bg-[#DC3545]/20 rounded-3xl blur-2xl transform translate-y-4" />
+                
+                {/* Main card */}
+                <div className="relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden max-w-sm">
+                  {/* Card header */}
+                  <div className="bg-gradient-to-r from-[#DC3545] to-[#c82333] px-6 py-4">
+                    <span className="inline-block px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
+                      Example offer
+                    </span>
+                  </div>
+                  
+                  {/* Card body */}
+                  <div className="p-6 space-y-6">
+                    {/* Main offer */}
+                    <div className="text-center">
+                      <h3 className="text-4xl md:text-5xl font-black text-gray-900 mb-2">30% off</h3>
+                      <p className="text-xl text-gray-600 font-medium">food</p>
+                    </div>
+                    
+                    {/* Offer details */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <Calendar className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">Monday – Thursday</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <Clock className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">4pm – 6pm</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <BookOpen className="w-5 h-5 text-[#DC3545]" />
+                        <span className="font-medium text-gray-700">Bookings only</span>
+                      </div>
+                    </div>
+                    
+                    {/* Card footer hint */}
+                    <div className="pt-4 border-t border-gray-100 text-center">
+                      <p className="text-sm text-gray-500">Your offer. Your rules. Your control.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="py-20 md:py-28 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
