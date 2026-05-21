@@ -118,27 +118,28 @@ export default function PartnerInfoPage() {
             <div className="space-y-8">
               {/* Trust badges */}
               <div className="flex flex-wrap gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100">
-                  <CheckCircle className="w-4 h-4" />
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold border-2 border-green-200 shadow-sm">
+                  <CheckCircle className="w-5 h-5" />
                   Free to list
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">
-                  <PoundSterling className="w-4 h-4" />
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-bold border-2 border-blue-200 shadow-sm">
+                  <PoundSterling className="w-5 h-5" />
                   No commission
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-sm font-medium border border-orange-100">
-                  <Users className="w-4 h-4" />
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-800 rounded-full text-sm font-bold border-2 border-orange-200 shadow-sm">
+                  <Users className="w-5 h-5" />
                   500+ venues listed
                 </span>
               </div>
 
               {/* Headline */}
-              <div className="space-y-4">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight tracking-tight text-balance">
-                  List your restaurant for free and bring in more local diners
+              <div className="space-y-5">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight">
+                  Get more diners.<br />
+                  <span className="text-[#DC3545]">Pay no commission.</span>
                 </h1>
                 <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-xl">
-                  Join Eatinout and get your venue in front of people actively looking for dining-out deals. You keep the customer, you take the payment, and we do not take commission.
+                  List your venue on Eatinout for free and reach local people actively looking for places to eat out. You keep the customer, you take the payment, and you stay in control of your offer.
                 </p>
               </div>
 
@@ -199,10 +200,10 @@ export default function PartnerInfoPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why join Eatinout?
+              Why venues join Eatinout
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Get discovered by local diners without the fees and complexity of delivery platforms
+              Get discovered by local diners without the cost, complexity or commission of delivery platforms.
             </p>
           </div>
 
@@ -212,9 +213,9 @@ export default function PartnerInfoPage() {
               <div className="w-14 h-14 rounded-2xl bg-green-100 flex items-center justify-center mb-6">
                 <PoundSterling className="w-7 h-7 text-green-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Free to list</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Free to list, no monthly charge</h3>
               <p className="text-gray-600 leading-relaxed">
-                No setup fees, no monthly charges, no hidden costs. Listing your venue on Eatinout is completely free.
+                No setup fees, no monthly subscription, no hidden costs. Listing your venue on Eatinout is completely free, forever.
               </p>
             </div>
 
@@ -223,9 +224,9 @@ export default function PartnerInfoPage() {
               <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-6">
                 <Users className="w-7 h-7 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Reach local diners</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Reach local diners ready to visit</h3>
               <p className="text-gray-600 leading-relaxed">
-                Get in front of people actively looking for places to eat out. Not delivery - real customers who want to visit your venue.
+                Eatinout brings you local people actively looking for places to eat out. Not delivery customers - real diners who want to visit your venue.
               </p>
             </div>
 
@@ -234,9 +235,9 @@ export default function PartnerInfoPage() {
               <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mb-6">
                 <Utensils className="w-7 h-7 text-orange-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">You keep the payment</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">You keep 100% of the payment</h3>
               <p className="text-gray-600 leading-relaxed">
-                Customers pay you directly. We do not process transactions or take commission from your sales.
+                Customers pay you directly. No commission, no transaction fees. Change, pause or update your offer whenever you want.
               </p>
             </div>
           </div>

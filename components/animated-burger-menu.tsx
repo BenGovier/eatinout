@@ -42,7 +42,7 @@ export function AnimatedBurgerMenu() {
     { icon: Lightbulb, label: "How It Works", variant: "default" as const, href: "/how-it-works" },
     { icon: HelpCircle, label: "FAQ's", variant: "default" as const, href: "/pricing#faq" },
     { icon: Lock, label: "Login / Sign Up", variant: "link" as const, href: "/sign-up" },
-    { icon: Building2, label: "List a Restaurant", variant: "outline" as const, href: "/join-restaurant" },
+    { icon: Building2, label: "List a Restaurant", variant: "outline" as const, href: "/partner-info" },
     { icon: Briefcase, label: "Businesses", variant: "default" as const, href: "https://corporate.eatinout.co.uk/", external: true },
   ]
 
