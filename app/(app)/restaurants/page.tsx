@@ -1157,7 +1157,6 @@ export default function RestaurantsPage() {
                             }
                           }))
                           setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                          fetchRestaurants(1, true)
                         }}
                         className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
                           ? 'bg-[#DC3545]/5 text-[#DC3545]'
