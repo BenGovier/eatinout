@@ -28,8 +28,8 @@ const trialSlides: Slide[] = [
         eyebrow: "Dining out made easy.",
         title: "Select an offer.\nShow your code.\nSave money.",
         body: "That's it.",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/23.png-tQ45xH7IrdDDj3mI6jwx9lEQ5VJUkw.jpeg",
-        imageAlt: "Woman using phone at a stylish bar",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image2-1nbkwVJ4T1i5MkuTWoVBxWF43kI1g6.png",
+        imageAlt: "Woman showing EatinOut app with 50% off offer at restaurant",
     },
     {
         eyebrow: "Just one meal covers your membership.",
