@@ -24,12 +24,9 @@ export function SocialProof() {
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
                 <div className="text-center mb-10 md:mb-14">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-3">
-                        Loved by people who actually eat out
+                    <h2 className="text-2xl md:text-4xl font-bold text-foreground">
+                        Loved by people who eat out
                     </h2>
-                    <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        Real savings at real places — without feeling like a delivery app.
-                    </p>
                 </div>
 
                 {/* Testimonial Cards */}
@@ -49,11 +46,6 @@ export function SocialProof() {
                         </div>
                     ))}
                 </div>
-
-                {/* Trust line */}
-                <p className="text-center text-sm text-muted-foreground mt-8">
-                    Used by local diners across Lancashire
-                </p>
             </div>
         </section>
     )
