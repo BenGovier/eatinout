@@ -9,19 +9,19 @@ const featuredRestaurants = [
     {
         name: "Nuvo",
         location: "Preston",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/nuvo%20logo-gvF5ZkJ1Hd82Lcy81oAUt0DpNS00hM.webp",
+        image: "/images/nuvo-food.jpg",
         offer: "Up to 50% off",
     },
     {
         name: "Turtle Bay",
         location: "Liverpool",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/turtlebay-xJ4TaYlfNl8ljPMkOEuCUTavIlPR1n.png",
+        image: "/images/turtle-bay-food.jpg",
         offer: "2-for-1 cocktails",
     },
     {
         name: "Olive Tree Brasserie",
         location: "Bolton",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/olive%20tree%20brasserie-Z3sY33DhyknOhlUQq42wOHqrFJU1rD.png",
+        image: "/images/olive-tree-food.jpg",
         offer: "25% off food",
     },
     {
