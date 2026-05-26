@@ -14,7 +14,7 @@ export function HeroCard() {
 
                     {/* Supporting Copy */}
                     <p className="text-xs md:text-base text-muted-foreground leading-relaxed text-pretty">
-                        Your go-to for dining out deals near you — with offers at restaurants, cafes, bars and more.
+                        Your go-to for dining out deals – with 1000&apos;s of offers at restaurants, cafes, bars and more.
                     </p>
 
                     {/* CTAs */}
