@@ -9,12 +9,12 @@ import {
 
 const faqs = [
     {
-        question: "Is Eatinout a delivery app?",
-        answer: "No. Eatinout is for dining out. You use it at participating restaurants, cafés, bars and venues.",
+        question: "Is EatinOut a delivery app?",
+        answer: "No. EatinOut is for dining out. You use it at participating restaurants, cafes, bars and venues.",
     },
     {
         question: "How do I use an offer?",
-        answer: "Choose an offer in Eatinout, show your code at the venue, and the venue applies the offer based on its terms.",
+        answer: "Choose an offer in EatinOut, show your code at the venue, and the venue applies the offer based on its terms.",
     },
     {
         question: "What happens after the free trial?",

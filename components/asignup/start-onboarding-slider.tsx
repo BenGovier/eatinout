@@ -19,7 +19,7 @@ interface Slide {
 const trialSlides: Slide[] = [
     {
         eyebrow: "What you get",
-        title: "Your free trial gives you access to hundreds of offers at restaurants, cafes, bars & more.",
+        title: "Your free trial gives you access to thousands of offers at restaurants, cafes, bars & more.",
         body: "Great places. Better prices. More reasons to go out.",
         image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
         imageAlt: "Italian dinner table with pasta dishes and wine glasses",
@@ -28,8 +28,8 @@ const trialSlides: Slide[] = [
         eyebrow: "Dining out made easy.",
         title: "Select an offer.\nShow your code.\nSave money.",
         body: "That's it.",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/23.png-tQ45xH7IrdDDj3mI6jwx9lEQ5VJUkw.jpeg",
-        imageAlt: "Woman using phone at a stylish bar",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image2-1nbkwVJ4T1i5MkuTWoVBxWF43kI1g6.png",
+        imageAlt: "Woman showing EatinOut app with 50% off offer at restaurant",
     },
     {
         eyebrow: "Just one meal covers your membership.",
@@ -171,7 +171,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                         <div className="flex items-center justify-between mb-6 lg:mb-10">
                             <Image
                                 src="/eatinout-logo.webp"
-                                alt="Eatinout"
+                                alt="EatinOut"
                                 width={120}
                                 height={32}
                                 className="h-7 lg:h-9 w-auto"
@@ -271,12 +271,6 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                         Back
                                     </button>
                                 )}
-                                <a
-                                    href="/sign-up"
-                                    className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary transition-colors"
-                                >
-                                    Skip straight to sign up
-                                </a>
                             </div>
                         </div>
                     </div>
