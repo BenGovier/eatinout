@@ -271,6 +271,14 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                         Back
                                     </button>
                                 )}
+                                {!isLastSlide && (
+                                    <a
+                                        href="/sign-up"
+                                        className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                                    >
+                                        Skip to free sign up
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>
