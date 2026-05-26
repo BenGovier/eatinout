@@ -8,7 +8,7 @@ export function PromoStrip() {
                     href="/start"
                     className="inline-flex items-center gap-2 text-sm font-medium text-white hover:text-white/90 transition-colors"
                 >
-                    <span>Start with 7 days free — then just £4.99/month</span>
+                    <span>7 days free – then just £4.99 per month</span>
                 </Link>
             </div>
         </div>
