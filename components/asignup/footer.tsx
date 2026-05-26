@@ -7,7 +7,7 @@ const footerLinks = {
         title: "Company",
         links: [
             { label: "About us", href: "/about" },
-            { label: "How Eatinout works", href: "/how-it-works" },
+            { label: "How EatinOut works", href: "/how-it-works" },
             { label: "For restaurants", href: "/for-restaurants" },
             { label: "Businesses", href: "https://corporate.eatinout.co.uk/" },
         ],
@@ -53,7 +53,7 @@ export function Footer() {
                 <div className="mb-10 pb-10 border-b border-background/10">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                         <div>
-                            <h3 className="text-lg font-semibold mb-1">Take Eatinout with you</h3>
+                            <h3 className="text-lg font-semibold mb-1">Take EatinOut with you</h3>
                             <p className="text-sm text-background/70">Find great dining offers on the go.</p>
                         </div>
                         <div className="flex gap-3">
@@ -119,13 +119,13 @@ export function Footer() {
                         <div className="flex flex-col gap-3">
                             <Image
                                 src="/images/eatinouticon.webp"
-                                alt="Eatinout"
+                                alt="EatinOut"
                                 width={36}
                                 height={36}
                                 className="h-9 w-9"
                             />
                             <p className="text-sm text-background/60">
-                                © 2026 Eatinout. All rights reserved.
+                                © 2026 EatinOut. All rights reserved.
                             </p>
                         </div>
 

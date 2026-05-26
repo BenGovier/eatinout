@@ -171,7 +171,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                         <div className="flex items-center justify-between mb-6 lg:mb-10">
                             <Image
                                 src="/eatinout-logo.webp"
-                                alt="Eatinout"
+                                alt="EatinOut"
                                 width={120}
                                 height={32}
                                 className="h-7 lg:h-9 w-auto"

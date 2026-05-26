@@ -23,7 +23,7 @@ export function Header() {
                 <Link href="/asignup" className="flex-shrink-0">
                     <Image
                         src="/images/eatinoutlogo.webp"
-                        alt="Eatinout"
+                        alt="EatinOut"
                         width={140}
                         height={36}
                         className="h-8 w-auto"
