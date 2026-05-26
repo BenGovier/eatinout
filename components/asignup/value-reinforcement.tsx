@@ -49,7 +49,7 @@ export function ValueReinforcement() {
 
                 {/* Supporting copy */}
                 <p className="text-center text-sm md:text-base text-muted-foreground mt-8 max-w-md mx-auto">
-                    Use Eatinout once and the membership can already make sense.
+                    Use EatinOut once and you&apos;re quids in!
                 </p>
             </div>
         </section>
