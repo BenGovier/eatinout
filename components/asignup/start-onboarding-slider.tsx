@@ -19,7 +19,7 @@ interface Slide {
 const trialSlides: Slide[] = [
     {
         eyebrow: "What you get",
-        title: "Your free trial gives you access to hundreds of offers at restaurants, cafes, bars & more.",
+        title: "Your free trial gives you access to thousands of offers at restaurants, cafes, bars & more.",
         body: "Great places. Better prices. More reasons to go out.",
         image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
         imageAlt: "Italian dinner table with pasta dishes and wine glasses",
@@ -271,12 +271,6 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                         Back
                                     </button>
                                 )}
-                                <a
-                                    href="/sign-up"
-                                    className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary transition-colors"
-                                >
-                                    Skip straight to sign up
-                                </a>
                             </div>
                         </div>
                     </div>
