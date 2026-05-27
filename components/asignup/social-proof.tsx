@@ -23,27 +23,24 @@ export function SocialProof() {
         <section className="py-12 md:py-20 bg-secondary/30">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-10 md:mb-14">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-3">
-                        Loved by people who actually eat out
+                <div className="text-center mb-8 md:mb-12">
+                    <h2 className="text-2xl md:text-4xl font-bold text-foreground">
+                        Loved by people who eat out
                     </h2>
-                    <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        Real savings at real places — without feeling like a delivery app.
-                    </p>
                 </div>
 
-                {/* Testimonial Cards */}
-                <div className="grid gap-4 md:gap-6 md:grid-cols-3 max-w-4xl mx-auto">
+                {/* Testimonial Cards - smaller and more compact */}
+                <div className="grid gap-3 md:gap-4 md:grid-cols-3 max-w-3xl mx-auto">
                     {testimonials.map((testimonial, index) => (
                         <div
                             key={index}
-                            className="bg-card rounded-2xl p-6 shadow-sm border border-border/50"
+                            className="bg-card rounded-xl p-4 shadow-sm border border-border/50"
                         >
-                            <Quote className="h-6 w-6 text-primary/30 mb-3" />
-                            <p className="text-foreground font-medium mb-4 text-pretty">
+                            <Quote className="h-4 w-4 text-primary/30 mb-2" />
+                            <p className="text-sm text-foreground font-medium mb-2 text-pretty">
                                 &ldquo;{testimonial.quote}&rdquo;
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 — {testimonial.name}, {testimonial.location}
                             </p>
                         </div>
@@ -51,8 +48,8 @@ export function SocialProof() {
                 </div>
 
                 {/* Trust line */}
-                <p className="text-center text-sm text-muted-foreground mt-8">
-                    Used by local diners across Lancashire
+                <p className="text-center text-sm text-muted-foreground mt-6">
+                    Used by local diners in Lancashire, Liverpool and Bolton
                 </p>
             </div>
         </section>

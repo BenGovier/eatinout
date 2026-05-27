@@ -334,7 +334,7 @@ export default function RestaurantsPage() {
       const savedFilters = sessionStorage.getItem('restaurantFilters')
       if (savedFilters) {
         const savedState = JSON.parse(savedFilters)
-        setFilterState({
+        const newState = {
           searchTerm: savedState.searchTerm || "",
           locationSearch: "",
           selectedLocation: savedState.selectedLocation || "",
@@ -345,12 +345,24 @@ export default function RestaurantsPage() {
           selectedDayValues: savedState.selectedDayValues || [],
           selectedDining: savedState.selectedDining || [],
           selectedMealTimes: savedState.selectedMealTimes || []
-        })
+        }
+        setFilterState(newState)
         setUIState(prev => ({ ...prev, showFilters: savedState.showFilters || false }))
+        // Update ref immediately to avoid race conditions
+        filtersRef.current = {
+          selectedLocationId: newState.selectedLocationId,
+          searchTerm: newState.searchTerm,
+          selectedCuisineIds: newState.selectedCuisineIds,
+          selectedDining: newState.selectedDining,
+          selectedDayValues: newState.selectedDayValues,
+          selectedMealTimes: newState.selectedMealTimes
+        }
+        return newState
       }
     } catch (error) {
       console.error('Failed to restore filter state:', error)
     }
+    return null
   }, [])
 
   const clearFilterState = useCallback(() => {
@@ -460,9 +472,7 @@ export default function RestaurantsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    restoreFilterState()
-  }, [restoreFilterState])
+  // Removed separate call to restoreFilterState as it's now part of initializePage
 
   useEffect(() => {
     try {
@@ -492,6 +502,10 @@ export default function RestaurantsPage() {
     let isMounted = true
 
     const initializePage = async () => {
+      // 1. Restore filters first
+      const restoredFilters = restoreFilterState()
+
+      // 2. Check scroll preservation
       const savedPageState = getSavedPageState()
 
       if (savedPageState && savedPageState.currentPage > 1) {
@@ -512,6 +526,7 @@ export default function RestaurantsPage() {
         }
       } else {
         if (isMounted) {
+          // fetchRestaurants uses filtersRef.current which we updated in restoreFilterState
           fetchRestaurants(1, true)
         }
       }
@@ -522,7 +537,7 @@ export default function RestaurantsPage() {
     return () => {
       isMounted = false
     }
-  }, [fetchRestaurants, getSavedPageState])
+  }, []) // Run once on mount
 
   useEffect(() => {
     if (pageState.isRestoringScroll) {
@@ -535,6 +550,18 @@ export default function RestaurantsPage() {
       return
     }
 
+    // Only fetch if we are NOT in the initial mount phase (where initializePage handles it)
+    // Actually, we can just let this effect handle ALL filter changes including the first one if we don't call it in initializePage.
+    // To keep it safe and avoid double fetching or missing the first fetch:
+    if (filterState.selectedLocationId || filterState.selectedCuisineIds.length > 0) {
+      saveFilterState()
+      clearScrollPosition()
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      })
+    }
+
     fetchRestaurants(1, true)
   }, [
     debouncedSearchTerm,
@@ -544,7 +571,8 @@ export default function RestaurantsPage() {
     filterState.selectedDayValues,
     filterState.selectedMealTimes,
     fetchRestaurants,
-    pageState.isRestoringScroll
+    saveFilterState,
+    clearScrollPosition
   ])
 
   const loadMoreRestaurants = useCallback(() => {
@@ -1029,23 +1057,7 @@ export default function RestaurantsPage() {
   // const selectedArea = useMemo(() => {
   //   return metaState.areas.find(area => area.value === filterState.selectedLocationId)
   // }, [metaState.areas, filterState.selectedLocationId])
-  useEffect(() => {
-    if (!filterState.selectedLocationId) return
-    saveFilterState()
-    clearScrollPosition()
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    })
-    setPageState(prev => ({
-      ...prev,
-      pagination: {
-        ...prev.pagination,
-        currentPage: 1
-      }
-    }))
-    fetchRestaurants(1, true)
-  }, [filterState.selectedLocationId])
+  // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
   return (
     <>
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
@@ -1145,7 +1157,6 @@ export default function RestaurantsPage() {
                             }
                           }))
                           setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                          fetchRestaurants(1, true)
                         }}
                         className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
                           ? 'bg-[#DC3545]/5 text-[#DC3545]'
@@ -1380,117 +1391,117 @@ export default function RestaurantsPage() {
               ))}
             {!pageState.loadingListReset &&
               visibleRestaurants.map((restaurant) => {
-              const location = Array.isArray(restaurant.area)
-                ? getAreaNames(restaurant.area, metaState.areas)
-                : restaurant.location
+                const location = Array.isArray(restaurant.area)
+                  ? getAreaNames(restaurant.area, metaState.areas)
+                  : restaurant.location
 
-              const offers = restaurant.offers?.map(offer => ({
-                discount: offer.title,
-                unlimited: !offer.totalCodes,
-                remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
-              })) || []
-              //Helper: Check if coming soon (0 or undefined)
-              const heroOffer = offers[0]
-              const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
-                (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
+                const offers = restaurant.offers?.map(offer => ({
+                  discount: offer.title,
+                  unlimited: !offer.totalCodes,
+                  remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
+                })) || []
+                //Helper: Check if coming soon (0 or undefined)
+                const heroOffer = offers[0]
+                const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
+                  (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
-              return (
-                <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
-                  <div className="w-full">
-                    <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
-                      <div className="relative h-[130px] w-full overflow-hidden">
-                        <Image
-                          src={restaurant.imageUrl || "/placeholder.svg"}
-                          alt={restaurant.name}
-                          fill
-                          className="object-cover"
-                          loading="lazy"
-                          quality={75}
-                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        />
+                return (
+                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
+                    <div className="w-full">
+                      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
+                        <div className="relative h-[130px] w-full overflow-hidden">
+                          <Image
+                            src={restaurant.imageUrl || "/placeholder.svg"}
+                            alt={restaurant.name}
+                            fill
+                            className="object-cover"
+                            loading="lazy"
+                            quality={75}
+                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          />
 
-                        <div className="absolute top-2 left-0 flex items-stretch">
-                          <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                            {/* {offers[0].discount} */}
-                            {heroOffer?.discount}
-                          </div>
-                          {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
+                          <div className="absolute top-2 left-0 flex items-stretch">
+                            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
+                              {/* {offers[0].discount} */}
+                              {heroOffer?.discount}
+                            </div>
+                            {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
                             <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
                               {offers[0].remainingCount} left!
                             </div>
                           )} */}
-                          {!heroOffer?.unlimited && (
-                            heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
-                              <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                {heroOffer.remainingCount} left!
-                              </div>
-                            ) : (
-                              <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                More coming soon
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="p-3 space-y-1.5 relative">
-                        <div className="flex items-start justify-between">
-                          <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
-                          {/* Line ~1119 ke aas paas - Update heart button */}
-                          <button
-                            className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                              ? "text-[#eb221c]"
-                              : "text-gray-300 hover:text-[#eb221c]"
-                              }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleHeartClick(e, restaurant.id, restaurant.name);
-                            }}
-                            disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
-                            aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
-                          >
-                            {favoritesLoading.has(restaurant.id) ? (
-                              // ✅ Loading spinner
-                              <svg
-                                className="animate-spin h-4 w-4 text-[#eb221c]"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                              </svg>
-                            ) : (
-                              <Heart
-                                className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
-                                  }`}
-                              />
+                            {!heroOffer?.unlimited && (
+                              heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
+                                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
+                                  {heroOffer.remainingCount} left!
+                                </div>
+                              ) : (
+                                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
+                                  More coming soon
+                                </div>
+                              )
                             )}
-                          </button>
+                          </div>
                         </div>
 
-                        <p className="text-gray-500 text-xs flex items-center gap-1">
-                          <span className="inline-block w-3 h-3 text-gray-400">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                              <circle cx="12" cy="10" r="3" />
-                            </svg>
-                          </span>
-                          {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
-                        </p>
+                        <div className="p-3 space-y-1.5 relative">
+                          <div className="flex items-start justify-between">
+                            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
+                            {/* Line ~1119 ke aas paas - Update heart button */}
+                            <button
+                              className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
+                                ? "text-[#eb221c]"
+                                : "text-gray-300 hover:text-[#eb221c]"
+                                }`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleHeartClick(e, restaurant.id, restaurant.name);
+                              }}
+                              disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
+                              aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
+                            >
+                              {favoritesLoading.has(restaurant.id) ? (
+                                // ✅ Loading spinner
+                                <svg
+                                  className="animate-spin h-4 w-4 text-[#eb221c]"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  />
+                                </svg>
+                              ) : (
+                                <Heart
+                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
+                                    }`}
+                                />
+                              )}
+                            </button>
+                          </div>
 
-                        {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
+                          <p className="text-gray-500 text-xs flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 text-gray-400">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" />
+                              </svg>
+                            </span>
+                            {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
+                          </p>
+
+                          {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
                           <div className="flex items-center gap-1.5">
                             {offers.map((offer, index) => (
                               
@@ -1509,94 +1520,94 @@ export default function RestaurantsPage() {
                             ))}
                           </div>
                         </div> */}
-                        <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => {
-                              const isComingSoon = !offer.unlimited &&
-                                (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
+                          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              {offers.map((offer, index) => {
+                                const isComingSoon = !offer.unlimited &&
+                                  (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
 
-                              return (
-                                <div
-                                  key={index}
-                                  className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                >
-                                  <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                  <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                    {offer.discount}
-                                  </span>
-                                  {!offer.unlimited && (
-                                    offer.remainingCount && offer.remainingCount > 0 ? (
-                                      <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                        {offer.remainingCount} left
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                        More coming soon
-                                      </span>
-                                    )
-                                  )}
-                                </div>
-                              )
-                            })}
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
+                                  >
+                                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
+                                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
+                                      {offer.discount}
+                                    </span>
+                                    {!offer.unlimited && (
+                                      offer.remainingCount && offer.remainingCount > 0 ? (
+                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                          {offer.remainingCount} left
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
+                                          More coming soon
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
             {!pageState.loading &&
               !pageState.loadingListReset &&
               hasFilters &&
               visibleRestaurants.length === 0 && (
-              <div className="col-span-full">
-                <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
-                    <Search className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900">No matches found</h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Try changing your search or clearing a filter.
-                  </p>
-                  <div className="mt-4 flex justify-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setFilterState({
-                          searchTerm: "",
-                          locationSearch: "",
-                          selectedLocation: "",
-                          selectedLocationId: "",
-                          selectedCuisines: [],
-                          selectedCuisineIds: [],
-                          selectedDays: [],
-                          selectedDayValues: [],
-                          selectedDining: [],
-                          selectedMealTimes: []
-                        })
-                        clearScrollPosition()
-                        clearFilterState()
-                      }}
-                      className="rounded-full"
-                    >
-                      Clear filters
-                    </Button>
+                <div className="col-span-full">
+                  <div className="rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-6 text-center shadow-sm">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#DC3545]/10 text-[#DC3545]">
+                      <Search className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">No matches found</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Try changing your search or clearing a filter.
+                    </p>
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setFilterState({
+                            searchTerm: "",
+                            locationSearch: "",
+                            selectedLocation: "",
+                            selectedLocationId: "",
+                            selectedCuisines: [],
+                            selectedCuisineIds: [],
+                            selectedDays: [],
+                            selectedDayValues: [],
+                            selectedDining: [],
+                            selectedMealTimes: []
+                          })
+                          clearScrollPosition()
+                          clearFilterState()
+                        }}
+                        className="rounded-full"
+                      >
+                        Clear filters
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           {pageState.loading &&
             pageState.restaurants.length > 0 &&
             !pageState.loadingListReset && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-              {[1, 2, 3].map((i) => (
-                <RestaurantCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                {[1, 2, 3].map((i) => (
+                  <RestaurantCardSkeleton key={i} />
+                ))}
+              </div>
+            )}
         </section>
 
         <WelcomeLocationModal

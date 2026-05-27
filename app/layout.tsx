@@ -5,6 +5,7 @@ import Providers from "./provider"
 import "react-datepicker/dist/react-datepicker.css"
 import Script from "next/script"
 import { AuthProvider } from "@/context/auth-context"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -68,10 +69,10 @@ fbq('track', 'PageView');
       <body className={inter.className}>
         {/* Google Tag Manager (noscript) */}
         <noscript>
-          <iframe 
+          <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-KR2NK8KD"
-            height="0" 
-            width="0" 
+            height="0"
+            width="0"
             style={{ display: 'none', visibility: 'hidden' }}
           />
         </noscript>
@@ -87,10 +88,11 @@ fbq('track', 'PageView');
           />
         </noscript>
         {/* End Meta Pixel (noscript) */}
-         <AuthProvider>
-        <Providers>{children}</Providers>
+        <AuthProvider>
+          <Providers>{children}</Providers>
+          <SpeedInsights />
         </AuthProvider>
-        
+
         {/* Rewardful Script */}
         <Script src="https://r.wdfl.co/rw.js" data-rewardful="bb966a" />
         <Script id="rewardful-queue" strategy="beforeInteractive">

@@ -21,7 +21,7 @@ function SignUpPageContent() {
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
-  const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
+  const [step, setStep] = useState<'main' | 'register' | 'login'>('register')
   const { data: session, status }: any = useSession()
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)

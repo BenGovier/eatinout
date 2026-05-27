@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import jwt from "jsonwebtoken"
-import WelcomePage from "./(marketing)/welcome/page"
-import MarketingLayout from "./(marketing)/layout"
+import AsignupPage from "./asignup/page"
+import AsignupLayout from "./asignup/layout"
 import User from "@/models/User"
 import connectToDatabase from "@/lib/mongodb"
 
@@ -22,18 +22,18 @@ export default async function RootPage() {
           redirect("/restaurants")
         }
       } catch {
-        // Invalid/expired token – show welcome page
+        // Invalid/expired token – show landing page
       }
     }
   } catch {
-    // Cookie read error – show welcome page (fail open for guests)
+    // Cookie read error – show landing page (fail open for guests)
   }
   
-  // Show welcome page if no token or invalid subscription
+  // Show asignup landing page if no token or invalid subscription
   return (
-    <MarketingLayout>
-      <WelcomePage />
-    </MarketingLayout>
+    <AsignupLayout>
+      <AsignupPage />
+    </AsignupLayout>
   )
 }
 

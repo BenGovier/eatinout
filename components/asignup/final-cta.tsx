@@ -10,7 +10,7 @@ export function FinalCTA() {
                         Ready to start saving?
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base mb-8">
-                        Try Eatinout free for 7 days. Cancel anytime.
+                        Try EatinOut free for 7 days. Cancel anytime.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8 py-6 text-base font-semibold">

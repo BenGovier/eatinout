@@ -11,7 +11,7 @@ const steps = [
     {
         icon: QrCode,
         title: "Show your code",
-        description: "Choose the offer and show your Eatinout code at the venue.",
+        description: "Choose the offer and show your EatinOut code at the venue.",
     },
     {
         icon: PiggyBank,
@@ -27,7 +27,7 @@ export function HowItWorks() {
                 {/* Header */}
                 <div className="text-center mb-10 md:mb-14">
                     <h2 className="text-2xl md:text-4xl font-bold text-foreground">
-                        How Eatinout works
+                        How EatinOut works
                     </h2>
                 </div>
 

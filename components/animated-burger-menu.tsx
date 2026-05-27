@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Lightbulb, HelpCircle, Lock, Building2, Tag, Phone } from "lucide-react"
+import { Search, Lightbulb, HelpCircle, Lock, Building2, Tag, Phone, Briefcase } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export function AnimatedBurgerMenu() {
@@ -42,11 +42,16 @@ export function AnimatedBurgerMenu() {
     { icon: Lightbulb, label: "How It Works", variant: "default" as const, href: "/how-it-works" },
     { icon: HelpCircle, label: "FAQ's", variant: "default" as const, href: "/pricing#faq" },
     { icon: Lock, label: "Login / Sign Up", variant: "link" as const, href: "/sign-up" },
-    { icon: Building2, label: "List a Restaurant", variant: "outline" as const, href: "/join-restaurant" },
+    { icon: Building2, label: "List a Restaurant", variant: "outline" as const, href: "/partner-info" },
+    { icon: Briefcase, label: "Businesses", variant: "default" as const, href: "https://corporate.eatinout.co.uk/", external: true },
   ]
 
-  const handleMenuClick = (href: string) => {
+  const handleMenuClick = (href: string, external?: boolean) => {
     setIsOpen(false)
+    if (external) {
+      window.open(href, "_blank", "noopener,noreferrer")
+      return
+    }
     if (href.startsWith("#")) {
       setTimeout(() => {
         document.querySelector(href)?.scrollIntoView({ behavior: "smooth" })
@@ -119,7 +124,7 @@ export function AnimatedBurgerMenu() {
             return (
               <button
                 key={item.label}
-                onClick={() => handleMenuClick(item.href)}
+                onClick={() => handleMenuClick(item.href, (item as any).external)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-out text-left border ${
                   isFirstItem
                     ? "bg-primary hover:bg-primary/90 text-white border-primary font-semibold shadow-md"
