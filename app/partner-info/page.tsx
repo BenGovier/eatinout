@@ -37,7 +37,9 @@ export default function PartnerInfoPage() {
     email: "",
     phone: "",
     city: "",
-    message: ""
+    message: "",
+    acceptTerms: false,
+    acceptMarketing: false
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -45,6 +47,10 @@ export default function PartnerInfoPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.id]: e.target.value }))
+  }
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.id]: e.target.checked }))
   }
 
   const scrollToDemo = () => {
@@ -621,6 +627,43 @@ export default function PartnerInfoPage() {
                     className="pl-10 min-h-[100px] rounded-xl border-gray-300 resize-none"
                   />
                 </div>
+              </div>
+
+              {/* Checkboxes */}
+              <div className="space-y-3 mb-6">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="acceptTerms"
+                    checked={formData.acceptTerms}
+                    onChange={handleCheckboxChange}
+                    required
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#DC3545] focus:ring-[#DC3545]"
+                  />
+                  <span className="text-sm text-gray-600">
+                    I agree to the{" "}
+                    <Link href="/terms" className="text-[#DC3545] hover:underline">
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="text-[#DC3545] hover:underline">
+                      Privacy Policy
+                    </Link>
+                    <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="acceptMarketing"
+                    checked={formData.acceptMarketing}
+                    onChange={handleCheckboxChange}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#DC3545] focus:ring-[#DC3545]"
+                  />
+                  <span className="text-sm text-gray-600">
+                    I&apos;d like to receive news, tips and offers from EatinOut by email
+                  </span>
+                </label>
               </div>
 
               <Button 
