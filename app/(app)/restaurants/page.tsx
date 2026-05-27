@@ -1098,10 +1098,10 @@ export default function RestaurantsPage() {
                 </Button>
               </div>
 
-              <div className="flex items-center justify-start text-sm w-full">
-                <div className="relative w-full" ref={locationDropdownRef}>
+              <div className="flex items-center justify-start w-full">
+                <div className="relative" ref={locationDropdownRef}>
                   <button
-                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-gray-700 font-medium transition-colors"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                   >
                     <MapPin className="w-4 h-4" />
@@ -1109,7 +1109,7 @@ export default function RestaurantsPage() {
                     {filterState.selectedLocation && (
                       <>
                         <span className="text-gray-400">·</span>
-                        <span className="text-[#DC3545]">change</span>
+                        <span className="text-gray-700 underline underline-offset-2">change</span>
                       </>
                     )}
                   </button>
