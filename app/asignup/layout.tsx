@@ -6,6 +6,7 @@ import { PromoStrip } from "@/components/asignup/promo-strip"
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import "./asignup-styles.css"
 
 export default function AsignupLayout({
@@ -34,7 +35,7 @@ export default function AsignupLayout({
     if (!isReady || authLoading || user || (isUserPotentiallyLoggedIn && !user)) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#FFFBF7]">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#DC3545] border-t-transparent"></div>
+                <Spinner />
             </div>
         )
     }
