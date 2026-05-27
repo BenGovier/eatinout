@@ -7,40 +7,76 @@ import { useRef } from "react"
 
 const featuredRestaurants = [
     {
-        name: "Nuvo",
+        name: "Tugra",
         location: "Preston",
-        image: "/images/nuvo-food.jpg",
-        offer: "Up to 50% off",
+        image: "/images/tugra-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Abacus Oriental",
+        location: "Middlebrook",
+        image: "/images/abacus-oriental-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Tribez",
+        location: "Blackburn + Bolton",
+        image: "/images/tribez-food.jpg",
+        offer: "50% Off",
     },
     {
         name: "Turtle Bay",
-        location: "Liverpool",
+        location: "Blackpool, Preston + Liverpool",
         image: "/images/turtle-bay-food.jpg",
-        offer: "2-for-1 cocktails",
+        offer: "20% Off",
     },
     {
-        name: "Olive Tree Brasserie",
-        location: "Bolton",
+        name: "The Olive Tree Brasserie",
+        location: "Lytham",
         image: "/images/olive-tree-food.jpg",
-        offer: "25% off food",
+        offer: "25% Off",
     },
     {
-        name: "The Adelphi",
-        location: "Preston",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "30% off mains",
+        name: "Kings Castle",
+        location: "Blackburn, Bolton + Preston",
+        image: "/images/kings-castle-food.jpg",
+        offer: "Up to 50% Off",
     },
     {
-        name: "Fazenda",
+        name: "Boonak Thai",
+        location: "Blackpool",
+        image: "/images/boonak-thai-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Levi's Pizzeria",
+        location: "Burnley",
+        image: "/images/levis-pizza-food.jpg",
+        offer: "50% Off",
+    },
+    {
+        name: "Ranchos Steakhouse",
         location: "Liverpool",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "15% off bill",
+        image: "/images/ranchos-steakhouse-food.jpg",
+        offer: "50% Off",
     },
     {
-        name: "Victors",
-        location: "Hale",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "20% off food",
+        name: "City Winebar + Kitchen",
+        location: "Liverpool",
+        image: "/images/city-winebar-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Three Guys Woodfired Pizza",
+        location: "Standish",
+        image: "/images/three-guys-pizza-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Nuvo",
+        location: "Poulton",
+        image: "/images/nuvo-food.jpg",
+        offer: "50% Off",
     },
 ]
 
@@ -66,7 +102,7 @@ export function WhereCanISave() {
                         Find dining out deals near you
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        EatinOut gives members access to offers across the whole of Lancashire, Bolton and Liverpool.
+                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 7-day free trial to unlock them.
                     </p>
                 </div>
 
