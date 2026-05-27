@@ -17,7 +17,7 @@ export function FinalCTA() {
                             <Link href="/start">Start my 7-day free trial</Link>
                         </Button>
                         <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
-                            <a href="https://www.eatinout.com">See where I can save</a>
+                            <Link href="/restaurants">See where I can save</Link>
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-6">

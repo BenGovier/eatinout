@@ -137,7 +137,7 @@ export function WhereCanISave() {
                 {/* CTA */}
                 <div className="text-center">
                     <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
-                        <a href="https://www.eatinout.com">See where I can save</a>
+                        <a href="/restaurants">See where I can save</a>
                     </Button>
                 </div>
             </div>
