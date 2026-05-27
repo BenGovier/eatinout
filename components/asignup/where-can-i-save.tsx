@@ -9,7 +9,7 @@ const featuredRestaurants = [
     {
         name: "Tugra",
         location: "Preston",
-        image: "/images/tugra-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Tugra-bShvD6ou1S2QNdhR9hRM1y35h21oFK.webp",
         offer: "25% Off",
     },
     {
@@ -21,31 +21,31 @@ const featuredRestaurants = [
     {
         name: "Tribez",
         location: "Blackburn + Bolton",
-        image: "/images/tribez-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Tribez-oUtwRgkXXaXrWkW9y9aTMMjLOaBAap.webp",
         offer: "50% Off",
     },
     {
         name: "Turtle Bay",
         location: "Blackpool, Preston + Liverpool",
-        image: "/images/turtle-bay-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Turtle%20bay-2d2M8ENNqFeBTsNhza5FIGdo4a3d1t.webp",
         offer: "20% Off",
     },
     {
         name: "The Olive Tree Brasserie",
         location: "Lytham",
-        image: "/images/olive-tree-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/olive%20tree-rxewqkY0xPHNYfNvq5g1mTQ4NduxZ3.webp",
         offer: "25% Off",
     },
     {
         name: "Kings Castle",
         location: "Blackburn, Bolton + Preston",
-        image: "/images/kings-castle-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Kings%20castle-mXYpYiyAu73tUgRzvRLT1DMwpH6tKv.webp",
         offer: "Up to 50% Off",
     },
     {
         name: "Boonak Thai",
         location: "Blackpool",
-        image: "/images/boonak-thai-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/boonak-SCwavVRYruOXaNf28VFA2rcWHwMzcK.webp",
         offer: "25% Off",
     },
     {
@@ -57,7 +57,7 @@ const featuredRestaurants = [
     {
         name: "Ranchos Steakhouse",
         location: "Liverpool",
-        image: "/images/ranchos-steakhouse-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rancho-W8WEWg3OE51h9HpuXVScbAW3XeP7jg.webp",
         offer: "50% Off",
     },
     {
@@ -75,7 +75,7 @@ const featuredRestaurants = [
     {
         name: "Nuvo",
         location: "Poulton",
-        image: "/images/nuvo-food.jpg",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/nuvo-Hc0tZM0WSgll0LAPhS9XdrRTbn8nEk.webp",
         offer: "50% Off",
     },
 ]
