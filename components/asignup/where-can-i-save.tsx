@@ -7,40 +7,76 @@ import { useRef } from "react"
 
 const featuredRestaurants = [
     {
-        name: "Nuvo",
+        name: "Tugra",
         location: "Preston",
-        image: "/images/nuvo-food.jpg",
-        offer: "Up to 50% off",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Tugra-bShvD6ou1S2QNdhR9hRM1y35h21oFK.webp",
+        offer: "25% Off",
+    },
+    {
+        name: "Abacus Oriental",
+        location: "Middlebrook",
+        image: "/images/abacus-oriental-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Tribez",
+        location: "Blackburn + Bolton",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Tribez-oUtwRgkXXaXrWkW9y9aTMMjLOaBAap.webp",
+        offer: "50% Off",
     },
     {
         name: "Turtle Bay",
+        location: "Blackpool, Preston + Liverpool",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Turtle%20bay-2d2M8ENNqFeBTsNhza5FIGdo4a3d1t.webp",
+        offer: "20% Off",
+    },
+    {
+        name: "The Olive Tree Brasserie",
+        location: "Lytham",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/olive%20tree-rxewqkY0xPHNYfNvq5g1mTQ4NduxZ3.webp",
+        offer: "25% Off",
+    },
+    {
+        name: "Kings Castle",
+        location: "Blackburn, Bolton + Preston",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Kings%20castle-mXYpYiyAu73tUgRzvRLT1DMwpH6tKv.webp",
+        offer: "Up to 50% Off",
+    },
+    {
+        name: "Boonak Thai",
+        location: "Blackpool",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/boonak-SCwavVRYruOXaNf28VFA2rcWHwMzcK.webp",
+        offer: "25% Off",
+    },
+    {
+        name: "Levi's Pizzeria",
+        location: "Burnley",
+        image: "/images/levis-pizza-food.jpg",
+        offer: "50% Off",
+    },
+    {
+        name: "Ranchos Steakhouse",
         location: "Liverpool",
-        image: "/images/turtle-bay-food.jpg",
-        offer: "2-for-1 cocktails",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rancho-W8WEWg3OE51h9HpuXVScbAW3XeP7jg.webp",
+        offer: "50% Off",
     },
     {
-        name: "Olive Tree Brasserie",
-        location: "Bolton",
-        image: "/images/olive-tree-food.jpg",
-        offer: "25% off food",
-    },
-    {
-        name: "The Adelphi",
-        location: "Preston",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "30% off mains",
-    },
-    {
-        name: "Fazenda",
+        name: "City Winebar + Kitchen",
         location: "Liverpool",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "15% off bill",
+        image: "/images/city-winebar-food.jpg",
+        offer: "25% Off",
     },
     {
-        name: "Victors",
-        location: "Hale",
-        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg",
-        offer: "20% off food",
+        name: "Three Guys Woodfired Pizza",
+        location: "Standish",
+        image: "/images/three-guys-pizza-food.jpg",
+        offer: "25% Off",
+    },
+    {
+        name: "Nuvo",
+        location: "Poulton",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/nuvo-Hc0tZM0WSgll0LAPhS9XdrRTbn8nEk.webp",
+        offer: "50% Off",
     },
 ]
 
@@ -66,7 +102,7 @@ export function WhereCanISave() {
                         Find dining out deals near you
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        EatinOut gives members access to offers across the whole of Lancashire, Bolton and Liverpool.
+                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 7-day free trial to unlock them.
                     </p>
                 </div>
 
@@ -137,7 +173,7 @@ export function WhereCanISave() {
                 {/* CTA */}
                 <div className="text-center">
                     <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
-                        <a href="https://www.eatinout.com">See where I can save</a>
+                        <a href="/restaurants">See where I can save</a>
                     </Button>
                 </div>
             </div>

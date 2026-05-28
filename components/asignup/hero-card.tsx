@@ -32,7 +32,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full rounded-full text-sm md:text-base font-medium py-3 md:py-6 border-border hover:bg-secondary"
                         >
-                            <a href="https://www.eatinout.com">See where I can save</a>
+                            <Link href="/restaurants">See where I can save</Link>
                         </Button>
                     </div>
 
