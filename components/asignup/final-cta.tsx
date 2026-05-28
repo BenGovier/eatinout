@@ -14,7 +14,7 @@ export function FinalCTA() {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8 py-6 text-base font-semibold">
-                            <Link href="/start">Start my 7-day free trial</Link>
+                            <Link href="/sign-up">Start my 7-day free trial</Link>
                         </Button>
                         <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
                             <Link href="/restaurants">See where I can save</Link>
