@@ -10,6 +10,7 @@ import {
   Lock,
   Tag,
   Heart,
+  Ticket,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1060,19 +1061,43 @@ export default function RestaurantsPage() {
   // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
   return (
     <>
-      <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
+      <main className="min-h-screen bg-[#FAF9F7] pb-20">
+        {/* Membership intro panel */}
+        <section className="bg-[#1C1917] py-5">
           <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto space-y-4">
+            <div className="max-w-2xl mx-auto text-center">
+              <h1 className="text-xl md:text-2xl font-bold text-white mb-2 text-balance">
+                Member offers for eating out
+              </h1>
+              <p className="text-sm text-[#A8A29E] mb-3 text-pretty">
+                Find restaurants, cafes and bars across Lancashire, show your Eatinout offer when you visit, and save in venue.
+              </p>
+              <div className="flex items-center justify-center gap-3 text-xs text-[#78716C]">
+                <span className="flex items-center gap-1">
+                  <Store className="h-3 w-3 text-[#DC3545]" />
+                  500+ venues
+                </span>
+                <span className="text-[#57534E]">•</span>
+                <span>Use in venue</span>
+                <span className="text-[#57534E]">•</span>
+                <span>Local offers</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sticky top-16 z-30 bg-white border-b border-[#E8E4DF] py-4">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto space-y-3">
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
                   <Input
                     type="text"
-                    placeholder="Search restaurant/food type"
+                    placeholder="Search restaurants, cafes or bars"
                     value={filterState.searchTerm}
                     onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-5 text-base border-[#E8E4DF] rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7]"
                   />
                   {filterState.searchTerm && (
                     <button
@@ -1080,7 +1105,7 @@ export default function RestaurantsPage() {
                         setFilterState(prev => ({ ...prev, searchTerm: "" }))
                         clearFilterState()
                       }}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
                       aria-label="Clear search"
                     >
                       <X className="h-4 w-4" />
@@ -1091,31 +1116,31 @@ export default function RestaurantsPage() {
                 <Button
                   variant="outline"
                   onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E8E4DF] hover:border-[#DC3545] hover:bg-[#FAF9F7] transition-colors"
                 >
                   <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                  <span className="text-[#DC3545] font-medium">Filters</span>
+                  <span className="text-[#1C1917] font-medium">Filters</span>
                 </Button>
               </div>
 
               <div className="flex items-center justify-start w-full">
                 <div className="relative" ref={locationDropdownRef}>
                   <button
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-gray-700 font-medium transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#FAF9F7] hover:bg-[#F5F3F0] border border-[#E8E4DF] rounded-lg text-[#1C1917] font-medium transition-colors text-sm"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                   >
-                    <MapPin className="w-4 h-4" />
+                    <MapPin className="w-4 h-4 text-[#DC3545]" />
                     <span>{filterState.selectedLocation || "Choose location"}</span>
                     {filterState.selectedLocation && (
                       <>
-                        <span className="text-gray-400">·</span>
-                        <span className="text-gray-700 underline underline-offset-2">change</span>
+                        <span className="text-[#D6D3D1]">·</span>
+                        <span className="text-[#DC3545] underline underline-offset-2">change</span>
                       </>
                     )}
                   </button>
 
                   {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20 w-full">
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-xl shadow-lg max-h-60 overflow-y-auto z-20 min-w-[200px]">
                       {/* ✅ ALL LOCATIONS OPTION - Always at top */}
                       {/* <button
                         onClick={() => {
@@ -1208,7 +1233,7 @@ export default function RestaurantsPage() {
         </section>
 
         {uiState.showFilters && (
-          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
+          <div className="bg-white border-b border-[#E8E4DF] px-4 pb-6 space-y-4 md:space-y-6">
             {filterState.selectedLocation && (
               <div className="flex items-center gap-2 pt-2">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
@@ -1382,8 +1407,8 @@ export default function RestaurantsPage() {
         )}
 
 
-        <section className="px-4 py-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{sectionTitle}</h2>
+        <section className="px-4 py-8 bg-[#FAF9F7]">
+          <h2 className="text-xl font-bold text-[#1C1917] mb-4">{sectionTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {showMainListSkeleton &&
               [1, 2, 3, 4, 5, 6].map((i) => (
@@ -1400,15 +1425,12 @@ export default function RestaurantsPage() {
                   unlimited: !offer.totalCodes,
                   remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
                 })) || []
-                //Helper: Check if coming soon (0 or undefined)
                 const heroOffer = offers[0]
-                const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
-                  (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
                 return (
                   <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
                     <div className="w-full">
-                      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
+                      <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
                         <div className="relative h-[130px] w-full overflow-hidden">
                           <Image
                             src={restaurant.imageUrl || "/placeholder.svg"}
@@ -1420,50 +1442,35 @@ export default function RestaurantsPage() {
                             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           />
 
-                          <div className="absolute top-2 left-0 flex items-stretch">
-                            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                              {/* {offers[0].discount} */}
-                              {heroOffer?.discount}
+                          {/* Member offer badge */}
+                          {offers.length > 0 && (
+                            <div className="absolute top-2 left-2">
+                              <div className="bg-[#1C1917] text-white font-medium text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                                <Ticket className="h-3 w-3" />
+                                MEMBER OFFER
+                              </div>
                             </div>
-                            {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
-                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                              {offers[0].remainingCount} left!
-                            </div>
-                          )} */}
-                            {!heroOffer?.unlimited && (
-                              heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
-                                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                  {heroOffer.remainingCount} left!
-                                </div>
-                              ) : (
-                                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                  More coming soon
-                                </div>
-                              )
-                            )}
-                          </div>
+                          )}
                         </div>
 
-                        <div className="p-3 space-y-1.5 relative">
+                        <div className="p-3 space-y-2">
                           <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
-                            {/* Line ~1119 ke aas paas - Update heart button */}
+                            <h3 className="font-semibold text-[#1C1917] text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
                             <button
                               className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                                ? "text-[#eb221c]"
-                                : "text-gray-300 hover:text-[#eb221c]"
+                                ? "text-[#DC3545]"
+                                : "text-[#D6D3D1] hover:text-[#DC3545]"
                                 }`}
                               onClick={(e) => {
                                 e.preventDefault();
                                 handleHeartClick(e, restaurant.id, restaurant.name);
                               }}
-                              disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
+                              disabled={favoritesLoading.has(restaurant.id)}
                               aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
                             >
                               {favoritesLoading.has(restaurant.id) ? (
-                                // ✅ Loading spinner
                                 <svg
-                                  className="animate-spin h-4 w-4 text-[#eb221c]"
+                                  className="animate-spin h-4 w-4 text-[#DC3545]"
                                   xmlns="http://www.w3.org/2000/svg"
                                   fill="none"
                                   viewBox="0 0 24 24"
@@ -1484,73 +1491,42 @@ export default function RestaurantsPage() {
                                 </svg>
                               ) : (
                                 <Heart
-                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
+                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#DC3545]" : ""
                                     }`}
                                 />
                               )}
                             </button>
                           </div>
 
-                          <p className="text-gray-500 text-xs flex items-center gap-1">
-                            <span className="inline-block w-3 h-3 text-gray-400">
+                          <p className="text-[#78716C] text-xs flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 text-[#A8A29E]">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
                               </svg>
                             </span>
-                            {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
+                            {restaurant.city}<span className="text-[#D6D3D1]">·</span>{restaurant.zipCode}
                           </p>
 
-                          {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => (
-                              
-                              <div
-                                key={index}
-                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                    {offer.remainingCount} left
+                          {/* Offer display */}
+                          {heroOffer && (
+                            <div className="pt-2 border-t border-[#E8E4DF]">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[#DC3545] font-semibold text-sm truncate">{heroOffer.discount}</p>
+                                  <p className="text-[10px] text-[#78716C]">Show when you visit</p>
+                                </div>
+                                {!heroOffer.unlimited && heroOffer.remainingCount && heroOffer.remainingCount > 0 && (
+                                  <span className="text-[10px] text-[#78716C] bg-[#FAF9F7] px-2 py-0.5 rounded-full">
+                                    {heroOffer.remainingCount} left
                                   </span>
                                 )}
                               </div>
-                            ))}
-                          </div>
-                        </div> */}
-                          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                            <div className="flex items-center gap-1.5">
-                              {offers.map((offer, index) => {
-                                const isComingSoon = !offer.unlimited &&
-                                  (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
-
-                                return (
-                                  <div
-                                    key={index}
-                                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                  >
-                                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                      {offer.discount}
-                                    </span>
-                                    {!offer.unlimited && (
-                                      offer.remainingCount && offer.remainingCount > 0 ? (
-                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                          {offer.remainingCount} left
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                          More coming soon
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )
-                              })}
                             </div>
-                          </div>
+                          )}
+
+                          {/* Footer */}
+                          <p className="text-[10px] text-[#A8A29E]">Included with Eatinout</p>
                         </div>
                       </div>
                     </div>
