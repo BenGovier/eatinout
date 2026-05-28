@@ -1,56 +1,66 @@
-import { Calculator } from "lucide-react"
+import { Check } from "lucide-react"
+
+const benefits = [
+    "7 days free to try",
+    "£4.99/month after trial",
+    "Cancel anytime",
+    "500+ venues",
+    "Member-only local offers",
+]
 
 export function ValueReinforcement() {
     return (
-        <section id="pricing" className="py-12 md:py-20 bg-secondary/30">
+        <section id="pricing" className="py-12 md:py-20 bg-white">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
-                {/* Header */}
-                <div className="text-center mb-10 md:mb-14">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground">
-                        One meal out can cover your membership
-                    </h2>
-                </div>
-
-                {/* Value Calculation Card */}
-                <div className="max-w-lg mx-auto">
-                    <div className="bg-card rounded-2xl md:rounded-3xl p-6 md:p-10 shadow-lg border border-border/50">
-                        <div className="flex items-center justify-center mb-6">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary">
-                                <Calculator className="h-6 w-6" />
-                            </div>
+                <div className="max-w-3xl mx-auto">
+                    {/* Main Value Card */}
+                    <div className="bg-[#FAF9F7] rounded-3xl p-6 md:p-10 border border-[#E8E4DF]">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl md:text-4xl font-bold text-[#1C1917] mb-4 text-balance">
+                                One meal out could cover your monthly membership
+                            </h2>
+                            <p className="text-base md:text-lg text-[#57534E] text-pretty">
+                                After your 7-day free trial, Eatinout is just £4.99/month. Use one good offer and it can pay for itself.
+                            </p>
                         </div>
 
-                        <div className="space-y-4 text-center">
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between text-sm md:text-base">
-                                    <span className="text-muted-foreground">Two people spend on dinner</span>
-                                    <span className="font-semibold text-foreground">£50</span>
+                        {/* Value Calculation */}
+                        <div className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-[#E8E4DF] mb-8">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between text-sm md:text-base pb-3 border-b border-[#E8E4DF]">
+                                    <span className="text-[#57534E]">Two people spend on dinner</span>
+                                    <span className="font-semibold text-[#1C1917]">£50</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm md:text-base pb-3 border-b border-[#E8E4DF]">
+                                    <span className="text-[#57534E]">50% off member offer saves</span>
+                                    <span className="font-semibold text-[#16A34A]">-£25</span>
                                 </div>
                                 <div className="flex items-center justify-between text-sm md:text-base">
-                                    <span className="text-muted-foreground">50% off offer saves</span>
-                                    <span className="font-semibold text-primary">−£25</span>
-                                </div>
-                                <div className="border-t border-border pt-3">
-                                    <div className="flex items-center justify-between text-sm md:text-base">
-                                        <span className="text-muted-foreground">Your membership</span>
-                                        <span className="font-semibold text-foreground">£4.99/month</span>
-                                    </div>
+                                    <span className="text-[#57534E]">Your membership cost</span>
+                                    <span className="font-semibold text-[#1C1917]">£4.99/month</span>
                                 </div>
                             </div>
 
-                            <div className="pt-4 border-t border-border">
-                                <p className="text-xl md:text-2xl font-bold text-foreground">
-                                    That&apos;s around <span className="text-primary">5x</span> the monthly cost saved in one meal
+                            <div className="mt-6 pt-6 border-t border-[#E8E4DF] text-center">
+                                <p className="text-lg md:text-xl font-bold text-[#1C1917]">
+                                    That&apos;s around <span className="text-[#DC3545]">5x</span> the monthly cost saved in one meal
                                 </p>
                             </div>
                         </div>
+
+                        {/* Benefits List */}
+                        <div className="flex flex-wrap justify-center gap-x-6 gap-y-3">
+                            {benefits.map((benefit, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-[#16A34A]/10 flex items-center justify-center">
+                                        <Check className="w-3 h-3 text-[#16A34A]" />
+                                    </div>
+                                    <span className="text-sm text-[#57534E]">{benefit}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-
-                {/* Supporting copy */}
-                <p className="text-center text-sm md:text-base text-muted-foreground mt-8 max-w-md mx-auto">
-                    Use EatinOut once and you&apos;re quids in!
-                </p>
             </div>
         </section>
     )
