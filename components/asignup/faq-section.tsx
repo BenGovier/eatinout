@@ -9,38 +9,38 @@ import {
 
 const faqs = [
     {
-        question: "Is Eatinout a delivery app?",
-        answer: "No. Eatinout is for eating out. You use your member offers at participating restaurants, cafes, bars and venues when you visit in person.",
+        question: "Is EatinOut a delivery app?",
+        answer: "No. EatinOut is for dining out. You use it at participating restaurants, cafes, bars and venues.",
     },
     {
         question: "How do I use an offer?",
-        answer: "Choose an offer in Eatinout, show your member code at the venue when you visit, and the venue applies the offer based on its terms.",
+        answer: "Choose an offer in EatinOut, show your code at the venue, and the venue applies the offer based on its terms.",
     },
     {
         question: "What happens after the free trial?",
-        answer: "After 7 days, membership is £4.99/month unless you cancel. You can cancel anytime before your trial ends.",
+        answer: "After 7 days, membership is £4.99/month unless you cancel.",
     },
     {
         question: "Can I cancel anytime?",
-        answer: "Yes. You can cancel your membership anytime with no fees or hassle.",
+        answer: "Yes. You can cancel your membership anytime.",
     },
     {
         question: "What if there are no offers near me?",
-        answer: "You can browse all venues and offers before signing up to check availability in your area.",
+        answer: "You can check where you can save before committing.",
     },
     {
-        question: "Are member offers unlimited?",
-        answer: "Members can access all available offers during their membership, subject to each venue&apos;s individual offer terms.",
+        question: "Are offers unlimited?",
+        answer: "Members can access available offers during their membership, subject to each venue's offer terms.",
     },
 ]
 
 export function FAQSection() {
     return (
-        <section id="faq" className="py-12 md:py-20 bg-[#FAF9F7]">
+        <section id="faq" className="py-12 md:py-20 bg-secondary/30">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
                 <div className="text-center mb-10 md:mb-14">
-                    <h2 className="text-2xl md:text-4xl font-bold text-[#1C1917]">
+                    <h2 className="text-2xl md:text-4xl font-bold text-foreground">
                         Frequently asked questions
                     </h2>
                 </div>
@@ -52,12 +52,12 @@ export function FAQSection() {
                             <AccordionItem
                                 key={index}
                                 value={`item-${index}`}
-                                className="bg-white rounded-2xl border border-[#E8E4DF] px-6 data-[state=open]:shadow-sm"
+                                className="bg-card rounded-xl border border-border/50 px-6 data-[state=open]:shadow-sm"
                             >
-                                <AccordionTrigger className="text-left text-sm md:text-base font-medium text-[#1C1917] hover:no-underline py-5">
+                                <AccordionTrigger className="text-left text-sm md:text-base font-medium text-foreground hover:no-underline py-4">
                                     {faq.question}
                                 </AccordionTrigger>
-                                <AccordionContent className="text-sm md:text-base text-[#57534E] pb-5">
+                                <AccordionContent className="text-sm md:text-base text-muted-foreground pb-4">
                                     {faq.answer}
                                 </AccordionContent>
                             </AccordionItem>
