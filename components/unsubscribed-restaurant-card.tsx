@@ -1,7 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Heart, Ticket } from "lucide-react"
+import { Heart, Ticket, Utensils } from "lucide-react"
+import { useState } from "react"
 
 interface Offer {
   title?: string
@@ -37,6 +38,8 @@ export function UnsubscribedRestaurantCard({
   onClick
 }: UnsubscribedRestaurantCardProps) {
   const cardWidth = isLarger ? "w-[260px]" : "w-[240px]"
+  const [imageError, setImageError] = useState(false)
+  const showPlaceholder = !image || imageError
   
   const displayOffers = (offers?.length ? offers : firstOffer ? [firstOffer] : [])
     .map((offer) => {
@@ -64,7 +67,24 @@ export function UnsubscribedRestaurantCard({
     >
       <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF]">
         <div className="relative h-[130px] w-full overflow-hidden">
-          <Image src={image || "/placeholder.svg"} alt={name} fill className="object-cover" fetchPriority="low" loading="lazy" />
+          {showPlaceholder ? (
+            <div className="w-full h-full bg-gradient-to-br from-[#FAF9F7] to-[#E8E4DF] flex flex-col items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-[#DC3545]/10 flex items-center justify-center mb-2">
+                <Utensils className="h-5 w-5 text-[#DC3545]" />
+              </div>
+              <span className="text-[10px] text-[#78716C] font-medium">Member offer venue</span>
+            </div>
+          ) : (
+            <Image 
+              src={image} 
+              alt={name} 
+              fill 
+              className="object-cover" 
+              fetchPriority="low" 
+              loading="lazy"
+              onError={() => setImageError(true)}
+            />
+          )}
           
           {/* Member offer badge */}
           {displayOffers.length > 0 && (

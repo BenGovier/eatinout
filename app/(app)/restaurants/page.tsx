@@ -11,6 +11,9 @@ import {
   Tag,
   Heart,
   Ticket,
+  ArrowRight,
+  BadgeCheck,
+  Utensils,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -936,17 +939,17 @@ export default function RestaurantsPage() {
     const locationPart = selectedArea?.label || ''
     const categoriesPart = filterState.selectedCuisines.length > 0
       ? filterState.selectedCuisines.join(', ')
-      : 'All Restaurants'
+      : 'Places to use your membership'
 
     if (locationPart && filterState.selectedCuisines.length > 0) {
       return `${locationPart} · ${categoriesPart}`
     } else if (locationPart) {
-      return `${locationPart} · All Restaurants`
+      return `${locationPart} · All member offer venues`
     } else if (filterState.selectedCuisines.length > 0) {
       return categoriesPart
     }
 
-    return 'All Restaurants'
+    return 'Places to use your membership'
   }, [selectedArea, filterState.selectedCuisines])
 
   // Determine if carousels should be shown
@@ -1062,29 +1065,94 @@ export default function RestaurantsPage() {
   return (
     <>
       <main className="min-h-screen bg-[#FAF9F7] pb-20">
-        {/* Membership intro panel */}
-        <section className="bg-[#1C1917] py-5">
+        {/* Membership hero panel */}
+        <section className="bg-[#1C1917] py-6 md:py-8">
           <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto text-center">
-              <h1 className="text-xl md:text-2xl font-bold text-white mb-2 text-balance">
-                Member offers for eating out
-              </h1>
-              <p className="text-sm text-[#A8A29E] mb-3 text-pretty">
-                Find restaurants, cafes and bars across Lancashire, show your Eatinout offer when you visit, and save in venue.
-              </p>
-              <div className="flex items-center justify-center gap-3 text-xs text-[#78716C]">
-                <span className="flex items-center gap-1">
-                  <Store className="h-3 w-3 text-[#DC3545]" />
-                  500+ venues
-                </span>
-                <span className="text-[#57534E]">•</span>
-                <span>Use in venue</span>
-                <span className="text-[#57534E]">•</span>
-                <span>Local offers</span>
+            <div className="max-w-2xl mx-auto">
+              {/* Membership pass card */}
+              <div className="bg-gradient-to-br from-[#262220] to-[#1C1917] border border-[#3D3835] rounded-2xl p-4 md:p-5 shadow-lg">
+                {/* Top row with badge */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="bg-[#DC3545] rounded-md p-1">
+                    <Ticket className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-[#DC3545] text-xs font-semibold uppercase tracking-wider">Eatinout Member Pass</span>
+                </div>
+
+                {/* Main headline */}
+                <h1 className="text-xl md:text-2xl font-bold text-white mb-2 text-balance">
+                  Your eating out discount membership
+                </h1>
+                
+                {/* Subcopy */}
+                <p className="text-sm text-[#A8A29E] mb-4 text-pretty leading-relaxed">
+                  Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
+                </p>
+
+                {/* Price/trial pill */}
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className="inline-flex items-center bg-[#DC3545]/15 text-[#DC3545] text-xs font-semibold px-3 py-1.5 rounded-full">
+                    7 days free
+                  </span>
+                  <span className="text-[#78716C] text-xs">then</span>
+                  <span className="inline-flex items-center bg-white/10 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                    £4.99/month
+                  </span>
+                </div>
+
+                {/* Membership benefit chips */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                    <Store className="h-3 w-3 text-[#DC3545]" />
+                    500+ venues
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                    <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
+                    Member-only offers
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                    Use in venue
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                    Cancel anytime
+                  </span>
+                </div>
+
+                {/* CTA buttons */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/start"
+                    className="inline-flex items-center gap-2 bg-[#DC3545] hover:bg-[#B91C2C] text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                  >
+                    Start 7 days free
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <button
+                    onClick={() => {
+                      const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+                      if (searchInput) {
+                        searchInput.focus()
+                        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      }
+                    }}
+                    className="text-[#A8A29E] hover:text-white text-sm font-medium underline underline-offset-2 transition-colors"
+                  >
+                    Browse offers
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Not delivery clarification */}
+        <div className="bg-[#FAF9F7] border-b border-[#E8E4DF] py-2.5">
+          <div className="container mx-auto px-4">
+            <p className="text-center text-xs text-[#78716C]">
+              <span className="font-medium text-[#57534E]">Not delivery. Not takeaway.</span> Just local offers to use when you eat out.
+            </p>
+          </div>
+        </div>
 
         <section className="sticky top-16 z-30 bg-white border-b border-[#E8E4DF] py-4">
           <div className="container mx-auto px-4">
@@ -1094,7 +1162,7 @@ export default function RestaurantsPage() {
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
                   <Input
                     type="text"
-                    placeholder="Search restaurants, cafes or bars"
+                    placeholder="Search places with member offers"
                     value={filterState.searchTerm}
                     onChange={handleSearchChange}
                     className="w-full pl-10 pr-4 py-5 text-base border-[#E8E4DF] rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7]"
@@ -1432,15 +1500,24 @@ export default function RestaurantsPage() {
                     <div className="w-full">
                       <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
                         <div className="relative h-[130px] w-full overflow-hidden">
-                          <Image
-                            src={restaurant.imageUrl || "/placeholder.svg"}
-                            alt={restaurant.name}
-                            fill
-                            className="object-cover"
-                            loading="lazy"
-                            quality={75}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          />
+                          {restaurant.imageUrl ? (
+                            <Image
+                              src={restaurant.imageUrl}
+                              alt={restaurant.name}
+                              fill
+                              className="object-cover"
+                              loading="lazy"
+                              quality={75}
+                              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#FAF9F7] to-[#E8E4DF] flex flex-col items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-[#DC3545]/10 flex items-center justify-center mb-2">
+                                <Utensils className="h-5 w-5 text-[#DC3545]" />
+                              </div>
+                              <span className="text-[10px] text-[#78716C] font-medium">Member offer venue</span>
+                            </div>
+                          )}
 
                           {/* Member offer badge */}
                           {offers.length > 0 && (

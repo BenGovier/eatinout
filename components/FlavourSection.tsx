@@ -36,8 +36,8 @@ export const FlavourSection = memo(function FlavourSection({
     <section className="bg-[#FAF9F7] border-b border-[#E8E4DF] py-4">
       <div className="container mx-auto px-4">
         <div className="mb-4">
-          <h2 className="text-base font-semibold text-[#1C1917] mb-0.5">Browse by type</h2>
-          <p className="text-xs text-[#78716C]">Find places to use your member offer</p>
+          <h2 className="text-base font-semibold text-[#1C1917] mb-0.5">Find offers by mood or taste</h2>
+          <p className="text-xs text-[#78716C]">Browse places to use your offer</p>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
