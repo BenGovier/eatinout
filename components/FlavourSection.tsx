@@ -2,6 +2,7 @@
 
 import { useState, memo } from "react"
 import Image from "next/image"
+import { Ticket } from "lucide-react"
 
 type CuisineType = {
   value: string
@@ -33,22 +34,19 @@ export const FlavourSection = memo(function FlavourSection({
   }
 
   return (
-    <section className="bg-[#FAF9F7] border-b border-[#E8E4DF] py-4">
+    <section className="bg-[#FAF9F7] border-b border-[#E8E4DF] py-5">
       <div className="container mx-auto px-4">
         <div className="mb-4">
-          <h2 className="text-base font-semibold text-[#1C1917] mb-0.5">Find offers by mood or taste</h2>
-          <p className="text-xs text-[#78716C]">Browse places to use your offer</p>
+          <h2 className="text-base font-semibold text-[#1C1917] mb-1">Ways to use your membership</h2>
+          <p className="text-xs text-[#78716C] leading-relaxed">Pick a place to visit, show your voucher code, and save when you eat out.</p>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 pb-2 min-w-max">
             {isLoading ? (
-              // Loading skeleton
-              [...Array(8)].map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 rounded-xl bg-gray-200 animate-pulse" />
-                  <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
-                </div>
+              // Loading skeleton - now wider pill style
+              [...Array(6)].map((_, i) => (
+                <div key={i} className="w-[140px] h-[72px] rounded-xl bg-gray-200 animate-pulse" />
               ))
             ) : cuisineTypes.length > 0 ? (
               cuisineTypes.map((cuisine) => {
@@ -60,52 +58,79 @@ export const FlavourSection = memo(function FlavourSection({
                   <button
                     key={cuisine.value}
                     onClick={() => onCuisineClick(cuisine.value, cuisine.label)}
-                    className={`flex flex-col items-center gap-1.5 group transition-all ${isSelected ? 'opacity-100' : 'opacity-90 hover:opacity-100'
-                      }`}
+                    className={`group transition-all flex-shrink-0`}
                   >
+                    {/* Premium membership collection card */}
                     <div
-                      className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all shadow-sm ${isSelected
-                          ? 'border-[#DC3545] shadow-md'
-                          : 'border-[#E8E4DF] hover:border-[#D6D3D1]'
-                        }`}
+                      className={`relative w-[140px] h-[72px] rounded-xl overflow-hidden border transition-all ${
+                        isSelected
+                          ? 'border-[#DC3545] bg-[#FFFCF9] shadow-md'
+                          : 'border-[#E8E4DF] bg-[#FFFCF9] hover:border-[#D6D3D1] hover:shadow-sm'
+                      }`}
                     >
-                      {showPlaceholder ? (
-                        <div className="w-full h-full bg-gradient-to-br from-[#78716C] to-[#57534E] flex items-center justify-center">
-                          <span className="text-white text-xl font-bold">
-                            {getInitials(cuisine.label)}
+                      {/* Subtle image/gradient background */}
+                      <div className="absolute inset-0">
+                        {showPlaceholder ? (
+                          <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6]" />
+                        ) : (
+                          <>
+                            <Image
+                              src={cuisine.image || "/placeholder.svg"}
+                              alt={cuisine.label}
+                              fill
+                              className="object-cover opacity-20"
+                              onError={() => handleImageError(cuisine.value)}
+                              loading="lazy"
+                              quality={60}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#FFFCF9] via-[#FFFCF9]/90 to-[#FFFCF9]/70" />
+                          </>
+                        )}
+                      </div>
+
+                      {/* Text-first content */}
+                      <div className="relative h-full flex flex-col justify-between p-2.5">
+                        {/* Small icon indicator */}
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                          isSelected 
+                            ? 'bg-[#DC3545]/15' 
+                            : 'bg-[#1C1917]/5'
+                        }`}>
+                          {showPlaceholder ? (
+                            <span className={`text-[10px] font-bold ${
+                              isSelected ? 'text-[#DC3545]' : 'text-[#78716C]'
+                            }`}>
+                              {getInitials(cuisine.label)}
+                            </span>
+                          ) : (
+                            <Ticket className={`h-2.5 w-2.5 ${
+                              isSelected ? 'text-[#DC3545]' : 'text-[#78716C]'
+                            }`} />
+                          )}
+                        </div>
+
+                        {/* Main label and supporting text */}
+                        <div className="text-left">
+                          <span
+                            className={`block text-[13px] font-semibold leading-tight ${
+                              isSelected
+                                ? 'text-[#DC3545]'
+                                : 'text-[#1C1917] group-hover:text-[#DC3545]'
+                            }`}
+                          >
+                            {cuisine.label}
+                          </span>
+                          <span className="block text-[9px] text-[#78716C] mt-0.5 uppercase tracking-wide">
+                            Member venues
                           </span>
                         </div>
-                      ) : (
-                        <Image
-                          src={cuisine.image || "/placeholder.svg"}
-                          alt={cuisine.label}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
-                          onError={() => handleImageError(cuisine.value)}
-                          loading="lazy"
-                          fetchPriority="high"
-                          quality={75}
-                        />
+                      </div>
+
+                      {/* Selected indicator */}
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#DC3545]" />
                       )}
                     </div>
-
-                    <span
-                      className={`block text-[11px] font-medium transition-all leading-tight text-center max-w-[64px] ${isSelected
-                        ? 'text-[#DC3545] font-semibold'
-                        : 'text-[#57534E] group-hover:text-[#1C1917]'
-                        }`}
-                    >
-                      {cuisine.label.split(' ').length > 2 ? (
-                        <>
-                          {cuisine.label.split(' ').slice(0, 2).join(' ')}
-                          <br />
-                          {cuisine.label.split(' ').slice(2).join(' ')}
-                        </>
-                      ) : (
-                        cuisine.label
-                      )}
-                    </span>
                   </button>
                 )
               })
