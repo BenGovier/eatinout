@@ -13,7 +13,7 @@ import {
   Ticket,
   ArrowRight,
   BadgeCheck,
-  Utensils,
+  ChevronRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1496,41 +1496,51 @@ export default function RestaurantsPage() {
                 const heroOffer = offers[0]
 
                 return (
-                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
+                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full group">
                     <div className="w-full">
-                      <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
+                      <div className="bg-[#FFFCF9] rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
+                        {/* Image area */}
                         <div className="relative h-[130px] w-full overflow-hidden">
                           {restaurant.imageUrl ? (
-                            <Image
-                              src={restaurant.imageUrl}
-                              alt={restaurant.name}
-                              fill
-                              className="object-cover"
-                              loading="lazy"
-                              quality={75}
-                              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                            />
+                            <>
+                              <Image
+                                src={restaurant.imageUrl}
+                                alt={restaurant.name}
+                                fill
+                                className="object-cover"
+                                loading="lazy"
+                                quality={75}
+                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                              />
+                              {/* Dark gradient overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                            </>
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-[#FAF9F7] to-[#E8E4DF] flex flex-col items-center justify-center">
-                              <div className="w-10 h-10 rounded-full bg-[#DC3545]/10 flex items-center justify-center mb-2">
-                                <Utensils className="h-5 w-5 text-[#DC3545]" />
+                            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center">
+                              <div className="w-12 h-12 rounded-full bg-[#DC3545]/10 flex items-center justify-center mb-2">
+                                <Ticket className="h-6 w-6 text-[#DC3545]" />
                               </div>
-                              <span className="text-[10px] text-[#78716C] font-medium">Member offer venue</span>
+                              <span className="text-[11px] text-[#78716C] font-medium">Voucher code available</span>
                             </div>
                           )}
 
-                          {/* Member offer badge */}
-                          {offers.length > 0 && (
-                            <div className="absolute top-2 left-2">
-                              <div className="bg-[#1C1917] text-white font-medium text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                          {/* Top badges */}
+                          <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
+                            {offers.length > 0 && (
+                              <div className="bg-[#1C1917] text-white font-semibold text-[10px] px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
                                 <Ticket className="h-3 w-3" />
-                                MEMBER OFFER
+                                MEMBER VOUCHER
                               </div>
-                            </div>
-                          )}
+                            )}
+                            <span className="bg-white/90 backdrop-blur-sm text-[#1C1917] text-[9px] font-medium px-2 py-1 rounded-md shadow-sm">
+                              Use in venue
+                            </span>
+                          </div>
                         </div>
 
+                        {/* Card body */}
                         <div className="p-3 space-y-2">
+                          {/* Name and heart */}
                           <div className="flex items-start justify-between">
                             <h3 className="font-semibold text-[#1C1917] text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
                             <button
@@ -1540,6 +1550,7 @@ export default function RestaurantsPage() {
                                 }`}
                               onClick={(e) => {
                                 e.preventDefault();
+                                e.stopPropagation();
                                 handleHeartClick(e, restaurant.id, restaurant.name);
                               }}
                               disabled={favoritesLoading.has(restaurant.id)}
@@ -1575,6 +1586,7 @@ export default function RestaurantsPage() {
                             </button>
                           </div>
 
+                          {/* Location */}
                           <p className="text-[#78716C] text-xs flex items-center gap-1">
                             <span className="inline-block w-3 h-3 text-[#A8A29E]">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1585,25 +1597,22 @@ export default function RestaurantsPage() {
                             {restaurant.city}<span className="text-[#D6D3D1]">·</span>{restaurant.zipCode}
                           </p>
 
-                          {/* Offer display */}
+                          {/* Offer display with dashed separator */}
                           {heroOffer && (
-                            <div className="pt-2 border-t border-[#E8E4DF]">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[#DC3545] font-semibold text-sm truncate">{heroOffer.discount}</p>
-                                  <p className="text-[10px] text-[#78716C]">Show when you visit</p>
-                                </div>
-                                {!heroOffer.unlimited && heroOffer.remainingCount && heroOffer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-[#78716C] bg-[#FAF9F7] px-2 py-0.5 rounded-full">
-                                    {heroOffer.remainingCount} left
-                                  </span>
-                                )}
-                              </div>
+                            <div className="pt-2 border-t border-dashed border-[#E8E4DF]">
+                              <p className="text-[#DC3545] font-bold text-base truncate">{heroOffer.discount}</p>
+                              <p className="text-[11px] text-[#78716C] mt-0.5">Tap to view your voucher code</p>
                             </div>
                           )}
 
-                          {/* Footer */}
-                          <p className="text-[10px] text-[#A8A29E]">Included with Eatinout</p>
+                          {/* CTA strip */}
+                          <div className="pt-2 border-t border-[#E8E4DF] flex items-center justify-between">
+                            <span className="text-[#DC3545] font-semibold text-xs flex items-center gap-1 group-hover:gap-1.5 transition-all">
+                              View voucher code
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="text-[10px] text-[#A8A29E]">Included with Eatinout</span>
+                          </div>
                         </div>
                       </div>
                     </div>
