@@ -44,9 +44,9 @@ export const FlavourSection = memo(function FlavourSection({
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 pb-2 min-w-max">
             {isLoading ? (
-              // Loading skeleton - now wider pill style
+              // Loading skeleton - taller card style
               [...Array(6)].map((_, i) => (
-                <div key={i} className="w-[140px] h-[72px] rounded-xl bg-gray-200 animate-pulse" />
+                <div key={i} className="w-[140px] h-[96px] rounded-2xl bg-gray-200 animate-pulse" />
               ))
             ) : cuisineTypes.length > 0 ? (
               cuisineTypes.map((cuisine) => {
@@ -60,9 +60,9 @@ export const FlavourSection = memo(function FlavourSection({
                     onClick={() => onCuisineClick(cuisine.value, cuisine.label)}
                     className={`group transition-all flex-shrink-0`}
                   >
-                    {/* Premium membership collection card */}
+                    {/* Premium membership collection card - taller */}
                     <div
-                      className={`relative w-[140px] h-[72px] rounded-xl overflow-hidden border transition-all ${
+                      className={`relative w-[140px] h-[96px] rounded-2xl overflow-hidden border transition-all ${
                         isSelected
                           ? 'border-[#DC3545] bg-[#FFFCF9] shadow-md'
                           : 'border-[#E8E4DF] bg-[#FFFCF9] hover:border-[#D6D3D1] hover:shadow-sm'
@@ -88,8 +88,8 @@ export const FlavourSection = memo(function FlavourSection({
                         )}
                       </div>
 
-                      {/* Text-first content */}
-                      <div className="relative h-full flex flex-col justify-between p-2.5">
+                      {/* Text-first content - more vertical space */}
+                      <div className="relative h-full flex flex-col justify-between p-3">
                         {/* Small icon indicator */}
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                           isSelected 

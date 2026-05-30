@@ -1157,52 +1157,44 @@ export default function RestaurantsPage() {
         <section className="sticky top-16 z-30 bg-white border-b border-[#E8E4DF] py-4">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                  <Input
-                    type="text"
-                    placeholder="Search places with member offers"
-                    value={filterState.searchTerm}
-                    onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-5 text-base border-[#E8E4DF] rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7]"
-                  />
-                  {filterState.searchTerm && (
-                    <button
-                      onClick={() => {
-                        setFilterState(prev => ({ ...prev, searchTerm: "" }))
-                        clearFilterState()
-                      }}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E8E4DF] hover:border-[#DC3545] hover:bg-[#FAF9F7] transition-colors"
-                >
-                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                  <span className="text-[#1C1917] font-medium">Filters</span>
-                </Button>
+              {/* Row 1: Full-width search bar */}
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
+                <Input
+                  type="text"
+                  placeholder="Search places with member offers"
+                  value={filterState.searchTerm}
+                  onChange={handleSearchChange}
+                  className="w-full pl-10 pr-10 py-5 text-base border-[#E8E4DF] rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7]"
+                />
+                {filterState.searchTerm && (
+                  <button
+                    onClick={() => {
+                      setFilterState(prev => ({ ...prev, searchTerm: "" }))
+                      clearFilterState()
+                    }}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center justify-start w-full">
-                <div className="relative" ref={locationDropdownRef}>
+              {/* Row 2: Location + Filters side by side */}
+              <div className="flex items-center gap-3">
+                {/* Choose location button - takes available space */}
+                <div className="relative flex-1" ref={locationDropdownRef}>
                   <button
-                    className="flex items-center gap-2 px-3 py-2 bg-[#FAF9F7] hover:bg-[#F5F3F0] border border-[#E8E4DF] rounded-lg text-[#1C1917] font-medium transition-colors text-sm"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 bg-[#FAF9F7] hover:bg-[#F5F3F0] border border-[#E8E4DF] rounded-xl text-[#1C1917] font-medium transition-colors text-sm"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                   >
-                    <MapPin className="w-4 h-4 text-[#DC3545]" />
-                    <span>{filterState.selectedLocation || "Choose location"}</span>
+                    <MapPin className="w-4 h-4 text-[#DC3545] flex-shrink-0" />
+                    <span className="truncate">{filterState.selectedLocation || "Choose location"}</span>
                     {filterState.selectedLocation && (
                       <>
-                        <span className="text-[#D6D3D1]">·</span>
-                        <span className="text-[#DC3545] underline underline-offset-2">change</span>
+                        <span className="text-[#D6D3D1] flex-shrink-0">·</span>
+                        <span className="text-[#DC3545] underline underline-offset-2 flex-shrink-0">change</span>
                       </>
                     )}
                   </button>
@@ -1295,6 +1287,16 @@ export default function RestaurantsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Filters button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#E8E4DF] hover:border-[#DC3545] hover:bg-[#FAF9F7] transition-colors flex-shrink-0"
+                >
+                  <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
+                  <span className="text-[#1C1917] font-medium text-sm">Filters</span>
+                </Button>
               </div>
             </div>
           </div>
