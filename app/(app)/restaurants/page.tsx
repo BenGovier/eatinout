@@ -182,6 +182,30 @@ export default function RestaurantsPage() {
   const { saveScrollPosition, getSavedPageState, clearScrollPosition } = useScrollPreservation()
   const router = useRouter()
   const { user } = useAuth();
+  
+  // Sales panel dismissal state
+  const [salesPanelDismissed, setSalesPanelDismissed] = useState(false)
+  
+  // Check if user is an active paying member
+  const isActiveMember = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "cancelled_with_access"
+  
+  // Check localStorage for panel dismissal on mount
+  useEffect(() => {
+    const dismissed = localStorage.getItem('eatinout_sales_panel_dismissed')
+    if (dismissed === 'true') {
+      setSalesPanelDismissed(true)
+    }
+  }, [])
+  
+  // Handle dismissing the sales panel
+  const handleDismissSalesPanel = () => {
+    setSalesPanelDismissed(true)
+    localStorage.setItem('eatinout_sales_panel_dismissed', 'true')
+  }
+  
+  // Show sales panel only if: not an active member AND not dismissed
+  const showSalesPanel = !isActiveMember && !salesPanelDismissed
+  
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
@@ -1065,98 +1089,109 @@ export default function RestaurantsPage() {
   return (
     <>
       <main className="min-h-screen bg-[#FAF9F7] pb-20">
-        {/* Membership hero panel - premium pass style */}
-        <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
-          {/* Subtle pattern overlay */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-          {/* Soft red glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
-          
-          <div className="container mx-auto px-4 relative">
-            <div className="max-w-2xl mx-auto">
-              {/* Membership pass card - elevated physical card feel */}
-              <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
-                {/* Card shine effect */}
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-                
-                {/* Top row with badge */}
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
-                    <Ticket className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
-                </div>
-
-                {/* Main headline */}
-                <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
-                  Your eating out discount membership
-                </h1>
-                
-                {/* Subcopy */}
-                <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
-                  Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
-                </p>
-
-                {/* Price/trial row - more prominent */}
-                <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
-                  <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
-                    7 days free
-                  </span>
-                  <span className="text-[#78716C] text-sm font-medium">then</span>
-                  <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
-                    £4.99/month
-                  </span>
-                </div>
-
-                {/* Membership benefit chips */}
-                <div className="flex flex-wrap gap-2 mb-5">
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    <Store className="h-3 w-3 text-[#DC3545]" />
-                    500+ venues
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
-                    Member-only offers
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    Use in venue
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    Cancel anytime
-                  </span>
-                </div>
-
-                {/* CTA buttons */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/start"
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
-                  >
-                    Start 7 days free
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+        {/* Membership sales panel - only for non-members */}
+        {showSalesPanel && (
+          <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
+            {/* Subtle pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+            {/* Soft red glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
+            
+            <div className="container mx-auto px-4 relative">
+              <div className="max-w-2xl mx-auto">
+                {/* Membership pass card - elevated physical card feel */}
+                <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                  {/* Card shine effect */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
+                  
+                  {/* Close button */}
                   <button
-                    onClick={() => {
-                      const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
-                      if (searchInput) {
-                        searchInput.focus()
-                        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
+                    onClick={handleDismissSalesPanel}
+                    className="absolute top-3 right-3 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[#78716C] hover:text-white transition-colors z-10"
+                    aria-label="Dismiss"
                   >
-                    Browse offers
-                    <ChevronRight className="h-4 w-4" />
+                    <X className="h-4 w-4" />
                   </button>
+                  
+                  {/* Top row with badge */}
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
+                      <Ticket className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
+                  </div>
+
+                  {/* Main headline */}
+                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
+                    Your eating out discount membership
+                  </h1>
+                  
+                  {/* Subcopy */}
+                  <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
+                    Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
+                  </p>
+
+                  {/* Price/trial row - more prominent */}
+                  <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
+                    <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
+                      7 days free
+                    </span>
+                    <span className="text-[#78716C] text-sm font-medium">then</span>
+                    <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
+                      £4.99/month
+                    </span>
+                  </div>
+
+                  {/* Membership benefit chips */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <Store className="h-3 w-3 text-[#DC3545]" />
+                      500+ venues
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
+                      Member-only offers
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Use in venue
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Cancel anytime
+                    </span>
+                  </div>
+
+                  {/* CTA buttons */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/start"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
+                    >
+                      Start 7 days free
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+                        if (searchInput) {
+                          searchInput.focus()
+                          searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
+                    >
+                      Browse offers
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Not delivery clarification - warmer background */}
         <div className="bg-gradient-to-r from-[#FFFCF9] via-[#FDF8F4] to-[#FFFCF9] border-b border-[#E8E4DF] py-3">
