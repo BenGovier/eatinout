@@ -1065,55 +1065,67 @@ export default function RestaurantsPage() {
   return (
     <>
       <main className="min-h-screen bg-[#FAF9F7] pb-20">
-        {/* Membership hero panel */}
-        <section className="bg-[#1C1917] py-6 md:py-8">
-          <div className="container mx-auto px-4">
+        {/* Membership hero panel - premium pass style */}
+        <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
+          {/* Subtle pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+          {/* Soft red glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
+          
+          <div className="container mx-auto px-4 relative">
             <div className="max-w-2xl mx-auto">
-              {/* Membership pass card */}
-              <div className="bg-gradient-to-br from-[#262220] to-[#1C1917] border border-[#3D3835] rounded-2xl p-4 md:p-5 shadow-lg">
+              {/* Membership pass card - elevated physical card feel */}
+              <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                {/* Card shine effect */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
+                
                 {/* Top row with badge */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="bg-[#DC3545] rounded-md p-1">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
                     <Ticket className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-[#DC3545] text-xs font-semibold uppercase tracking-wider">Eatinout Member Pass</span>
+                  <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
                 </div>
 
                 {/* Main headline */}
-                <h1 className="text-xl md:text-2xl font-bold text-white mb-2 text-balance">
+                <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
                   Your eating out discount membership
                 </h1>
                 
                 {/* Subcopy */}
-                <p className="text-sm text-[#A8A29E] mb-4 text-pretty leading-relaxed">
+                <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
                   Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
                 </p>
 
-                {/* Price/trial pill */}
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <span className="inline-flex items-center bg-[#DC3545]/15 text-[#DC3545] text-xs font-semibold px-3 py-1.5 rounded-full">
+                {/* Price/trial row - more prominent */}
+                <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
+                  <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
                     7 days free
                   </span>
-                  <span className="text-[#78716C] text-xs">then</span>
-                  <span className="inline-flex items-center bg-white/10 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                  <span className="text-[#78716C] text-sm font-medium">then</span>
+                  <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
                     £4.99/month
                   </span>
                 </div>
 
                 {/* Membership benefit chips */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                <div className="flex flex-wrap gap-2 mb-5">
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
                     <Store className="h-3 w-3 text-[#DC3545]" />
                     500+ venues
                   </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
                     <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
                     Member-only offers
                   </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
                     Use in venue
                   </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835] text-[#E8E4DF] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
                     Cancel anytime
                   </span>
                 </div>
@@ -1122,7 +1134,7 @@ export default function RestaurantsPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
                     href="/start"
-                    className="inline-flex items-center gap-2 bg-[#DC3545] hover:bg-[#B91C2C] text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
                   >
                     Start 7 days free
                     <ArrowRight className="h-4 w-4" />
@@ -1135,9 +1147,10 @@ export default function RestaurantsPage() {
                         searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
                       }
                     }}
-                    className="text-[#A8A29E] hover:text-white text-sm font-medium underline underline-offset-2 transition-colors"
+                    className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
                   >
                     Browse offers
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -1145,19 +1158,19 @@ export default function RestaurantsPage() {
           </div>
         </section>
 
-        {/* Not delivery clarification */}
-        <div className="bg-[#FAF9F7] border-b border-[#E8E4DF] py-2.5">
+        {/* Not delivery clarification - warmer background */}
+        <div className="bg-gradient-to-r from-[#FFFCF9] via-[#FDF8F4] to-[#FFFCF9] border-b border-[#E8E4DF] py-3">
           <div className="container mx-auto px-4">
             <p className="text-center text-xs text-[#78716C]">
-              <span className="font-medium text-[#57534E]">Not delivery. Not takeaway.</span> Just local offers to use when you eat out.
+              <span className="font-semibold text-[#57534E]">Not delivery. Not takeaway.</span> Just local offers to use when you eat out.
             </p>
           </div>
         </div>
 
-        <section className="sticky top-16 z-30 bg-white border-b border-[#E8E4DF] py-4">
+        <section className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-4 shadow-sm">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto space-y-3">
-              {/* Row 1: Full-width search bar */}
+              {/* Row 1: Full-width search bar - more premium */}
               <div className="relative w-full">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
                 <Input
@@ -1165,7 +1178,7 @@ export default function RestaurantsPage() {
                   placeholder="Search places with member offers"
                   value={filterState.searchTerm}
                   onChange={handleSearchChange}
-                  className="w-full pl-10 pr-10 py-5 text-base border-[#E8E4DF] rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7]"
+                  className="w-full pl-11 pr-10 py-6 text-base border-[#E8E4DF] rounded-2xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7] shadow-sm hover:shadow-md transition-shadow"
                 />
                 {filterState.searchTerm && (
                   <button
@@ -1181,26 +1194,25 @@ export default function RestaurantsPage() {
                 )}
               </div>
 
-              {/* Row 2: Location + Filters side by side */}
+              {/* Row 2: Location + Filters side by side - premium controls */}
               <div className="flex items-center gap-3">
                 {/* Choose location button - takes available space */}
                 <div className="relative flex-1" ref={locationDropdownRef}>
                   <button
-                    className="w-full flex items-center gap-2 px-3 py-2.5 bg-[#FAF9F7] hover:bg-[#F5F3F0] border border-[#E8E4DF] rounded-xl text-[#1C1917] font-medium transition-colors text-sm"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl text-[#1C1917] font-medium transition-all text-sm shadow-sm hover:shadow-md"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                   >
-                    <MapPin className="w-4 h-4 text-[#DC3545] flex-shrink-0" />
-                    <span className="truncate">{filterState.selectedLocation || "Choose location"}</span>
+                    <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-4 h-4 text-[#DC3545]" />
+                    </div>
+                    <span className="truncate font-semibold">{filterState.selectedLocation || "Choose location"}</span>
                     {filterState.selectedLocation && (
-                      <>
-                        <span className="text-[#D6D3D1] flex-shrink-0">·</span>
-                        <span className="text-[#DC3545] underline underline-offset-2 flex-shrink-0">change</span>
-                      </>
+                      <span className="text-[#DC3545] text-xs font-medium flex-shrink-0 ml-auto">change</span>
                     )}
                   </button>
 
                   {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-xl shadow-lg max-h-60 overflow-y-auto z-20 min-w-[200px]">
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-20 min-w-[220px]">
                       {/* ✅ ALL LOCATIONS OPTION - Always at top */}
                       {/* <button
                         onClick={() => {
@@ -1288,15 +1300,16 @@ export default function RestaurantsPage() {
                   )}
                 </div>
 
-                {/* Filters button */}
-                <Button
-                  variant="outline"
+                {/* Filters button - matching premium style */}
+                <button
                   onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#E8E4DF] hover:border-[#DC3545] hover:bg-[#FAF9F7] transition-colors flex-shrink-0"
+                  className="flex items-center justify-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all flex-shrink-0 shadow-sm hover:shadow-md"
                 >
-                  <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
-                  <span className="text-[#1C1917] font-medium text-sm">Filters</span>
-                </Button>
+                  <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center">
+                    <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
+                  </div>
+                  <span className="text-[#1C1917] font-semibold text-sm">Filters</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1500,9 +1513,9 @@ export default function RestaurantsPage() {
                 return (
                   <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full group">
                     <div className="w-full">
-                      <div className="bg-[#FFFCF9] rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
-                        {/* Image area */}
-                        <div className="relative h-[130px] w-full overflow-hidden">
+                      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-3xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
+                        {/* Image area - taller for premium feel */}
+                        <div className="relative h-[140px] w-full overflow-hidden">
                           {restaurant.imageUrl ? (
                             <>
                               <Image
@@ -1515,40 +1528,44 @@ export default function RestaurantsPage() {
                                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                               />
                               {/* Dark gradient overlay */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                             </>
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center">
-                              <div className="w-12 h-12 rounded-full bg-[#DC3545]/10 flex items-center justify-center mb-2">
-                                <Ticket className="h-6 w-6 text-[#DC3545]" />
+                            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center relative">
+                              {/* Subtle pattern */}
+                              <div className="absolute inset-0 opacity-[0.03]" style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DC3545' fill-opacity='1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10S0 14.5 0 20s4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`,
+                              }} />
+                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center mb-2 shadow-lg shadow-[#DC3545]/20">
+                                <Ticket className="h-7 w-7 text-white" />
                               </div>
-                              <span className="text-[11px] text-[#78716C] font-medium">Voucher code available</span>
+                              <span className="text-xs text-[#78716C] font-semibold">Voucher code available</span>
                             </div>
                           )}
 
                           {/* Top badges */}
-                          <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
+                          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
                             {offers.length > 0 && (
-                              <div className="bg-[#1C1917] text-white font-semibold text-[10px] px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
-                                <Ticket className="h-3 w-3" />
+                              <div className="bg-[#1C1917] text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+                                <Ticket className="h-3.5 w-3.5" />
                                 MEMBER VOUCHER
                               </div>
                             )}
-                            <span className="bg-white/90 backdrop-blur-sm text-[#1C1917] text-[9px] font-medium px-2 py-1 rounded-md shadow-sm">
+                            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg">
                               Use in venue
                             </span>
                           </div>
                         </div>
 
-                        {/* Card body */}
-                        <div className="p-3 space-y-2">
+                        {/* Card body - more depth */}
+                        <div className="p-4 space-y-2.5">
                           {/* Name and heart */}
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-[#1C1917] text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-bold text-[#1C1917] text-base line-clamp-1 flex-1">{restaurant.name}</h3>
                             <button
-                              className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                                ? "text-[#DC3545]"
-                                : "text-[#D6D3D1] hover:text-[#DC3545]"
+                              className={`transition-all flex-shrink-0 p-1.5 rounded-full ${favorites.has(restaurant.id)
+                                ? "text-[#DC3545] bg-[#DC3545]/10"
+                                : "text-[#D6D3D1] hover:text-[#DC3545] hover:bg-[#DC3545]/5"
                                 }`}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -1589,8 +1606,8 @@ export default function RestaurantsPage() {
                           </div>
 
                           {/* Location */}
-                          <p className="text-[#78716C] text-xs flex items-center gap-1">
-                            <span className="inline-block w-3 h-3 text-[#A8A29E]">
+                          <p className="text-[#78716C] text-xs flex items-center gap-1.5">
+                            <span className="inline-block w-3.5 h-3.5 text-[#A8A29E]">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
@@ -1599,21 +1616,21 @@ export default function RestaurantsPage() {
                             {restaurant.city}<span className="text-[#D6D3D1]">·</span>{restaurant.zipCode}
                           </p>
 
-                          {/* Offer display with dashed separator */}
+                          {/* Offer display - voucher style with dashed border */}
                           {heroOffer && (
-                            <div className="pt-2 border-t border-dashed border-[#E8E4DF]">
-                              <p className="text-[#DC3545] font-bold text-base truncate">{heroOffer.discount}</p>
-                              <p className="text-[11px] text-[#78716C] mt-0.5">Tap to view your voucher code</p>
+                            <div className="pt-3 border-t-2 border-dashed border-[#E8E4DF]">
+                              <p className="text-[#DC3545] font-bold text-lg truncate">{heroOffer.discount}</p>
+                              <p className="text-xs text-[#78716C] mt-0.5">Tap to view your voucher code</p>
                             </div>
                           )}
 
-                          {/* CTA strip */}
-                          <div className="pt-2 border-t border-[#E8E4DF] flex items-center justify-between">
-                            <span className="text-[#DC3545] font-semibold text-xs flex items-center gap-1 group-hover:gap-1.5 transition-all">
+                          {/* CTA strip - prominent action */}
+                          <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
+                            <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
                               View voucher code
-                              <ChevronRight className="h-3.5 w-3.5" />
+                              <ChevronRight className="h-4 w-4" />
                             </span>
-                            <span className="text-[10px] text-[#A8A29E]">Included with Eatinout</span>
+                            <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>
                           </div>
                         </div>
                       </div>
