@@ -122,8 +122,16 @@ export const AuthCarouselList = memo(function AuthCarouselList({
       {sortedCarousels.map((carousel) => {
         if (!carousel.restaurants?.length) return null
 
+        // Transform "Top Picks in X" to "Member offers in X"
+        let displayTitle = carousel.name
+        if (displayTitle.toLowerCase().startsWith("top picks in")) {
+          displayTitle = displayTitle.replace(/^top picks in/i, "Member offers in")
+        } else if (displayTitle.toLowerCase().startsWith("top picks")) {
+          displayTitle = displayTitle.replace(/^top picks/i, "Member offers")
+        }
+
         return (
-          <CategorySection key={carousel._id} title={carousel.name}>
+          <CategorySection key={carousel._id} title={displayTitle}>
             {carousel.restaurants.map((restaurant: any) => {
               const location = Array.isArray(restaurant.area)
                 ? getAreaNames(restaurant.area, areas)
