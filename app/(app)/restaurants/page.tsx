@@ -894,8 +894,14 @@ export default function RestaurantsPage() {
   }, [filterState.selectedLocation, metaState.areas])
 
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
+    // If user is not signed in, redirect to sign-up
+    if (!user) {
+      router.push("/sign-up")
+      return
+    }
+    
     // Check if the user is a normal user without an active subscription
-    if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
+    if (user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
       try {
         const response = await fetch("/api/payment/create-checkout-session", {
           method: "POST",
@@ -1662,8 +1668,18 @@ export default function RestaurantsPage() {
                           {/* CTA strip - prominent action */}
                           <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
                             <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                              View voucher code
-                              <ChevronRight className="h-4 w-4" />
+                              {user ? (
+                                <>
+                                  View voucher code
+                                  <ChevronRight className="h-4 w-4" />
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="h-3.5 w-3.5" />
+                                  Join to view voucher
+                                  <ChevronRight className="h-4 w-4" />
+                                </>
+                              )}
                             </span>
                             <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>
                           </div>

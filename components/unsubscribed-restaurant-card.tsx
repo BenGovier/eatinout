@@ -143,7 +143,7 @@ export function UnsubscribedRestaurantCard({
           <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
             <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
               <Lock className="h-3.5 w-3.5" />
-              Unlock voucher code
+              Join to view voucher
               <ChevronRight className="h-4 w-4" />
             </span>
             <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>

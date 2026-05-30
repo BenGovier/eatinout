@@ -1,6 +1,7 @@
 "use client"
 
 import { memo, useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -54,7 +55,6 @@ interface RestaurantListingCardProps {
   }
   areasList: AreaOption[]
   isAuthenticated: boolean
-  onUnlockClick?: (restaurant: any) => void
   onNavigate: (restaurantId: string, offerId?: string) => void
   onSwipeClick: (e: React.MouseEvent) => void
   mapDaysToDisplayFn: (tags: string[]) => string[]
@@ -78,7 +78,6 @@ export const RestaurantListingCard = memo(({
   restaurant,
   areasList,
   isAuthenticated,
-  onUnlockClick,
   onNavigate,
   onSwipeClick,
   mapDaysToDisplayFn,
@@ -87,6 +86,7 @@ export const RestaurantListingCard = memo(({
   showUnlock = false
 }: RestaurantListingCardProps) => {
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0)
+  const router = useRouter()
 
   if (!restaurant || !restaurant.id) {
     return null
@@ -116,8 +116,8 @@ export const RestaurantListingCard = memo(({
 
   const handleOfferClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!isAuthenticated && onUnlockClick) {
-      onUnlockClick(restaurant)
+    if (!isAuthenticated) {
+      router.push("/sign-up")
     } else if (currentOffer) {
       onNavigate(restaurant.id, currentOffer.id)
     }
@@ -127,8 +127,8 @@ export const RestaurantListingCard = memo(({
     <Card className="overflow-hidden relative p-0 w-full h-full flex flex-col bg-[#FFFCF9] border-[#E8E4DF]">
       {/* Image area */}
       <div className="relative cursor-pointer group w-full h-48 overflow-hidden flex-shrink-0" onClick={() => {
-        if (!isAuthenticated && onUnlockClick) {
-          onUnlockClick(restaurant)
+        if (!isAuthenticated) {
+          router.push("/sign-up")
         } else {
           onNavigate(restaurant.id)
         }
@@ -282,7 +282,7 @@ export const RestaurantListingCard = memo(({
             {!isAuthenticated ? (
               <>
                 <Lock className="h-3 w-3" />
-                Unlock voucher code
+                Join to view voucher
               </>
             ) : (
               <>View voucher code</>
