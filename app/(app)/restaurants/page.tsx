@@ -83,6 +83,7 @@ type AreaOption = {
 type CuisineOption = {
   value: string
   label: string
+  image?: string
 }
 
 function useDebounce<T>(value: T, delay: number): T {
