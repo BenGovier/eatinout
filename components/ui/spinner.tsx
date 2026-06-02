@@ -15,45 +15,92 @@ export function Spinner({ className, size = "lg", centered = true }: SpinnerProp
     xl: "h-20 w-20"
   }
 
-  const spinner = (
-    <div className={cn("relative", sizeClasses[size])} role="status" aria-label="Loading">
-
-      {/* Ripple 1 */}
-      <div
-        className={cn(
-          "absolute inset-0 rounded-full border-4 border-primary/40",
-          "animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]"
-        )}
-      />
-
-      {/* Ripple 2 (closer to center now) */}
-      <div
-        className={cn(
-          "absolute inset-[8%] rounded-full border-4 border-primary/60",
-          "animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite_0.4s]"
-        )}
-      />
-
-      {/* Bigger Logo */}
-      <div className="absolute inset-[12%] flex items-center justify-center">
+  // Compact inline spinner for centered=false
+  const inlineSpinner = (
+    <div 
+      className={cn("relative flex flex-col items-center", className)} 
+      role="status" 
+      aria-label="Loading Eatinout member offers"
+      aria-live="polite"
+    >
+      <span className="sr-only">Loading Eatinout, loading local member offers.</span>
+      
+      {/* Logo with subtle pulse */}
+      <div className={cn("relative", sizeClasses[size])}>
         <Image
           src="/images/eatinouticon.webp"
-          alt="logo"
+          alt="Eatinout"
           fill
-          className="object-contain animate-pulse"
+          className="object-contain animate-pulse motion-reduce:animate-none"
         />
       </div>
-
+      
+      {/* Show small text only for lg/xl inline loaders */}
+      {(size === "lg" || size === "xl") && (
+        <p className="mt-2 text-sm font-semibold text-[#1C1917]">Dine Out</p>
+      )}
     </div>
   )
 
+  // Full branded loader for centered=true
   if (centered) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50 animate-in fade-in duration-200">
-        {spinner}
+      <div className="fixed inset-0 flex items-center justify-center bg-[#FFFBF7] z-50 animate-in fade-in duration-200">
+        <div 
+          className={cn("flex flex-col items-center text-center px-6 max-w-[280px]", className)}
+          role="status"
+          aria-label="Loading Eatinout member offers"
+          aria-live="polite"
+        >
+          <span className="sr-only">Loading Eatinout, loading local member offers.</span>
+          
+          {/* Logo with subtle pulse */}
+          <div className="relative w-12 h-12">
+            <Image
+              src="/images/eatinouticon.webp"
+              alt="Eatinout"
+              fill
+              className="object-contain animate-pulse motion-reduce:animate-none"
+              priority
+            />
+          </div>
+          
+          {/* Main headline */}
+          <h1 className="mt-4 text-[28px] font-bold text-[#1C1917] leading-tight">
+            Dine Out
+          </h1>
+          
+          {/* Supporting text */}
+          <p className="mt-2 text-sm font-medium text-[#78716C]">
+            Loading local member offers
+          </p>
+          
+          {/* Animated progress line */}
+          <div className="mt-4 w-[120px] h-[2px] bg-[#E8E4DF] rounded-full overflow-hidden">
+            <div 
+              className="h-full w-1/3 bg-[#DC3545] rounded-full"
+              style={{
+                animation: "shimmer 1.5s ease-in-out infinite"
+              }}
+            />
+          </div>
+          
+          {/* Tagline */}
+          <p className="mt-3 text-xs text-[#A8A29E] leading-relaxed">
+            Not delivery. Local offers to use when you eat out.
+          </p>
+        </div>
+        
+        {/* Shimmer animation keyframes */}
+        <style jsx>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-150%); }
+            100% { transform: translateX(450%); }
+          }
+        `}</style>
       </div>
     )
   }
 
-  return spinner
+  return inlineSpinner
 }
