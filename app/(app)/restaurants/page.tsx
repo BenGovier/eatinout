@@ -337,7 +337,7 @@ export default function RestaurantsPage() {
     'available-everywhere': true,
   })
 
-  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(true)
+  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(false)
 
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
