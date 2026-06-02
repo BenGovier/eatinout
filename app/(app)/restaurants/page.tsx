@@ -10,6 +10,12 @@ import {
   Lock,
   Tag,
   Heart,
+  Ticket,
+  ArrowRight,
+  BadgeCheck,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,6 +85,7 @@ type AreaOption = {
 type CuisineOption = {
   value: string
   label: string
+  image?: string
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -178,6 +185,33 @@ export default function RestaurantsPage() {
   const { saveScrollPosition, getSavedPageState, clearScrollPosition } = useScrollPreservation()
   const router = useRouter()
   const { user } = useAuth();
+  
+  // Sales panel dismissal state
+  const [salesPanelDismissed, setSalesPanelDismissed] = useState(false)
+  
+  // Check if user is an active paying member
+  const isActiveMember = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "cancelled_with_access"
+  
+  // Check localStorage for panel dismissal on mount
+  useEffect(() => {
+    const dismissed = localStorage.getItem('eatinout_sales_panel_dismissed')
+    if (dismissed === 'true') {
+      setSalesPanelDismissed(true)
+    }
+  }, [])
+  
+  // Handle dismissing the sales panel
+  const handleDismissSalesPanel = () => {
+    setSalesPanelDismissed(true)
+    localStorage.setItem('eatinout_sales_panel_dismissed', 'true')
+  }
+  
+  // Show sales panel only if: not an active member AND not dismissed
+  const showSalesPanel = !isActiveMember && !salesPanelDismissed
+  
+  // Collapsible search/filter controls state - collapsed by default on mobile
+  const [showControls, setShowControls] = useState(false)
+  
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
@@ -271,6 +305,14 @@ export default function RestaurantsPage() {
     selectedMealTimes: []
   })
 
+  // Check if any filters are active (for showing active state on collapsed row)
+  const hasActiveFilters = filterState.searchTerm || 
+    filterState.selectedLocation || 
+    filterState.selectedCuisineIds.length > 0 ||
+    filterState.selectedMealTimes.length > 0 ||
+    filterState.selectedDays.length > 0 ||
+    filterState.selectedDining.length > 0
+
   const [uiState, setUIState] = useState<UIState>({
     showLocationDropdown: false,
     showFilters: false,
@@ -295,7 +337,7 @@ export default function RestaurantsPage() {
     'available-everywhere': true,
   })
 
-  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(true)
+  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(false)
 
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
@@ -866,8 +908,14 @@ export default function RestaurantsPage() {
   }, [filterState.selectedLocation, metaState.areas])
 
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
+    // If user is not signed in, redirect to sign-up
+    if (!user) {
+      router.push("/sign-up")
+      return
+    }
+    
     // Check if the user is a normal user without an active subscription
-    if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
+    if (user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
       try {
         const response = await fetch("/api/payment/create-checkout-session", {
           method: "POST",
@@ -935,17 +983,17 @@ export default function RestaurantsPage() {
     const locationPart = selectedArea?.label || ''
     const categoriesPart = filterState.selectedCuisines.length > 0
       ? filterState.selectedCuisines.join(', ')
-      : 'All Restaurants'
+      : 'Places to use your membership'
 
     if (locationPart && filterState.selectedCuisines.length > 0) {
       return `${locationPart} · ${categoriesPart}`
     } else if (locationPart) {
-      return `${locationPart} · All Restaurants`
+      return `${locationPart} · All member offer venues`
     } else if (filterState.selectedCuisines.length > 0) {
       return categoriesPart
     }
 
-    return 'All Restaurants'
+    return 'Places to use your membership'
   }, [selectedArea, filterState.selectedCuisines])
 
   // Determine if carousels should be shown
@@ -1060,155 +1108,285 @@ export default function RestaurantsPage() {
   // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
   return (
     <>
-      <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                  <Input
-                    type="text"
-                    placeholder="Search restaurant/food type"
-                    value={filterState.searchTerm}
-                    onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent"
-                  />
-                  {filterState.searchTerm && (
+      <main className="min-h-screen bg-[#FAF9F7] pb-20">
+        {/* Membership sales panel - only for non-members */}
+        {showSalesPanel && (
+          <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
+            {/* Subtle pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+            {/* Soft red glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
+            
+            <div className="container mx-auto px-4 relative">
+              <div className="max-w-2xl mx-auto">
+                {/* Membership pass card - elevated physical card feel */}
+                <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                  {/* Card shine effect */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
+                  
+                  {/* Close button */}
+                  <button
+                    onClick={handleDismissSalesPanel}
+                    className="absolute top-3 right-3 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[#78716C] hover:text-white transition-colors z-10"
+                    aria-label="Dismiss"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  
+                  {/* Top row with badge */}
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
+                      <Ticket className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
+                  </div>
+
+                  {/* Main headline */}
+                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
+                    Your eating out discount membership
+                  </h1>
+                  
+                  {/* Subcopy */}
+                  <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
+                    Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
+                  </p>
+
+                  {/* Price/trial row - more prominent */}
+                  <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
+                    <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
+                      7 days free
+                    </span>
+                    <span className="text-[#78716C] text-sm font-medium">then</span>
+                    <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
+                      £2.99/month
+                    </span>
+                  </div>
+
+                  {/* Membership benefit chips */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <Store className="h-3 w-3 text-[#DC3545]" />
+                      500+ venues
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
+                      Member-only offers
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Use in venue
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Cancel anytime
+                    </span>
+                  </div>
+
+                  {/* CTA buttons */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/start"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
+                    >
+                      Start 7 days free
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
                     <button
                       onClick={() => {
-                        setFilterState(prev => ({ ...prev, searchTerm: "" }))
-                        clearFilterState()
+                        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+                        if (searchInput) {
+                          searchInput.focus()
+                          searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
                       }}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      aria-label="Clear search"
+                      className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
                     >
-                      <X className="h-4 w-4" />
+                      Browse offers
+                      <ChevronRight className="h-4 w-4" />
                     </button>
-                  )}
+                  </div>
                 </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
-                >
-                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                  <span className="text-[#DC3545] font-medium">Filters</span>
-                </Button>
               </div>
+            </div>
+          </section>
+        )}
 
-              <div className="flex items-center justify-start w-full">
-                <div className="relative" ref={locationDropdownRef}>
-                  <button
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-gray-700 font-medium transition-colors"
-                    onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span>{filterState.selectedLocation || "Choose location"}</span>
-                    {filterState.selectedLocation && (
-                      <>
-                        <span className="text-gray-400">·</span>
-                        <span className="text-gray-700 underline underline-offset-2">change</span>
-                      </>
-                    )}
-                  </button>
+        {/* Not delivery clarification - warmer background */}
+        <div className="bg-gradient-to-r from-[#FFFCF9] via-[#FDF8F4] to-[#FFFCF9] border-b border-[#E8E4DF] py-3">
+          <div className="container mx-auto px-4">
+            <p className="text-center text-xs text-[#78716C]">
+              <span className="font-semibold text-[#57534E]">Not delivery. Not takeaway.</span> Just local offers to use when you eat out.
+            </p>
+          </div>
+        </div>
 
-                  {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20 w-full">
-                      {/* ✅ ALL LOCATIONS OPTION - Always at top */}
-                      {/* <button
-                        onClick={() => {
-                          setFilterState(prev => ({
-                            ...prev,
-                            selectedLocation: "",
-                            selectedLocationId: "",
-                            locationSearch: ""
-                          }))
-                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                        }}
-                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                          ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                          : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
-                          <span>All Locations</span>
-                        </div>
-                      </button> */}
+        <section className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto">
+              {/* Collapsed trigger row - shown when controls are hidden */}
+              {!showControls ? (
+                <button
+                  onClick={() => setShowControls(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all shadow-sm hover:shadow-md"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
+                    <Search className="w-4.5 h-4.5 text-[#DC3545]" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-[#1C1917] font-semibold text-sm">
+                      {hasActiveFilters ? "Search & filters active" : "Search & filter offers"}
+                    </p>
+                    <p className="text-[#78716C] text-xs">
+                      Find places, change location or filter venues
+                    </p>
+                  </div>
+                  {hasActiveFilters && (
+                    <div className="w-2 h-2 rounded-full bg-[#DC3545] flex-shrink-0" />
+                  )}
+                  <ChevronDown className="w-5 h-5 text-[#A8A29E] flex-shrink-0" />
+                </button>
+              ) : (
+                /* Expanded controls */
+                <div className="space-y-3">
+                  {/* Row 1: Full-width search bar - more premium */}
+                  <div className="relative w-full">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
+                    <Input
+                      type="text"
+                      placeholder="Search places with member offers"
+                      value={filterState.searchTerm}
+                      onChange={handleSearchChange}
+                      className="w-full pl-11 pr-10 py-6 text-base border-[#E8E4DF] rounded-2xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7] shadow-sm hover:shadow-md transition-shadow"
+                    />
+                    {filterState.searchTerm && (
                       <button
                         onClick={() => {
-                          setFilterState(prev => ({
-                            ...prev,
-                            selectedLocation: "",
-                            selectedLocationId: "all",
-                          }))
-                          clearScrollPosition()
-                          window.scrollTo({
-                            top: 0,
-                            behavior: "smooth"
-                          })
-                          setPageState(prev => ({
-                            ...prev,
-                            pagination: {
-                              ...prev.pagination,
-                              currentPage: 1
-                            }
-                          }))
-                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
+                          setFilterState(prev => ({ ...prev, searchTerm: "" }))
+                          clearFilterState()
                         }}
-                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                          ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                          : 'hover:bg-gray-50 text-gray-700'
-                          }`}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
+                        aria-label="Clear search"
                       >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
-                          <span>All Locations</span>
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Row 2: Location + Filters side by side - premium controls */}
+                  <div className="flex items-center gap-3">
+                    {/* Choose location button - takes available space */}
+                    <div className="relative flex-1" ref={locationDropdownRef}>
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl text-[#1C1917] font-medium transition-all text-sm shadow-sm hover:shadow-md"
+                        onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-[#DC3545]" />
                         </div>
+                        <span className="truncate font-semibold">{filterState.selectedLocation || "Choose location"}</span>
+                        {filterState.selectedLocation && (
+                          <span className="text-[#DC3545] text-xs font-medium flex-shrink-0 ml-auto">change</span>
+                        )}
                       </button>
 
-                      {/* Individual Locations */}
-                      {filteredLocations.length > 0 ? (
-                        filteredLocations.map((area) => (
+                      {uiState.showLocationDropdown && !metaState.areasLoading && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-20 min-w-[220px]">
                           <button
-                            key={area.value}
                             onClick={() => {
                               setFilterState(prev => ({
                                 ...prev,
-                                selectedLocation: area.label,
-                                selectedLocationId: area.value,
-                                locationSearch: ""
+                                selectedLocation: "",
+                                selectedLocationId: "all",
+                              }))
+                              clearScrollPosition()
+                              window.scrollTo({
+                                top: 0,
+                                behavior: "smooth"
+                              })
+                              setPageState(prev => ({
+                                ...prev,
+                                pagination: {
+                                  ...prev.pagination,
+                                  currentPage: 1
+                                }
                               }))
                               setUIState(prev => ({ ...prev, showLocationDropdown: false }))
                             }}
-                            className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
-                              ? 'bg-[#DC3545]/5 font-semibold'
-                              : 'hover:bg-gray-50'
+                            className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
+                              ? 'bg-[#DC3545]/5 text-[#DC3545]'
+                              : 'hover:bg-gray-50 text-gray-700'
                               }`}
                           >
                             <div className="flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="font-medium">{area.label}</span>
+                              <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
+                              <span>All Locations</span>
                             </div>
                           </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
-                          No locations found
+
+                          {/* Individual Locations */}
+                          {filteredLocations.length > 0 ? (
+                            filteredLocations.map((area) => (
+                              <button
+                                key={area.value}
+                                onClick={() => {
+                                  setFilterState(prev => ({
+                                    ...prev,
+                                    selectedLocation: area.label,
+                                    selectedLocationId: area.value,
+                                    locationSearch: ""
+                                  }))
+                                  setUIState(prev => ({ ...prev, showLocationDropdown: false }))
+                                }}
+                                className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
+                                  ? 'bg-[#DC3545]/5 font-semibold'
+                                  : 'hover:bg-gray-50'
+                                  }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                                  <span className="font-medium">{area.label}</span>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
+                              No locations found
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
+
+                    {/* Filters button - matching premium style */}
+                    <button
+                      onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
+                      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all flex-shrink-0 shadow-sm hover:shadow-md"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center">
+                        <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
+                      </div>
+                      <span className="text-[#1C1917] font-semibold text-sm">Filters</span>
+                    </button>
+                  </div>
+
+                  {/* Collapse button */}
+                  <button
+                    onClick={() => setShowControls(false)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-[#78716C] hover:text-[#1C1917] transition-colors text-sm"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                    <span>Hide search</span>
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
 
         {uiState.showFilters && (
-          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
+          <div className="bg-white border-b border-[#E8E4DF] px-4 pb-6 space-y-4 md:space-y-6">
             {filterState.selectedLocation && (
               <div className="flex items-center gap-2 pt-2">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
@@ -1382,9 +1560,9 @@ export default function RestaurantsPage() {
         )}
 
 
-        <section className="px-4 py-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{sectionTitle}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section className="px-4 py-8 bg-[#FAF9F7]">
+          <h2 className="text-xl font-bold text-[#1C1917] mb-4">{sectionTitle}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {showMainListSkeleton &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <RestaurantCardSkeleton key={i} />
@@ -1400,70 +1578,77 @@ export default function RestaurantsPage() {
                   unlimited: !offer.totalCodes,
                   remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
                 })) || []
-                //Helper: Check if coming soon (0 or undefined)
                 const heroOffer = offers[0]
-                const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
-                  (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
                 return (
-                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
-                    <div className="w-full">
-                      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
-                        <div className="relative h-[130px] w-full overflow-hidden">
-                          <Image
-                            src={restaurant.imageUrl || "/placeholder.svg"}
-                            alt={restaurant.name}
-                            fill
-                            className="object-cover"
-                            loading="lazy"
-                            quality={75}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          />
+                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full group">
+                    <div className="w-full h-full">
+                      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer h-full flex flex-col">
+                        {/* Image area - compact for 2-column */}
+                        <div className="relative h-[100px] sm:h-[120px] w-full overflow-hidden flex-shrink-0">
+                          {restaurant.imageUrl ? (
+                            <>
+                              <Image
+                                src={restaurant.imageUrl}
+                                alt={restaurant.name}
+                                fill
+                                className="object-cover"
+                                loading="lazy"
+                                quality={75}
+                                sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                              />
+                              {/* Dark gradient overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                            </>
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center relative">
+                              {/* Subtle pattern */}
+                              <div className="absolute inset-0 opacity-[0.03]" style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DC3545' fill-opacity='1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10S0 14.5 0 20s4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`,
+                              }} />
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center shadow-lg shadow-[#DC3545]/20">
+                                <Ticket className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                              </div>
+                              <span className="text-[10px] sm:text-xs text-[#78716C] font-semibold mt-1.5">Voucher available</span>
+                            </div>
+                          )}
 
-                          <div className="absolute top-2 left-0 flex items-stretch">
-                            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                              {/* {offers[0].discount} */}
-                              {heroOffer?.discount}
-                            </div>
-                            {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
-                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                              {offers[0].remainingCount} left!
-                            </div>
-                          )} */}
-                            {!heroOffer?.unlimited && (
-                              heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
-                                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                  {heroOffer.remainingCount} left!
-                                </div>
-                              ) : (
-                                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                  More coming soon
-                                </div>
-                              )
+                          {/* Top badges - compact */}
+                          <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1">
+                            {offers.length > 0 && (
+                              <div className="bg-[#1C1917] text-white font-bold text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-1 rounded-md flex items-center gap-1 shadow-lg">
+                                <Ticket className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                <span className="hidden sm:inline">MEMBER VOUCHER</span>
+                                <span className="sm:hidden">VOUCHER</span>
+                              </div>
                             )}
+                            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[8px] sm:text-[9px] font-semibold px-1.5 sm:px-2 py-1 rounded-md shadow-lg ml-auto">
+                              In venue
+                            </span>
                           </div>
                         </div>
 
-                        <div className="p-3 space-y-1.5 relative">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
-                            {/* Line ~1119 ke aas paas - Update heart button */}
+                        {/* Card body - compact for 2-column */}
+                        <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2 flex-1 flex flex-col">
+                          {/* Name and heart */}
+                          <div className="flex items-start justify-between gap-1">
+                            <h3 className="font-bold text-[#1C1917] text-xs sm:text-sm line-clamp-2 flex-1 leading-tight">{restaurant.name}</h3>
                             <button
-                              className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                                ? "text-[#eb221c]"
-                                : "text-gray-300 hover:text-[#eb221c]"
+                              className={`transition-all flex-shrink-0 p-1 rounded-full ${favorites.has(restaurant.id)
+                                ? "text-[#DC3545] bg-[#DC3545]/10"
+                                : "text-[#D6D3D1] hover:text-[#DC3545] hover:bg-[#DC3545]/5"
                                 }`}
                               onClick={(e) => {
                                 e.preventDefault();
+                                e.stopPropagation();
                                 handleHeartClick(e, restaurant.id, restaurant.name);
                               }}
-                              disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
+                              disabled={favoritesLoading.has(restaurant.id)}
                               aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
                             >
                               {favoritesLoading.has(restaurant.id) ? (
-                                // ✅ Loading spinner
                                 <svg
-                                  className="animate-spin h-4 w-4 text-[#eb221c]"
+                                  className="animate-spin h-3.5 w-3.5 text-[#DC3545]"
                                   xmlns="http://www.w3.org/2000/svg"
                                   fill="none"
                                   viewBox="0 0 24 24"
@@ -1484,72 +1669,49 @@ export default function RestaurantsPage() {
                                 </svg>
                               ) : (
                                 <Heart
-                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
+                                  className={`h-3.5 w-3.5 ${favorites.has(restaurant.id) ? "fill-[#DC3545]" : ""
                                     }`}
                                 />
                               )}
                             </button>
                           </div>
 
-                          <p className="text-gray-500 text-xs flex items-center gap-1">
-                            <span className="inline-block w-3 h-3 text-gray-400">
+                          {/* Location - compact */}
+                          <p className="text-[#78716C] text-[10px] sm:text-xs flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 text-[#A8A29E] flex-shrink-0">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
                               </svg>
                             </span>
-                            {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
+                            <span className="truncate">{restaurant.city}</span>
                           </p>
 
-                          {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => (
-                              
-                              <div
-                                key={index}
-                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                    {offer.remainingCount} left
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div> */}
-                          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                            <div className="flex items-center gap-1.5">
-                              {offers.map((offer, index) => {
-                                const isComingSoon = !offer.unlimited &&
-                                  (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
-
-                                return (
-                                  <div
-                                    key={index}
-                                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                  >
-                                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                      {offer.discount}
-                                    </span>
-                                    {!offer.unlimited && (
-                                      offer.remainingCount && offer.remainingCount > 0 ? (
-                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                          {offer.remainingCount} left
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                          More coming soon
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )
-                              })}
+                          {/* Offer display - compact voucher style */}
+                          {heroOffer && (
+                            <div className="pt-2 border-t border-dashed border-[#E8E4DF] flex-1">
+                              <p className="text-[#DC3545] font-bold text-xs sm:text-sm line-clamp-2 leading-tight">{heroOffer.discount}</p>
                             </div>
+                          )}
+
+                          {/* CTA strip - compact */}
+                          <div className="pt-2 border-t border-[#E8E4DF] mt-auto">
+                            <span className="text-[#DC3545] font-bold text-[10px] sm:text-xs flex items-center gap-0.5 group-hover:gap-1 transition-all">
+                              {user ? (
+                                <>
+                                  <span className="hidden sm:inline">View voucher</span>
+                                  <span className="sm:hidden">View code</span>
+                                  <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                  <span className="hidden sm:inline">Join to view</span>
+                                  <span className="sm:hidden">Join</span>
+                                  <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                </>
+                              )}
+                            </span>
                           </div>
                         </div>
                       </div>

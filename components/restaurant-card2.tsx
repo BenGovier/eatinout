@@ -1,8 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Tag, Heart,Clock } from "lucide-react"
+import { Heart, Ticket, ChevronRight } from "lucide-react"
+import { useState } from "react"
 
 interface Offer {
   discount: string
@@ -21,7 +21,6 @@ interface RestaurantCardProps {
   isLarger?: boolean
   showCTA?: boolean
   onClick?: () => void
-  // New props for favorites
   restaurantId?: string
   isFavorite?: boolean
   onHeartClick?: (e: React.MouseEvent, restaurantId: string, restaurantName: string) => void
@@ -34,71 +33,73 @@ export function RestaurantCard({
   image,
   offers,
   isLarger = false,
-  showCTA = false,
   onClick,
   restaurantId,
   isFavorite = false,
   onHeartClick,
 }: RestaurantCardProps) {
   const heroOffer = offers[0]
-  const getRemainingText = () => {
-    if (heroOffer?.unlimited) return null
-    // if (typeof heroOffer?.remainingCount !== "number") return null
-    // if (heroOffer.remainingCount <= 0) return "comingSoon"
-    if (typeof heroOffer?.remainingCount !== "number" || heroOffer.remainingCount <= 0) {
-      return "comingSoon"
-    }
-    if (heroOffer.remainingCount === 1) return "Only 1 left!"
-    return `${heroOffer.remainingCount} left!`
-  }
-  const remainingText = getRemainingText()
-  const cardWidth = isLarger ? "w-[260px]" : "w-[240px]"
+  const cardWidth = isLarger ? "w-[280px]" : "w-[260px]"
+  const [imageError, setImageError] = useState(false)
+  const showPlaceholder = !image || imageError
 
   return (
     <div
-      className={`flex-shrink-0 ${cardWidth} group cursor-pointer transition-transform hover:scale-[1.02] duration-200`}
+      className={`flex-shrink-0 ${cardWidth} group cursor-pointer transition-all hover:scale-[1.02] duration-200`}
       style={{ scrollSnapAlign: "start" }}
       onClick={onClick}
     >
-      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100">
-        <div className="relative h-[130px] w-full overflow-hidden">
-          <Image src={image || "/placeholder.svg"} alt={name} fill className="object-cover" />
-          
-          {/* Hero offer badge in top-left corner */}
-          {offers.length > 0 && (
-          <div className="absolute top-2 left-0 flex items-stretch">
-            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-              {heroOffer?.discount}
-            </div>
-            {/* {getRemainingText() && (
-              <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                {getRemainingText()}
+      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-3xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF]">
+        {/* Image area - taller for premium feel */}
+        <div className="relative h-[140px] w-full overflow-hidden">
+          {showPlaceholder ? (
+            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center relative">
+              {/* Subtle pattern */}
+              <div className="absolute inset-0 opacity-[0.03]" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DC3545' fill-opacity='1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10S0 14.5 0 20s4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center mb-2 shadow-lg shadow-[#DC3545]/20">
+                <Ticket className="h-7 w-7 text-white" />
               </div>
-            )} */}
-            {!heroOffer?.unlimited && remainingText && (
-              remainingText === "comingSoon" ? (
-                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  More coming soon
-                </div>
-              ) : (
-                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                  {remainingText}
-                </div>
-              )
-            )}
-          </div>
+              <span className="text-xs text-[#78716C] font-semibold">Voucher code available</span>
+            </div>
+          ) : (
+            <>
+              <Image 
+                src={image} 
+                alt={name} 
+                fill 
+                className="object-cover" 
+                onError={() => setImageError(true)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+            </>
           )}
+          
+          {/* Top badges */}
+          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+            {offers.length > 0 && (
+              <div className="bg-[#1C1917] text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+                <Ticket className="h-3.5 w-3.5" />
+                MEMBER VOUCHER
+              </div>
+            )}
+            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg">
+              Use in venue
+            </span>
+          </div>
         </div>
 
-        <div className="p-3 space-y-1.5 relative">
-          <div className="flex items-start justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{name}</h3>
+        {/* Card body - more depth */}
+        <div className="p-4 space-y-2.5">
+          {/* Name and heart */}
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-[#1C1917] text-base line-clamp-1 flex-1">{name}</h3>
             <button 
-              className={`transition-colors flex-shrink-0 ${
+              className={`transition-all flex-shrink-0 p-1.5 rounded-full ${
                 isFavorite
-                  ? "text-[#eb221c]"
-                  : "text-gray-300 hover:text-[#eb221c]"
+                  ? "text-[#DC3545] bg-[#DC3545]/10"
+                  : "text-[#D6D3D1] hover:text-[#DC3545] hover:bg-[#DC3545]/5"
               }`}
               onClick={(e) => {
                 e.preventDefault()
@@ -109,65 +110,37 @@ export function RestaurantCard({
               }}
               aria-label={isFavorite ? "Remove from favourites" : "Add to favourites"}
             >
-              <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#eb221c]" : ""}`} />
+              <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#DC3545]" : ""}`} />
             </button>
           </div>
 
-          <p className="text-gray-500 text-xs flex items-center gap-1">
-            <span className="inline-block w-3 h-3 text-gray-400">
+          {/* Location */}
+          <p className="text-[#78716C] text-xs flex items-center gap-1.5">
+            <span className="inline-block w-3.5 h-3.5 text-[#A8A29E]">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
             </span>
-            {location}<span className="text-gray-400">·</span>{zipCode}
+            {location}<span className="text-[#D6D3D1]">·</span>{zipCode}
           </p>
 
-          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-            <div className="flex items-center gap-1.5">
-              {offers.map((offer, index) => {
-                // const remaining =
-                //   offer.unlimited || typeof offer.remainingCount !== "number"
-                //     ? null
-                //     : offer.remainingCount > 0
-                //       ? offer.remainingCount
-                //       : null
-                const isComingSoon = !offer.unlimited && 
-                (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
-            
-                const remaining = !offer.unlimited && 
-                  typeof offer.remainingCount === "number" && 
-                  offer.remainingCount > 0
-                    ? offer.remainingCount
-                    : null
-                return (
-                  <div 
-                    key={index}
-                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                  >
-                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                    {remaining !== null && (
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                        {remaining} left
-                      </span>
-                    )}
-                    {isComingSoon && (
-                      <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                        More coming soon
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
+          {/* Offer display - voucher style with dashed border */}
+          {heroOffer && (
+            <div className="pt-3 border-t-2 border-dashed border-[#E8E4DF]">
+              <p className="text-[#DC3545] font-bold text-lg truncate">{heroOffer.discount}</p>
+              <p className="text-xs text-[#78716C] mt-0.5">Tap to view your voucher code</p>
             </div>
-          </div>
-
-          {showCTA && (
-            <Button className="w-full bg-[#eb221c] hover:bg-[#eb221c]/90 text-white font-semibold mt-2">
-              Unlock ALL Offers
-            </Button>
           )}
+
+          {/* CTA strip - prominent action */}
+          <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
+            <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+              View voucher code
+              <ChevronRight className="h-4 w-4" />
+            </span>
+            <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Heart, Tag,Clock } from "lucide-react"
+import { Heart, Ticket, Lock, ChevronRight } from "lucide-react"
+import { useState } from "react"
 
 interface Offer {
   title?: string
@@ -28,7 +29,6 @@ interface UnsubscribedRestaurantCardProps {
 export function UnsubscribedRestaurantCard({
   name,
   zipCode,
-  cuisine,
   location,
   image,
   offers,
@@ -36,7 +36,9 @@ export function UnsubscribedRestaurantCard({
   isLarger = false,
   onClick
 }: UnsubscribedRestaurantCardProps) {
-  const cardWidth = isLarger ? "w-[260px]" : "w-[240px]"
+  const cardWidth = isLarger ? "w-[280px]" : "w-[260px]"
+  const [imageError, setImageError] = useState(false)
+  const showPlaceholder = !image || imageError
   
   const displayOffers = (offers?.length ? offers : firstOffer ? [firstOffer] : [])
     .map((offer) => {
@@ -55,99 +57,97 @@ export function UnsubscribedRestaurantCard({
     .filter((offer): offer is { discount: string; unlimited: boolean; remainingCount?: number } => Boolean(offer))
 
   const heroOffer = displayOffers[0]
-  const discount = heroOffer?.discount
-  const remaining = heroOffer && !heroOffer.unlimited ? heroOffer.remainingCount : undefined
 
   return (
     <div
-      className={`flex-shrink-0 ${cardWidth} group cursor-pointer transition-transform hover:scale-[1.02] duration-200`}
+      className={`flex-shrink-0 ${cardWidth} group cursor-pointer transition-all hover:scale-[1.02] duration-200`}
       style={{ scrollSnapAlign: "start" }}
       onClick={onClick}
     >
-      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100">
-        <div className="relative h-[130px] w-full overflow-hidden">
-          <Image src={image || "/placeholder.svg"} alt={name} fill className="object-cover" fetchPriority="low" loading="lazy" />
-          
-          {discount && (
-            <div className="absolute top-2 left-0 flex items-stretch">
-              <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                {discount}
+      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-3xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF]">
+        {/* Image area - taller for premium feel */}
+        <div className="relative h-[140px] w-full overflow-hidden">
+          {showPlaceholder ? (
+            <div className="w-full h-full bg-gradient-to-br from-[#FDF8F4] via-[#FAF5F0] to-[#F5EDE6] flex flex-col items-center justify-center relative">
+              {/* Subtle pattern */}
+              <div className="absolute inset-0 opacity-[0.03]" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DC3545' fill-opacity='1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10S0 14.5 0 20s4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center mb-2 shadow-lg shadow-[#DC3545]/20">
+                <Ticket className="h-7 w-7 text-white" />
               </div>
-              {/* {remaining && (
-                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                  {remaining} left!
-                </div>
-              )} */}
-               {!heroOffer?.unlimited && (
-                remaining && remaining > 0 ? (
-                  <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                    {remaining} left!
-                  </div>
-                ) : (
-                  <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    More coming soon
-                  </div>
-                )
-              )}
+              <span className="text-xs text-[#78716C] font-semibold">Voucher code available</span>
             </div>
+          ) : (
+            <>
+              <Image 
+                src={image} 
+                alt={name} 
+                fill 
+                className="object-cover" 
+                fetchPriority="low" 
+                loading="lazy"
+                onError={() => setImageError(true)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+            </>
           )}
+          
+          {/* Top badges */}
+          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+            {displayOffers.length > 0 && (
+              <div className="bg-[#1C1917] text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+                <Ticket className="h-3.5 w-3.5" />
+                MEMBER VOUCHER
+              </div>
+            )}
+            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg">
+              Use in venue
+            </span>
+          </div>
         </div>
 
-        <div className="p-3 space-y-1.5 relative">
-          <div className="flex items-start justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{name}</h3>
+        {/* Card body - more depth */}
+        <div className="p-4 space-y-2.5">
+          {/* Name and heart */}
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-[#1C1917] text-base line-clamp-1 flex-1">{name}</h3>
             <button 
-              className="text-gray-300 hover:text-[#eb221c] transition-colors flex-shrink-0"
+              className="text-[#D6D3D1] hover:text-[#DC3545] hover:bg-[#DC3545]/5 transition-all flex-shrink-0 p-1.5 rounded-full"
               aria-label="Add to favourites"
             >
               <Heart className="h-4 w-4" />
             </button>
           </div>
 
-          <p className="text-gray-500 text-xs flex items-center gap-1">
-            <span className="inline-block w-3 h-3 text-gray-400">
+          {/* Location */}
+          <p className="text-[#78716C] text-xs flex items-center gap-1.5">
+            <span className="inline-block w-3.5 h-3.5 text-[#A8A29E]">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
             </span>
-            {location}<span className="text-gray-400">·</span>{zipCode}
+            {location}<span className="text-[#D6D3D1]">·</span>{zipCode}
           </p>
 
-          {displayOffers.length > 0 && (
-            <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-              <div className="flex items-center gap-1.5">
-                {displayOffers.map((offer, index) => (
-                  <div
-                    key={index}
-                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                  >
-                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                      {offer?.discount}
-                    </span>
-                    {/* {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                        {offer.remainingCount} left
-                      </span>
-                    )} */}
-                      {!offer?.unlimited && (
-                      offer?.remainingCount && offer.remainingCount > 0 ? (
-                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                          {offer.remainingCount} left
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                          More coming soon
-                        </span>
-                      )
-                    )}
-                  </div>
-                ))}
-              </div>
+          {/* Offer display - voucher style with dashed border */}
+          {heroOffer && (
+            <div className="pt-3 border-t-2 border-dashed border-[#E8E4DF]">
+              <p className="text-[#DC3545] font-bold text-lg truncate">{heroOffer.discount}</p>
+              <p className="text-xs text-[#78716C] mt-0.5">Show voucher code when you visit</p>
             </div>
           )}
+
+          {/* CTA strip - unlock version for unauthenticated users */}
+          <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
+            <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+              <Lock className="h-3.5 w-3.5" />
+              Join to view voucher
+              <ChevronRight className="h-4 w-4" />
+            </span>
+            <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>
+          </div>
         </div>
       </div>
     </div>

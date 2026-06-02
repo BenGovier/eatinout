@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { memo } from "react"
+import { useRouter } from "next/navigation"
 import { CategorySection } from "./CategorySection"
 import { UnsubscribedRestaurantCard } from "./unsubscribed-restaurant-card"
 
@@ -33,7 +34,6 @@ interface CarouselListProps {
   areaId?: string
   getAreaNames: (area: string | string[], areas: any[]) => string
   areas: any[]
-  onUnlockClick: (restaurant: any) => void
   searchTerm?: string
   selectedCuisineIds?: string[]
   selectedDining?: string[]
@@ -44,14 +44,14 @@ interface CarouselListProps {
 export const CarouselList = memo(function CarouselList({ 
   areaId, 
   getAreaNames, 
-  areas, 
-  onUnlockClick,
+  areas,
   searchTerm,
   selectedCuisineIds,
   selectedDining,
   selectedDayValues,
   selectedMealTimes
 }: CarouselListProps) {
+  const router = useRouter()
   const normalizedSearch = searchTerm?.trim() || ""
   const cuisineIds = (selectedCuisineIds || []).filter(Boolean)
   const dining = selectedDining || []
@@ -117,8 +117,16 @@ export const CarouselList = memo(function CarouselList({
       {sortedCarousels.map((carousel) => {
         if (!carousel.restaurants?.length) return null
 
+        // Transform "Top Picks in X" to "Member offers in X"
+        let displayTitle = carousel.name
+        if (displayTitle.toLowerCase().startsWith("top picks in")) {
+          displayTitle = displayTitle.replace(/^top picks in/i, "Member offers in")
+        } else if (displayTitle.toLowerCase().startsWith("top picks")) {
+          displayTitle = displayTitle.replace(/^top picks/i, "Member offers")
+        }
+
         return (
-          <CategorySection key={carousel._id} title={carousel.name}>
+          <CategorySection key={carousel._id} title={displayTitle}>
             {carousel.restaurants.map((restaurant) => {
               const location = Array.isArray(restaurant.area)
                 ? getAreaNames(restaurant.area, areas)
@@ -135,15 +143,7 @@ export const CarouselList = memo(function CarouselList({
                   offersCount={restaurant.offers?.length || 0}
                   offers={restaurant.offers}
                   firstOffer={restaurant.offers?.[0]}
-                  onClick={() => onUnlockClick({
-                    id: restaurant._id,
-                    name: restaurant.name,
-                    imageUrl: restaurant.images?.[0],
-                    offers: restaurant.offers,
-                    area: restaurant.area,
-                    category: restaurant.category,
-                    dealsCount: restaurant.offers?.length || 0
-                  })}
+                  onClick={() => router.push("/sign-up")}
                 />
               )
             })}
