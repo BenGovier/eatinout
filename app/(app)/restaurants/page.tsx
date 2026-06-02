@@ -83,6 +83,7 @@ type AreaOption = {
 type CuisineOption = {
   value: string
   label: string
+  image?: string
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -182,6 +183,30 @@ export default function RestaurantsPage() {
   const { saveScrollPosition, getSavedPageState, clearScrollPosition } = useScrollPreservation()
   const router = useRouter()
   const { user } = useAuth();
+  
+  // Sales panel dismissal state
+  const [salesPanelDismissed, setSalesPanelDismissed] = useState(false)
+  
+  // Check if user is an active paying member
+  const isActiveMember = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "cancelled_with_access"
+  
+  // Check localStorage for panel dismissal on mount
+  useEffect(() => {
+    const dismissed = localStorage.getItem('eatinout_sales_panel_dismissed')
+    if (dismissed === 'true') {
+      setSalesPanelDismissed(true)
+    }
+  }, [])
+  
+  // Handle dismissing the sales panel
+  const handleDismissSalesPanel = () => {
+    setSalesPanelDismissed(true)
+    localStorage.setItem('eatinout_sales_panel_dismissed', 'true')
+  }
+  
+  // Show sales panel only if: not an active member AND not dismissed
+  const showSalesPanel = !isActiveMember && !salesPanelDismissed
+  
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
@@ -870,8 +895,14 @@ export default function RestaurantsPage() {
   }, [filterState.selectedLocation, metaState.areas])
 
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
+    // If user is not signed in, redirect to sign-up
+    if (!user) {
+      router.push("/sign-up")
+      return
+    }
+    
     // Check if the user is a normal user without an active subscription
-    if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
+    if (user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
       try {
         const response = await fetch("/api/payment/create-checkout-session", {
           method: "POST",
@@ -1065,98 +1096,109 @@ export default function RestaurantsPage() {
   return (
     <>
       <main className="min-h-screen bg-[#FAF9F7] pb-20">
-        {/* Membership hero panel - premium pass style */}
-        <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
-          {/* Subtle pattern overlay */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-          {/* Soft red glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
-          
-          <div className="container mx-auto px-4 relative">
-            <div className="max-w-2xl mx-auto">
-              {/* Membership pass card - elevated physical card feel */}
-              <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
-                {/* Card shine effect */}
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-                
-                {/* Top row with badge */}
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
-                    <Ticket className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
-                </div>
-
-                {/* Main headline */}
-                <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
-                  Your eating out discount membership
-                </h1>
-                
-                {/* Subcopy */}
-                <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
-                  Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
-                </p>
-
-                {/* Price/trial row - more prominent */}
-                <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
-                  <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
-                    7 days free
-                  </span>
-                  <span className="text-[#78716C] text-sm font-medium">then</span>
-                  <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
-                    £4.99/month
-                  </span>
-                </div>
-
-                {/* Membership benefit chips */}
-                <div className="flex flex-wrap gap-2 mb-5">
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    <Store className="h-3 w-3 text-[#DC3545]" />
-                    500+ venues
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
-                    Member-only offers
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    Use in venue
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
-                    Cancel anytime
-                  </span>
-                </div>
-
-                {/* CTA buttons */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/start"
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
-                  >
-                    Start 7 days free
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+        {/* Membership sales panel - only for non-members */}
+        {showSalesPanel && (
+          <section className="bg-gradient-to-br from-[#1C1917] via-[#262220] to-[#1C1917] py-6 md:py-8 relative overflow-hidden">
+            {/* Subtle pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+            {/* Soft red glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#DC3545]/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#DC3545]/5 rounded-full blur-2xl" />
+            
+            <div className="container mx-auto px-4 relative">
+              <div className="max-w-2xl mx-auto">
+                {/* Membership pass card - elevated physical card feel */}
+                <div className="bg-gradient-to-br from-[#2A2725] via-[#232120] to-[#1E1C1B] border border-[#3D3835]/60 rounded-3xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                  {/* Card shine effect */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent" />
+                  
+                  {/* Close button */}
                   <button
-                    onClick={() => {
-                      const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
-                      if (searchInput) {
-                        searchInput.focus()
-                        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
+                    onClick={handleDismissSalesPanel}
+                    className="absolute top-3 right-3 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[#78716C] hover:text-white transition-colors z-10"
+                    aria-label="Dismiss"
                   >
-                    Browse offers
-                    <ChevronRight className="h-4 w-4" />
+                    <X className="h-4 w-4" />
                   </button>
+                  
+                  {/* Top row with badge */}
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="bg-gradient-to-br from-[#DC3545] to-[#B91C2C] rounded-lg p-1.5 shadow-lg shadow-[#DC3545]/20">
+                      <Ticket className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-[#DC3545] text-xs font-bold uppercase tracking-widest">Eatinout Member Pass</span>
+                  </div>
+
+                  {/* Main headline */}
+                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2.5 text-balance leading-tight">
+                    Your eating out discount membership
+                  </h1>
+                  
+                  {/* Subcopy */}
+                  <p className="text-sm text-[#A8A29E] mb-5 text-pretty leading-relaxed">
+                    Get member-only offers at restaurants, cafes and bars across Lancashire. Show your offer when you visit and save in venue.
+                  </p>
+
+                  {/* Price/trial row - more prominent */}
+                  <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
+                    <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
+                      7 days free
+                    </span>
+                    <span className="text-[#78716C] text-sm font-medium">then</span>
+                    <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
+                      £4.99/month
+                    </span>
+                  </div>
+
+                  {/* Membership benefit chips */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <Store className="h-3 w-3 text-[#DC3545]" />
+                      500+ venues
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      <BadgeCheck className="h-3 w-3 text-[#DC3545]" />
+                      Member-only offers
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Use in venue
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-[#3D3835]/60 text-[#E8E4DF] text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#4A4543]/40">
+                      Cancel anytime
+                    </span>
+                  </div>
+
+                  {/* CTA buttons */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/start"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
+                    >
+                      Start 7 days free
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+                        if (searchInput) {
+                          searchInput.focus()
+                          searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#E8E4DF] hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all border border-white/10"
+                    >
+                      Browse offers
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Not delivery clarification - warmer background */}
         <div className="bg-gradient-to-r from-[#FFFCF9] via-[#FDF8F4] to-[#FFFCF9] border-b border-[#E8E4DF] py-3">
@@ -1492,7 +1534,7 @@ export default function RestaurantsPage() {
 
         <section className="px-4 py-8 bg-[#FAF9F7]">
           <h2 className="text-xl font-bold text-[#1C1917] mb-4">{sectionTitle}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {showMainListSkeleton &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <RestaurantCardSkeleton key={i} />
@@ -1512,10 +1554,10 @@ export default function RestaurantsPage() {
 
                 return (
                   <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full group">
-                    <div className="w-full">
-                      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-3xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer">
-                        {/* Image area - taller for premium feel */}
-                        <div className="relative h-[140px] w-full overflow-hidden">
+                    <div className="w-full h-full">
+                      <div className="bg-gradient-to-br from-[#FFFCF9] to-[#FDF8F4] rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-[#E8E4DF] cursor-pointer h-full flex flex-col">
+                        {/* Image area - compact for 2-column */}
+                        <div className="relative h-[100px] sm:h-[120px] w-full overflow-hidden flex-shrink-0">
                           {restaurant.imageUrl ? (
                             <>
                               <Image
@@ -1525,7 +1567,7 @@ export default function RestaurantsPage() {
                                 className="object-cover"
                                 loading="lazy"
                                 quality={75}
-                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                               />
                               {/* Dark gradient overlay */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
@@ -1536,34 +1578,35 @@ export default function RestaurantsPage() {
                               <div className="absolute inset-0 opacity-[0.03]" style={{
                                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DC3545' fill-opacity='1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10S0 14.5 0 20s4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`,
                               }} />
-                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center mb-2 shadow-lg shadow-[#DC3545]/20">
-                                <Ticket className="h-7 w-7 text-white" />
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#DC3545] to-[#B91C2C] flex items-center justify-center shadow-lg shadow-[#DC3545]/20">
+                                <Ticket className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                               </div>
-                              <span className="text-xs text-[#78716C] font-semibold">Voucher code available</span>
+                              <span className="text-[10px] sm:text-xs text-[#78716C] font-semibold mt-1.5">Voucher available</span>
                             </div>
                           )}
 
-                          {/* Top badges */}
-                          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+                          {/* Top badges - compact */}
+                          <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1">
                             {offers.length > 0 && (
-                              <div className="bg-[#1C1917] text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
-                                <Ticket className="h-3.5 w-3.5" />
-                                MEMBER VOUCHER
+                              <div className="bg-[#1C1917] text-white font-bold text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-1 rounded-md flex items-center gap-1 shadow-lg">
+                                <Ticket className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                <span className="hidden sm:inline">MEMBER VOUCHER</span>
+                                <span className="sm:hidden">VOUCHER</span>
                               </div>
                             )}
-                            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg">
-                              Use in venue
+                            <span className="bg-white/95 backdrop-blur-sm text-[#1C1917] text-[8px] sm:text-[9px] font-semibold px-1.5 sm:px-2 py-1 rounded-md shadow-lg ml-auto">
+                              In venue
                             </span>
                           </div>
                         </div>
 
-                        {/* Card body - more depth */}
-                        <div className="p-4 space-y-2.5">
+                        {/* Card body - compact for 2-column */}
+                        <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2 flex-1 flex flex-col">
                           {/* Name and heart */}
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-bold text-[#1C1917] text-base line-clamp-1 flex-1">{restaurant.name}</h3>
+                          <div className="flex items-start justify-between gap-1">
+                            <h3 className="font-bold text-[#1C1917] text-xs sm:text-sm line-clamp-2 flex-1 leading-tight">{restaurant.name}</h3>
                             <button
-                              className={`transition-all flex-shrink-0 p-1.5 rounded-full ${favorites.has(restaurant.id)
+                              className={`transition-all flex-shrink-0 p-1 rounded-full ${favorites.has(restaurant.id)
                                 ? "text-[#DC3545] bg-[#DC3545]/10"
                                 : "text-[#D6D3D1] hover:text-[#DC3545] hover:bg-[#DC3545]/5"
                                 }`}
@@ -1577,7 +1620,7 @@ export default function RestaurantsPage() {
                             >
                               {favoritesLoading.has(restaurant.id) ? (
                                 <svg
-                                  className="animate-spin h-4 w-4 text-[#DC3545]"
+                                  className="animate-spin h-3.5 w-3.5 text-[#DC3545]"
                                   xmlns="http://www.w3.org/2000/svg"
                                   fill="none"
                                   viewBox="0 0 24 24"
@@ -1598,39 +1641,49 @@ export default function RestaurantsPage() {
                                 </svg>
                               ) : (
                                 <Heart
-                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#DC3545]" : ""
+                                  className={`h-3.5 w-3.5 ${favorites.has(restaurant.id) ? "fill-[#DC3545]" : ""
                                     }`}
                                 />
                               )}
                             </button>
                           </div>
 
-                          {/* Location */}
-                          <p className="text-[#78716C] text-xs flex items-center gap-1.5">
-                            <span className="inline-block w-3.5 h-3.5 text-[#A8A29E]">
+                          {/* Location - compact */}
+                          <p className="text-[#78716C] text-[10px] sm:text-xs flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 text-[#A8A29E] flex-shrink-0">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
                               </svg>
                             </span>
-                            {restaurant.city}<span className="text-[#D6D3D1]">·</span>{restaurant.zipCode}
+                            <span className="truncate">{restaurant.city}</span>
                           </p>
 
-                          {/* Offer display - voucher style with dashed border */}
+                          {/* Offer display - compact voucher style */}
                           {heroOffer && (
-                            <div className="pt-3 border-t-2 border-dashed border-[#E8E4DF]">
-                              <p className="text-[#DC3545] font-bold text-lg truncate">{heroOffer.discount}</p>
-                              <p className="text-xs text-[#78716C] mt-0.5">Tap to view your voucher code</p>
+                            <div className="pt-2 border-t border-dashed border-[#E8E4DF] flex-1">
+                              <p className="text-[#DC3545] font-bold text-xs sm:text-sm line-clamp-2 leading-tight">{heroOffer.discount}</p>
                             </div>
                           )}
 
-                          {/* CTA strip - prominent action */}
-                          <div className="pt-3 border-t border-[#E8E4DF] flex items-center justify-between">
-                            <span className="text-[#DC3545] font-bold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                              View voucher code
-                              <ChevronRight className="h-4 w-4" />
+                          {/* CTA strip - compact */}
+                          <div className="pt-2 border-t border-[#E8E4DF] mt-auto">
+                            <span className="text-[#DC3545] font-bold text-[10px] sm:text-xs flex items-center gap-0.5 group-hover:gap-1 transition-all">
+                              {user ? (
+                                <>
+                                  <span className="hidden sm:inline">View voucher</span>
+                                  <span className="sm:hidden">View code</span>
+                                  <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                  <span className="hidden sm:inline">Join to view</span>
+                                  <span className="sm:hidden">Join</span>
+                                  <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                </>
+                              )}
                             </span>
-                            <span className="text-[10px] text-[#A8A29E] font-medium">Included with Eatinout</span>
                           </div>
                         </div>
                       </div>

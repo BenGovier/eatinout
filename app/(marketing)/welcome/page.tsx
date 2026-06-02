@@ -1000,7 +1000,6 @@ export default function RestaurantListingPage() {
             areaId={filterState.selectedLocationId || undefined}
             getAreaNames={getAreaNames}
             areas={metaState.areas}
-            onUnlockClick={handleUnlockClick}
             searchTerm={debouncedSearchTerm}
             selectedCuisineIds={filterState.selectedCuisineIds}
             selectedDining={filterState.selectedDining}
