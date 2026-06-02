@@ -14,6 +14,8 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -207,6 +209,9 @@ export default function RestaurantsPage() {
   // Show sales panel only if: not an active member AND not dismissed
   const showSalesPanel = !isActiveMember && !salesPanelDismissed
   
+  // Collapsible search/filter controls state - collapsed by default on mobile
+  const [showControls, setShowControls] = useState(false)
+  
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
@@ -299,6 +304,14 @@ export default function RestaurantsPage() {
     selectedDining: [],
     selectedMealTimes: []
   })
+
+  // Check if any filters are active (for showing active state on collapsed row)
+  const hasActiveFilters = filterState.searchTerm || 
+    filterState.selectedLocation || 
+    filterState.selectedCuisineIds.length > 0 ||
+    filterState.selectedMealTimes.length > 0 ||
+    filterState.selectedDays.length > 0 ||
+    filterState.selectedDining.length > 0
 
   const [uiState, setUIState] = useState<UIState>({
     showLocationDropdown: false,
@@ -1209,150 +1222,165 @@ export default function RestaurantsPage() {
           </div>
         </div>
 
-        <section className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-4 shadow-sm">
+        <section className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
           <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto space-y-3">
-              {/* Row 1: Full-width search bar - more premium */}
-              <div className="relative w-full">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                <Input
-                  type="text"
-                  placeholder="Search places with member offers"
-                  value={filterState.searchTerm}
-                  onChange={handleSearchChange}
-                  className="w-full pl-11 pr-10 py-6 text-base border-[#E8E4DF] rounded-2xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7] shadow-sm hover:shadow-md transition-shadow"
-                />
-                {filterState.searchTerm && (
-                  <button
-                    onClick={() => {
-                      setFilterState(prev => ({ ...prev, searchTerm: "" }))
-                      clearFilterState()
-                    }}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Row 2: Location + Filters side by side - premium controls */}
-              <div className="flex items-center gap-3">
-                {/* Choose location button - takes available space */}
-                <div className="relative flex-1" ref={locationDropdownRef}>
-                  <button
-                    className="w-full flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl text-[#1C1917] font-medium transition-all text-sm shadow-sm hover:shadow-md"
-                    onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="w-4 h-4 text-[#DC3545]" />
-                    </div>
-                    <span className="truncate font-semibold">{filterState.selectedLocation || "Choose location"}</span>
-                    {filterState.selectedLocation && (
-                      <span className="text-[#DC3545] text-xs font-medium flex-shrink-0 ml-auto">change</span>
-                    )}
-                  </button>
-
-                  {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-20 min-w-[220px]">
-                      {/* ✅ ALL LOCATIONS OPTION - Always at top */}
-                      {/* <button
-                        onClick={() => {
-                          setFilterState(prev => ({
-                            ...prev,
-                            selectedLocation: "",
-                            selectedLocationId: "",
-                            locationSearch: ""
-                          }))
-                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
-                        }}
-                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                          ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                          : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
-                          <span>All Locations</span>
-                        </div>
-                      </button> */}
+            <div className="max-w-2xl mx-auto">
+              {/* Collapsed trigger row - shown when controls are hidden */}
+              {!showControls ? (
+                <button
+                  onClick={() => setShowControls(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all shadow-sm hover:shadow-md"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
+                    <Search className="w-4.5 h-4.5 text-[#DC3545]" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-[#1C1917] font-semibold text-sm">
+                      {hasActiveFilters ? "Search & filters active" : "Search & filter offers"}
+                    </p>
+                    <p className="text-[#78716C] text-xs">
+                      Find places, change location or filter venues
+                    </p>
+                  </div>
+                  {hasActiveFilters && (
+                    <div className="w-2 h-2 rounded-full bg-[#DC3545] flex-shrink-0" />
+                  )}
+                  <ChevronDown className="w-5 h-5 text-[#A8A29E] flex-shrink-0" />
+                </button>
+              ) : (
+                /* Expanded controls */
+                <div className="space-y-3">
+                  {/* Row 1: Full-width search bar - more premium */}
+                  <div className="relative w-full">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
+                    <Input
+                      type="text"
+                      placeholder="Search places with member offers"
+                      value={filterState.searchTerm}
+                      onChange={handleSearchChange}
+                      className="w-full pl-11 pr-10 py-6 text-base border-[#E8E4DF] rounded-2xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent bg-[#FAF9F7] shadow-sm hover:shadow-md transition-shadow"
+                    />
+                    {filterState.searchTerm && (
                       <button
                         onClick={() => {
-                          setFilterState(prev => ({
-                            ...prev,
-                            selectedLocation: "",
-                            selectedLocationId: "all",
-                          }))
-                          clearScrollPosition()
-                          window.scrollTo({
-                            top: 0,
-                            behavior: "smooth"
-                          })
-                          setPageState(prev => ({
-                            ...prev,
-                            pagination: {
-                              ...prev.pagination,
-                              currentPage: 1
-                            }
-                          }))
-                          setUIState(prev => ({ ...prev, showLocationDropdown: false }))
+                          setFilterState(prev => ({ ...prev, searchTerm: "" }))
+                          clearFilterState()
                         }}
-                        className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
-                          ? 'bg-[#DC3545]/5 text-[#DC3545]'
-                          : 'hover:bg-gray-50 text-gray-700'
-                          }`}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#78716C] hover:text-[#1C1917] transition-colors"
+                        aria-label="Clear search"
                       >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
-                          <span>All Locations</span>
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Row 2: Location + Filters side by side - premium controls */}
+                  <div className="flex items-center gap-3">
+                    {/* Choose location button - takes available space */}
+                    <div className="relative flex-1" ref={locationDropdownRef}>
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl text-[#1C1917] font-medium transition-all text-sm shadow-sm hover:shadow-md"
+                        onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-[#DC3545]" />
                         </div>
+                        <span className="truncate font-semibold">{filterState.selectedLocation || "Choose location"}</span>
+                        {filterState.selectedLocation && (
+                          <span className="text-[#DC3545] text-xs font-medium flex-shrink-0 ml-auto">change</span>
+                        )}
                       </button>
 
-                      {/* Individual Locations */}
-                      {filteredLocations.length > 0 ? (
-                        filteredLocations.map((area) => (
+                      {uiState.showLocationDropdown && !metaState.areasLoading && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-20 min-w-[220px]">
                           <button
-                            key={area.value}
                             onClick={() => {
                               setFilterState(prev => ({
                                 ...prev,
-                                selectedLocation: area.label,
-                                selectedLocationId: area.value,
-                                locationSearch: ""
+                                selectedLocation: "",
+                                selectedLocationId: "all",
+                              }))
+                              clearScrollPosition()
+                              window.scrollTo({
+                                top: 0,
+                                behavior: "smooth"
+                              })
+                              setPageState(prev => ({
+                                ...prev,
+                                pagination: {
+                                  ...prev.pagination,
+                                  currentPage: 1
+                                }
                               }))
                               setUIState(prev => ({ ...prev, showLocationDropdown: false }))
                             }}
-                            className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
-                              ? 'bg-[#DC3545]/5 font-semibold'
-                              : 'hover:bg-gray-50'
+                            className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-200 text-sm font-semibold ${!filterState.selectedLocation
+                              ? 'bg-[#DC3545]/5 text-[#DC3545]'
+                              : 'hover:bg-gray-50 text-gray-700'
                               }`}
                           >
                             <div className="flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="font-medium">{area.label}</span>
+                              <MapPin className={`h-3.5 w-3.5 ${!filterState.selectedLocation ? 'text-[#DC3545]' : 'text-gray-400'}`} />
+                              <span>All Locations</span>
                             </div>
                           </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
-                          No locations found
+
+                          {/* Individual Locations */}
+                          {filteredLocations.length > 0 ? (
+                            filteredLocations.map((area) => (
+                              <button
+                                key={area.value}
+                                onClick={() => {
+                                  setFilterState(prev => ({
+                                    ...prev,
+                                    selectedLocation: area.label,
+                                    selectedLocationId: area.value,
+                                    locationSearch: ""
+                                  }))
+                                  setUIState(prev => ({ ...prev, showLocationDropdown: false }))
+                                }}
+                                className={`w-full text-left px-3 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 text-sm ${filterState.selectedLocationId === area.value
+                                  ? 'bg-[#DC3545]/5 font-semibold'
+                                  : 'hover:bg-gray-50'
+                                  }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                                  <span className="font-medium">{area.label}</span>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
+                              No locations found
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
 
-                {/* Filters button - matching premium style */}
-                <button
-                  onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all flex-shrink-0 shadow-sm hover:shadow-md"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center">
-                    <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
+                    {/* Filters button - matching premium style */}
+                    <button
+                      onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
+                      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all flex-shrink-0 shadow-sm hover:shadow-md"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-[#DC3545]/10 flex items-center justify-center">
+                        <SlidersHorizontal className="w-4 h-4 text-[#DC3545]" />
+                      </div>
+                      <span className="text-[#1C1917] font-semibold text-sm">Filters</span>
+                    </button>
                   </div>
-                  <span className="text-[#1C1917] font-semibold text-sm">Filters</span>
-                </button>
-              </div>
+
+                  {/* Collapse button */}
+                  <button
+                    onClick={() => setShowControls(false)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-[#78716C] hover:text-[#1C1917] transition-colors text-sm"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                    <span>Hide search</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>
