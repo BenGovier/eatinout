@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -25,6 +26,9 @@ export default function MarketingLayout({
   const router = useRouter()
   const { user, authLoading, isAuthenticated, authError, clearAuthError } = useAuth()
 
+  // Minimum loader duration for branded "Dine Out" loader
+  const showMinimumLoader = useMinimumLoader(authLoading)
+
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (user.role === "user" && user.subscriptionStatus === "inactive") {
@@ -36,7 +40,7 @@ export default function MarketingLayout({
     }
   }, [authLoading, isAuthenticated, user, router])
 
-  if (authLoading) {
+  if (authLoading || showMinimumLoader) {
     return <Spinner />
   }
 

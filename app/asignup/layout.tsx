@@ -6,6 +6,7 @@ import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader"
 import { Button } from "@/components/ui/button"
 import "./asignup-styles.css"
 
@@ -17,6 +18,15 @@ export default function AsignupLayout({
     const { user, authLoading } = useAuth()
     const router = useRouter()
     const [isReady, setIsReady] = useState(false)
+
+    const isUserPotentiallyLoggedIn = typeof window !== "undefined" && document.cookie.includes("auth_token")
+
+    // Minimum loader duration for branded "Dine Out" loader
+    // Always show loader for minimum duration, regardless of auth state
+    const showMinimumLoader = useMinimumLoader(authLoading)
+
+    // Actual loading condition (for logic)
+    const isActuallyLoading = !isReady || authLoading || (isUserPotentiallyLoggedIn && !user)
 
     useEffect(() => {
         if (!authLoading) {
@@ -30,9 +40,7 @@ export default function AsignupLayout({
         }
     }, [user, authLoading, router])
 
-    const isUserPotentiallyLoggedIn = typeof window !== "undefined" && document.cookie.includes("auth_token")
-
-    if (!isReady || authLoading || user || (isUserPotentiallyLoggedIn && !user)) {
+    if (showMinimumLoader || isActuallyLoading || user) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#FFFBF7]">
                 <Spinner />

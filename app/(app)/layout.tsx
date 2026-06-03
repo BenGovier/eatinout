@@ -11,6 +11,7 @@ import ClientWrapper from "@/components/client-wrapper";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -21,6 +22,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [layoutReady, setLayoutReady] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
+
+  // Minimum loader duration for branded "Dine Out" loader
+  const showMinimumLoader = useMinimumLoader(authLoading || (!layoutReady && !isPublicRestaurantPage));
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
@@ -124,7 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (authLoading) {
+  if (authLoading || showMinimumLoader) {
     return (
       <Spinner />
     );
@@ -136,7 +140,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!layoutReady) {
+  if (!layoutReady && !isPublicRestaurantPage) {
     return (
       <Spinner />
     );
