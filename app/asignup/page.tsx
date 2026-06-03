@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { MapPin, Ticket, Store, Percent, Users, XCircle } from "lucide-react"
+import { MapPin, Ticket, Percent, Users, XCircle } from "lucide-react"
 
 export default function SignupPage() {
     return (
@@ -258,7 +258,7 @@ export default function SignupPage() {
                             asChild
                             variant="outline"
                             size="lg"
-                            className="w-full sm:w-auto rounded-full text-base font-medium py-6 px-8 border-white/30 text-white hover:bg-white/10 hover:text-white"
+                            className="w-full sm:w-auto rounded-full text-base font-medium py-6 px-8 bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white"
                         >
                             <Link href="/restaurants">Browse restaurants</Link>
                         </Button>
