@@ -36,6 +36,8 @@ import Image from "next/image"
 import { toast } from "react-toastify"
 import { useAuth } from "@/context/auth-context"
 import { WelcomeLocationModal } from "@/components/welcome-location-modal"
+import { Spinner } from "@/components/ui/spinner"
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader"
 
 type Category = {
   id: string
@@ -1011,6 +1013,11 @@ export default function RestaurantsPage() {
     return true
   }, [debouncedSearchTerm, filterState.selectedCuisineIds])
 
+  // Initial page loader - shows branded Dine Out loader on first load
+  // Only for initial load, NOT for filter changes (those use skeletons)
+  const initialRestaurantsLoading = pageState.loading && pageState.restaurants.length === 0
+  const showPageLoader = useMinimumLoader(initialRestaurantsLoading, 3000)
+
   // const handleUnlockClick = useCallback((restaurant: Restaurant) => {
   //   setUIState(prev => ({ ...prev, unlockModalRestaurant: restaurant }))
   // }, [])
@@ -1106,6 +1113,12 @@ export default function RestaurantsPage() {
   //   return metaState.areas.find(area => area.value === filterState.selectedLocationId)
   // }, [metaState.areas, filterState.selectedLocationId])
   // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
+
+  // Show branded Dine Out loader during initial page load
+  if (showPageLoader) {
+    return <Spinner />
+  }
+
   return (
     <>
       <main className="min-h-screen bg-[#FAF9F7] pb-20">
