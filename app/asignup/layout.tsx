@@ -1,6 +1,5 @@
 "use client"
 
-import { Logo } from "@/components/logo"
 import Link from "next/link"
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
@@ -55,11 +54,13 @@ export default function AsignupLayout({
                 {/* Dark overlay for header readability */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
                 <nav className="relative flex items-center justify-between px-5 py-4 max-w-7xl mx-auto">
-                    <Logo 
-                        href="/asignup" 
-                        size="medium" 
-                        className="brightness-0 invert"
-                    />
+                    <Link href="/asignup" className="flex items-center">
+                        <img 
+                            src="/images/eatinoutlogo-red.webp" 
+                            alt="EATINOUT" 
+                            className="h-8 sm:h-10"
+                        />
+                    </Link>
                     <div className="flex items-center gap-3">
                         <Link
                             href="/sign-in"
