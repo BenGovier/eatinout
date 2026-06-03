@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 
-const MINIMUM_LOADER_DURATION = 1400 // 1.4 seconds
+const MINIMUM_LOADER_DURATION = 3000 // 3 seconds
 
 /**
  * Hook to ensure a loader displays for a minimum duration.
@@ -11,11 +11,11 @@ const MINIMUM_LOADER_DURATION = 1400 // 1.4 seconds
  * 1. Always for the first `minimumDuration` milliseconds from mount
  * 2. After that, continues showing if `isLoading` is still true
  * 
- * This ensures users see the branded loader for at least 1.4s,
+ * This ensures users see the branded loader for at least 3s,
  * but doesn't hide content prematurely if actual loading is still in progress.
  * 
  * @param isLoading - The actual loading state from auth/data
- * @param minimumDuration - Optional custom duration in ms (default: 1400ms)
+ * @param minimumDuration - Optional custom duration in ms (default: 3000ms)
  * @returns boolean - Whether to show the loader
  */
 export function useMinimumLoader(
