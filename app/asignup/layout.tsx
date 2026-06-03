@@ -56,9 +56,9 @@ export default function AsignupLayout({
                 <nav className="relative flex items-center justify-between px-5 py-4 max-w-7xl mx-auto">
                     <Link href="/asignup" className="flex items-center">
                         <img 
-                            src="/images/eatinoutlogo.webp" 
+                            src="/images/eatinoutlogo-red.webp" 
                             alt="EATINOUT" 
-                            className="h-8 sm:h-10 brightness-0 invert"
+                            className="h-8 sm:h-10"
                         />
                     </Link>
                     <div className="flex items-center gap-3">
