@@ -23,8 +23,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
 
-  // Minimum loader duration for branded "Dine Out" loader
-  const showMinimumLoader = useMinimumLoader(authLoading || (!layoutReady && !isPublicRestaurantPage));
+  // Calculate raw loading state first, then call hook unconditionally
+  const rawLoading = authLoading || (!layoutReady && !isPublicRestaurantPage);
+  
+  // Minimum loader duration for branded "Dine Out" loader - must be called unconditionally
+  const showMinimumLoader = useMinimumLoader(rawLoading);
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
