@@ -1162,7 +1162,7 @@ export default function RestaurantsPage() {
                     </span>
                     <span className="text-[#78716C] text-sm font-medium">then</span>
                     <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
-                      £2.99/month
+                      £4.99/month
                     </span>
                   </div>
 

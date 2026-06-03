@@ -12,6 +12,7 @@ import { signOut } from 'next-auth/react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Spinner } from '@/components/ui/spinner';
+import { useMinimumLoader } from '@/components/ui/use-minimum-loader';
 import {
 	Dialog,
 	DialogContent,
@@ -81,6 +82,9 @@ export default function DashboardLayout({
 	const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
 
+	// Minimum loader duration for branded "Dine Out" loader
+	const showMinimumLoader = useMinimumLoader(authLoading);
+
 	useEffect(() => {
 		const verifyAuth = async () => {
 			try {
@@ -129,7 +133,7 @@ export default function DashboardLayout({
 	};
 
 	// Show loading while checking authentication
-	if (authLoading) {
+	if (authLoading || showMinimumLoader) {
 		return <Spinner />;
 	}
 

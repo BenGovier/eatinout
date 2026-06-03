@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 const queryClient = new QueryClient({
@@ -28,6 +29,9 @@ export default function AdminLayout({
   const { user, authLoading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Minimum loader duration for branded "Dine Out" loader
+  const showMinimumLoader = useMinimumLoader(authLoading);
+
   useEffect(() => {
     // Only check once auth loading is complete
     if (!authLoading) {
@@ -43,7 +47,7 @@ export default function AdminLayout({
   }, [authLoading, user, router]);
 
   // Show loading while checking authentication
-  if (authLoading) {
+  if (authLoading || showMinimumLoader) {
     return <Spinner />;
   }
 
