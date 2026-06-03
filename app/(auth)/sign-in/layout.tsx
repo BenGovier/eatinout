@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
+import { useMinimumLoader } from "@/components/ui/use-minimum-loader"
 
 export default function DashboardLayout({
     children,
@@ -14,6 +15,9 @@ export default function DashboardLayout({
 }) {
     const router = useRouter()
     const { user, authLoading, isAuthenticated } = useAuth()
+
+    // Minimum loader duration for branded "Dine Out" loader
+    const showMinimumLoader = useMinimumLoader(authLoading)
   
     useEffect(() => {
       // Only redirect once auth loading is complete
@@ -30,7 +34,7 @@ export default function DashboardLayout({
     }, [authLoading, isAuthenticated, user, router])
   
     // Show loading while checking authentication
-    if (authLoading) {
+    if (authLoading || showMinimumLoader) {
       return (
        <Spinner/>
       )
