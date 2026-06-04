@@ -286,7 +286,7 @@ export default function RestaurantsPage() {
   const showSalesPanel = !isActiveMember && !salesPanelDismissed
   
   // Collapsible search/filter controls state - collapsed by default on mobile
-  const [showControls, setShowControls] = useState(false)
+  const [showControls, setShowControls] = useState(true)
   
   // UIState ke saath yeh state add karein
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
@@ -1309,35 +1309,12 @@ export default function RestaurantsPage() {
           </div>
         </div>
 
-        <section className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
+        <section className="bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto">
-              {/* Collapsed trigger row - shown when controls are hidden */}
-              {!showControls ? (
-                <button
-                  onClick={() => setShowControls(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#FFFCF9] to-[#FAF9F7] hover:from-[#FAF9F7] hover:to-[#F5F3F0] border border-[#E8E4DF] rounded-2xl transition-all shadow-sm hover:shadow-md"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#DC3545]/10 flex items-center justify-center flex-shrink-0">
-                    <Search className="w-4.5 h-4.5 text-[#DC3545]" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-[#1C1917] font-semibold text-sm">
-                      {hasActiveFilters ? "Search & filters active" : "Search & filter offers"}
-                    </p>
-                    <p className="text-[#78716C] text-xs">
-                      Find places, change location or filter venues
-                    </p>
-                  </div>
-                  {hasActiveFilters && (
-                    <div className="w-2 h-2 rounded-full bg-[#DC3545] flex-shrink-0" />
-                  )}
-                  <ChevronDown className="w-5 h-5 text-[#A8A29E] flex-shrink-0" />
-                </button>
-              ) : (
-                /* Expanded controls */
-                <div className="space-y-3">
-                  {/* Row 1: Full-width search bar - more premium */}
+              {/* Filter controls - always visible */}
+              <div className="space-y-3">
+                {/* Search bar hidden - uncomment to restore
                   <div className="relative w-full">
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
                     <Input
@@ -1360,8 +1337,9 @@ export default function RestaurantsPage() {
                       </button>
                     )}
                   </div>
+                  */}
 
-                  {/* Row 2: Location + Filters side by side - premium controls */}
+                  {/* Row: Location + Filters side by side - premium controls */}
                   <div className="flex items-center gap-3">
                     {/* Choose location button - takes available space */}
                     <div className="relative flex-1" ref={locationDropdownRef}>
@@ -1457,17 +1435,7 @@ export default function RestaurantsPage() {
                       <span className="text-[#1C1917] font-semibold text-sm">Filters</span>
                     </button>
                   </div>
-
-                  {/* Collapse button */}
-                  <button
-                    onClick={() => setShowControls(false)}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 text-[#78716C] hover:text-[#1C1917] transition-colors text-sm"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                    <span>Hide search</span>
-                  </button>
                 </div>
-              )}
             </div>
           </div>
         </section>
