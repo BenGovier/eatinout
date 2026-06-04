@@ -1171,7 +1171,7 @@ export default function RestaurantsPage() {
                   {/* Price/trial row - more prominent */}
                   <div className="flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#1C1917]/50 rounded-xl border border-[#3D3835]/40">
                     <span className="inline-flex items-center bg-gradient-to-r from-[#DC3545] to-[#B91C2C] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-[#DC3545]/25">
-                      7 days free
+                      30 days free
                     </span>
                     <span className="text-[#78716C] text-sm font-medium">then</span>
                     <span className="inline-flex items-center bg-white/10 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-lg border border-white/10">
@@ -1203,7 +1203,7 @@ export default function RestaurantsPage() {
                       href="/start"
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-[#DC3545] to-[#B91C2C] hover:from-[#B91C2C] hover:to-[#991B1B] text-white text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#DC3545]/25 hover:shadow-[#DC3545]/40"
                     >
-                      Start 7 days free
+                      Start 30 days free
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <button

@@ -518,7 +518,7 @@ useEffect(() => {
                       Get up to 50% off when dining out
                     </h1>
                     <p className="text-base text-muted-foreground">
-                      Start with 7 days free and unlock offers at restaurants, cafés, bars and more.
+                      Start with 30 days free and unlock offers at restaurants, cafés, bars and more.
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Then just £4.99/month. Cancel anytime.
@@ -552,7 +552,7 @@ useEffect(() => {
                       className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
                       style={{ backgroundColor: "#eb221c" }}
                     >
-                      Start my 7-day free trial
+                      Start my 30-day free trial
                     </Button>
 
                     <div className="text-center">
@@ -571,7 +571,7 @@ useEffect(() => {
                     </div>
 
                     <p className="text-center text-xs text-muted-foreground">
-                      Free for 7 days. No commitment.
+                      Free for 30 days. No commitment.
                     </p>
                   </div>
 
@@ -624,7 +624,7 @@ useEffect(() => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 7 days, membership is £4.99/month unless you cancel.</p>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 30 days, membership is £4.99/month unless you cancel.</p>
                       </details>
                       <details className="bg-card rounded-xl border border-border group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
@@ -694,7 +694,7 @@ useEffect(() => {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
-                    <p className="text-sm text-muted-foreground">Start your 7-day free trial</p>
+                    <p className="text-sm text-muted-foreground">Start your 30-day free trial</p>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">

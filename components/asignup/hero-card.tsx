@@ -24,7 +24,7 @@ export function HeroCard() {
                             size="lg"
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm md:text-base font-semibold py-3 md:py-6"
                         >
-                            <Link href="/start">Start my 7-day free trial</Link>
+                            <Link href="/start">Start my 30-day free trial</Link>
                         </Button>
                         <Button
                             asChild
@@ -38,7 +38,7 @@ export function HeroCard() {
 
                     {/* Pricing info */}
                     <p className="text-xs md:text-sm text-muted-foreground">
-                        7 days free, then just £4.99/month. Cancel anytime.
+                        30 days free, then just £4.99/month. Cancel anytime.
                     </p>
 
                     {/* Value Row - simplified */}

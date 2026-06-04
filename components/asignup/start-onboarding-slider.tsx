@@ -247,7 +247,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold py-5 md:py-6"
                                 >
                                     <a href="/sign-up">
-                                        Start my 7-day free trial
+                                        Start my 30-day free trial
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </a>
                                 </Button>

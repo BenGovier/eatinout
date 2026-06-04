@@ -112,7 +112,7 @@ export default function AbandonedOfferPage() {
         </div>
 
         <h1 className="text-5xl font-black text-white mb-4 leading-tight tracking-tight font-sans">
-          Hurry! Your free 7-day trial awaits!
+          Hurry! Your free 30-day trial awaits!
         </h1>
 
         <p className="text-xl text-white/90 mb-12 font-semibold leading-relaxed">
@@ -127,7 +127,7 @@ export default function AbandonedOfferPage() {
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-300 rounded-full animate-bounce" />
             <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-yellow-200 rounded-full animate-ping" />
             <div className="absolute top-1 left-2 w-1 h-1 bg-white rounded-full animate-pulse" />
-            <span className="relative z-10">🎉7 Days On Us!</span>
+            <span className="relative z-10">30 Days On Us!</span>
           </div>
         </div>
 
