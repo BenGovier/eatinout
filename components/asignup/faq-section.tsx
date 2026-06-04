@@ -18,7 +18,7 @@ const faqs = [
     },
     {
         question: "What happens after the free trial?",
-        answer: "After 7 days, membership is £4.99/month unless you cancel.",
+        answer: "After 30 days, membership is £4.99/month unless you cancel.",
     },
     {
         question: "Can I cancel anytime?",

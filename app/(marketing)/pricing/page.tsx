@@ -61,7 +61,7 @@ const config: PricingConfig = {
   monthlyPrice: 4.99,
   sixMonthPrice: 29.94,
   annualPrice: 49.99,
-  trialDays: 7,
+  trialDays: 30,
   venuesCount: 250,
   avgSavePerVisit: 16.67,
   showTrialChip: true,

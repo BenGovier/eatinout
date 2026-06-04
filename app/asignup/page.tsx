@@ -48,7 +48,7 @@ export default function SignupPage() {
 
                         {/* Price line */}
                         <p className="text-sm text-white/60 mb-6">
-                            7 days free, then £4.99/month.
+                            30 days free, then £4.99/month.
                         </p>
 
                         {/* CTA buttons */}
@@ -58,7 +58,7 @@ export default function SignupPage() {
                                 size="lg"
                                 className="w-full sm:w-auto bg-[#DC3545] hover:bg-[#B91C2C] text-white rounded-full text-base font-semibold py-6 px-8 shadow-lg shadow-[#DC3545]/25"
                             >
-                                <Link href="/start">Start 7 days free</Link>
+                                <Link href="/start">Start 30 days free</Link>
                             </Button>
                             <Button
                                 asChild
@@ -270,7 +270,7 @@ export default function SignupPage() {
                             </span>
                             <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm text-white text-sm font-medium px-4 py-2 rounded-full border border-white/20">
                                 <Percent className="w-4 h-4 text-[#DC3545]" />
-                                7 days free
+                                30 days free
                             </span>
                         </div>
                     </div>
@@ -281,7 +281,7 @@ export default function SignupPage() {
             <section className="py-10 px-5 bg-gradient-to-r from-[#DC3545] via-[#B91C2C] to-[#DC3545]">
                 <div className="max-w-4xl mx-auto text-center">
                     <p className="text-3xl sm:text-4xl font-bold text-white mb-3">
-                        7 days free, then £4.99/month
+                        30 days free, then £4.99/month
                     </p>
                     <p className="text-base text-white/80 mb-6">
                         Use Eatinout to save at restaurants, cafés and bars across Lancashire.
@@ -318,7 +318,7 @@ export default function SignupPage() {
                             size="lg"
                             className="w-full sm:w-auto bg-[#DC3545] hover:bg-[#B91C2C] text-white rounded-full text-base font-semibold py-6 px-8 shadow-lg shadow-[#DC3545]/25"
                         >
-                            <Link href="/start">Start 7 days free</Link>
+                            <Link href="/start">Start 30 days free</Link>
                         </Button>
                         <Button
                             asChild
@@ -329,7 +329,7 @@ export default function SignupPage() {
                         </Button>
                     </div>
                     <p className="text-sm text-white/50 mt-6">
-                        7 days free, then £4.99/month. Cancel anytime.
+                        30 days free, then £4.99/month. Cancel anytime.
                     </p>
                 </div>
             </section>
