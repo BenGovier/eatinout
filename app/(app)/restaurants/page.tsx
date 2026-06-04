@@ -14,6 +14,7 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -181,6 +182,79 @@ const DAY_MAP: Record<string, string> = {
   'friday': 'Fri',
   'saturday': 'Sat',
   'sunday': 'Sun'
+}
+
+// Small child component to safely use useState for offer cycling
+function RestaurantOfferTicker({ offers }: { offers: Array<{ discount: string; unlimited: boolean; remainingCount?: number }> }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  
+  if (!offers || offers.length === 0) return null
+  
+  const hasMultiple = offers.length > 1
+  const currentOffer = offers[currentIndex]
+  
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCurrentIndex((prev) => (prev === 0 ? offers.length - 1 : prev - 1))
+  }
+  
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCurrentIndex((prev) => (prev === offers.length - 1 ? 0 : prev + 1))
+  }
+  
+  const handleDotClick = (e: React.MouseEvent, index: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCurrentIndex(index)
+  }
+  
+  return (
+    <div className="pt-2 border-t border-dashed border-[#E8E4DF] flex-1">
+      <div className="flex items-center gap-1">
+        {hasMultiple && (
+          <button
+            onClick={handlePrev}
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-[#F5F0EB] hover:bg-[#E8E4DF] text-[#78716C] hover:text-[#1C1917] transition-colors"
+            aria-label="Previous offer"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+        )}
+        <p className="text-[#DC3545] font-bold text-xs sm:text-sm line-clamp-2 leading-tight flex-1 text-center">
+          {currentOffer.discount}
+        </p>
+        {hasMultiple && (
+          <button
+            onClick={handleNext}
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-[#F5F0EB] hover:bg-[#E8E4DF] text-[#78716C] hover:text-[#1C1917] transition-colors"
+            aria-label="Next offer"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {hasMultiple && (
+        <div className="flex items-center justify-center gap-1 mt-1.5">
+          {offers.map((_, index) => (
+            <button
+              key={index}
+              onClick={(e) => handleDotClick(e, index)}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                index === currentIndex
+                  ? "bg-[#DC3545]"
+                  : "bg-[#D6D3D1] hover:bg-[#A8A29E]"
+              }`}
+              aria-label={`Go to offer ${index + 1}`}
+            />
+          ))}
+          <span className="text-[8px] text-[#A8A29E] ml-1">{currentIndex + 1}/{offers.length}</span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function RestaurantsPage() {
@@ -1591,7 +1665,6 @@ export default function RestaurantsPage() {
                   unlimited: !offer.totalCodes,
                   remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
                 })) || []
-                const heroOffer = offers[0]
 
                 return (
                   <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full group">
@@ -1700,12 +1773,8 @@ export default function RestaurantsPage() {
                             <span className="truncate">{restaurant.city}</span>
                           </p>
 
-                          {/* Offer display - compact voucher style */}
-                          {heroOffer && (
-                            <div className="pt-2 border-t border-dashed border-[#E8E4DF] flex-1">
-                              <p className="text-[#DC3545] font-bold text-xs sm:text-sm line-clamp-2 leading-tight">{heroOffer.discount}</p>
-                            </div>
-                          )}
+                          {/* Offer display - multi-offer ticker */}
+                          <RestaurantOfferTicker offers={offers} />
 
                           {/* CTA strip - compact */}
                           <div className="pt-2 border-t border-[#E8E4DF] mt-auto">
