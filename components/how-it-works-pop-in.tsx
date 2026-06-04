@@ -18,7 +18,7 @@ export type WelcomeModalProps = {
   venuesCount?: number // e.g., 250
   originalPriceText?: string // default "£8.99/m" - shown with strikethrough
   pricePerMonthText?: string // default "£4.99/m"
-  trialText?: string // default "7 days free"
+  trialText?: string // default "30 days free"
   // Optional risky cues (off by default)
   showViewerCount?: boolean
   viewerCount?: number
@@ -37,7 +37,7 @@ export function HowItWorksPopIn({
   venuesCount = 250,
   originalPriceText = "£8.99/m",
   pricePerMonthText = "£4.99/m",
-  trialText = "7 days free",
+  trialText = "30 days free",
   showViewerCount = false,
   viewerCount = 23,
   showSpotsLeft = false,
@@ -317,7 +317,7 @@ export function HowItWorksPopInLegacy() {
       venuesCount={250}
       originalPriceText="£8.99/m"
       pricePerMonthText="£4.99/m"
-      trialText="7 days free"
+      trialText="30 days free"
       showViewerCount={false}
       showSpotsLeft={false}
     />
