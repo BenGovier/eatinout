@@ -1309,7 +1309,7 @@ export default function RestaurantsPage() {
           </div>
         </div>
 
-        <section className="bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
+        <section className="relative z-40 bg-white/95 backdrop-blur-sm border-b border-[#E8E4DF] py-3 shadow-sm">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto">
               {/* Filter controls - always visible */}
@@ -1357,7 +1357,7 @@ export default function RestaurantsPage() {
                       </button>
 
                       {uiState.showLocationDropdown && !metaState.areasLoading && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-20 min-w-[220px]">
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#E8E4DF] rounded-2xl shadow-xl max-h-60 overflow-y-auto z-50 min-w-[220px]">
                           <button
                             onClick={() => {
                               setFilterState(prev => ({
