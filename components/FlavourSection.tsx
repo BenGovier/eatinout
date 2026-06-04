@@ -142,12 +142,12 @@ export const FlavourSection = memo(function FlavourSection({
                           {cuisine.label}
                         </h3>
                         
-                        {/* Subtle label */}
-                        <span className={`text-[10px] font-medium mt-0.5 transition-colors ${
-                          isSelected ? 'text-[#DC3545]' : 'text-white/70'
-                        }`}>
-                          {isSelected ? 'Selected' : 'Member venues'}
-                        </span>
+                        {/* Subtle label - only show when selected */}
+                        {isSelected && (
+                          <span className="text-[10px] font-medium mt-0.5 text-[#DC3545]">
+                            Selected
+                          </span>
+                        )}
                       </div>
 
                       {/* Selected checkmark */}
