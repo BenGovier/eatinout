@@ -7,8 +7,8 @@ export function HeroSection() {
         <section className="relative flex min-h-[88vh] w-full items-center justify-center overflow-hidden">
             {/* Full-screen dine-in background image */}
             <Image
-                src="/images/asignup-hero-dinein.png"
-                alt="Friends enjoying a meal together at a bright restaurant"
+                src="/images/asignup-hero-dinein.jpg"
+                alt="Friends enjoying a meal together at a restaurant"
                 fill
                 priority
                 sizes="100vw"
@@ -17,7 +17,7 @@ export function HeroSection() {
 
             {/* Soft gradient overlay - lighter, only for text readability */}
             <div
-                className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent"
+                className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20"
                 aria-hidden="true"
             />
 
