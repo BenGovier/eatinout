@@ -1,7 +1,6 @@
 "use client"
 
-import { ImageCollage } from "@/components/asignup/image-collage"
-import { HeroCard } from "@/components/asignup/hero-card"
+import { HeroSection } from "@/components/asignup/hero-section"
 import { SocialProof } from "@/components/asignup/social-proof"
 import { HowItWorks } from "@/components/asignup/how-it-works"
 import { ValueReinforcement } from "@/components/asignup/value-reinforcement"
@@ -13,12 +12,7 @@ export default function SignupPage() {
     return (
         <>
             {/* Hero Section */}
-            <div className="relative min-h-[500px] md:min-h-[600px] lg:min-h-[700px]">
-                <ImageCollage />
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <HeroCard />
-                </div>
-            </div>
+            <HeroSection />
 
             {/* Social Proof */}
             <SocialProof />
