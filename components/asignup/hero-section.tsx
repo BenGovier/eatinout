@@ -24,11 +24,11 @@ export function HeroSection() {
             {/* Hero content */}
             <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-16 text-center">
                 <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl">
-                    Save at 500+ restaurants, cafés and bars
+                    Up to 50% off the total bill in restaurants
                 </h1>
 
                 <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-white/95 drop-shadow sm:text-lg">
-                    Enjoy exclusive dine-in discounts and save an average of £23 every time you eat out.
+                    Save an average of £24 when you dine out.
                 </p>
 
                 <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
@@ -38,7 +38,7 @@ export function HeroSection() {
                         size="lg"
                         className="w-full rounded-full bg-primary py-6 text-base font-semibold text-primary-foreground hover:bg-primary/90"
                     >
-                        <Link href="/restaurants">See restaurants</Link>
+                        <Link href="/restaurants">Search restaurants</Link>
                     </Button>
 
                     {/* Secondary - black */}
@@ -47,7 +47,7 @@ export function HeroSection() {
                         size="lg"
                         className="w-full rounded-full bg-black py-6 text-base font-semibold text-white hover:bg-black/85"
                     >
-                        <Link href="#how-it-works">Learn more</Link>
+                        <Link href="#how-it-works">Find out more</Link>
                     </Button>
                 </div>
             </div>
