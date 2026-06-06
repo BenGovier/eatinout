@@ -8,23 +8,26 @@ export function HeroSection() {
             {/* Full-screen dine-in background image */}
             <Image
                 src="/images/asignup-hero-dinein.png"
-                alt="Friends enjoying dinner together at a restaurant"
+                alt="Friends enjoying a meal together at a bright restaurant"
                 fill
                 priority
                 sizes="100vw"
                 className="object-cover"
             />
 
-            {/* Dark overlay for text readability */}
-            <div className="absolute inset-0 bg-black/60" aria-hidden="true" />
+            {/* Soft gradient overlay - lighter, only for text readability */}
+            <div
+                className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent"
+                aria-hidden="true"
+            />
 
             {/* Hero content */}
             <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-16 text-center">
-                <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
+                <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl">
                     Save at 500+ restaurants, cafés and bars
                 </h1>
 
-                <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-white/85 sm:text-lg">
+                <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-white/95 drop-shadow sm:text-lg">
                     Enjoy exclusive dine-in discounts and save an average of £23 every time you eat out.
                 </p>
 
