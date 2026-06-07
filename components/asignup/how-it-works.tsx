@@ -1,58 +1,74 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Search, QrCode, PiggyBank } from "lucide-react"
 
 const steps = [
     {
-        icon: Search,
-        title: "Find an offer",
-        description: "Browse nearby restaurants, cafés and bars with live dining out deals.",
+        number: "1",
+        image: "/images/how-step-browse.png",
+        text: "Browse 500+ restaurants, cafés and bars near you.",
     },
     {
-        icon: QrCode,
-        title: "Show your code",
-        description: "Choose the offer and show your EatinOut code at the venue.",
+        number: "2",
+        image: "/images/how-step-code.png",
+        text: "Choose an offer and generate your discount code.",
     },
     {
-        icon: PiggyBank,
-        title: "Save money",
-        description: "Enjoy the discount, freebie or 2-for-1 deal when you dine out.",
+        number: "3",
+        image: "/images/how-step-show.png",
+        text: "Show the code when you dine and enjoy the savings.",
     },
 ]
 
 export function HowItWorks() {
     return (
         <section id="how-it-works" className="py-12 md:py-20 bg-background">
-            <div className="mx-auto max-w-7xl px-4 lg:px-8">
+            <div className="mx-auto max-w-5xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-10 md:mb-14">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground">
-                        How EatinOut works
+                <div className="text-center mb-12 md:mb-20">
+                    <h2 className="text-2xl md:text-4xl font-bold text-foreground text-balance">
+                        How Eatinout works
                     </h2>
+                    <p className="mt-3 text-base md:text-lg text-muted-foreground text-pretty">
+                        Simple. Fast. No vouchers. No awkward conversations.
+                    </p>
                 </div>
 
                 {/* Steps */}
-                <div className="grid gap-6 md:gap-8 md:grid-cols-3 max-w-4xl mx-auto">
+                <div className="flex flex-col gap-16 md:gap-24">
                     {steps.map((step, index) => (
                         <div
-                            key={index}
-                            className="text-center"
+                            key={step.number}
+                            className={`flex flex-col items-center gap-6 md:gap-12 ${
+                                index % 2 === 1 ? "md:flex-row-reverse" : "md:flex-row"
+                            }`}
                         >
-                            <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary/10 text-primary mb-4">
-                                <step.icon className="h-7 w-7 md:h-8 md:w-8" />
+                            {/* Phone mockup */}
+                            <div className="relative w-48 sm:w-56 md:w-64 shrink-0">
+                                <Image
+                                    src={step.image || "/placeholder.svg"}
+                                    alt={`Step ${step.number}: ${step.text}`}
+                                    width={512}
+                                    height={512}
+                                    className="w-full h-auto"
+                                />
                             </div>
-                            <h3 className="text-lg md:text-xl font-semibold text-foreground mb-2">
-                                {step.title}
-                            </h3>
-                            <p className="text-sm md:text-base text-muted-foreground text-pretty">
-                                {step.description}
-                            </p>
+
+                            {/* Text */}
+                            <div className="text-center md:text-left max-w-sm">
+                                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground text-base font-bold mb-4">
+                                    {step.number}
+                                </span>
+                                <p className="text-xl md:text-2xl font-semibold text-foreground text-balance leading-snug">
+                                    {step.text}
+                                </p>
+                            </div>
                         </div>
                     ))}
                 </div>
 
                 {/* CTA */}
-                <div className="text-center mt-10 md:mt-14">
+                <div className="text-center mt-16 md:mt-24">
                     <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8 py-6 text-base font-semibold">
                         <Link href="/start">Start saving today</Link>
                     </Button>

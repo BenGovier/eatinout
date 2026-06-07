@@ -2,7 +2,6 @@
 
 import { Header } from "@/components/asignup/header"
 import { Footer } from "@/components/asignup/footer"
-import { PromoStrip } from "@/components/asignup/promo-strip"
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -43,7 +42,6 @@ export default function AsignupLayout({
     return (
         <div className="asignup-container min-h-screen flex flex-col font-sans">
             <Header />
-            <PromoStrip />
             <main className="flex-1">
                 {children}
             </main>
