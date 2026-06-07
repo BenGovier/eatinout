@@ -28,24 +28,17 @@ export function HeroSection() {
             {/* Hero content - sits low over the darker table-edge area */}
             <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-6 pb-10 text-center">
                 <h1
-                    className="text-balance text-[44px] font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl"
+                    className="text-balance text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl"
                     style={{ textShadow: "0 3px 12px rgba(0,0,0,0.6)" }}
                 >
-                    Save up to 50%
+                    Up to 50% off the total bill in restaurants
                 </h1>
 
                 <p
-                    className="mt-4 text-pretty text-[22px] font-medium leading-snug text-white sm:text-3xl"
+                    className="mt-4 text-pretty text-lg font-medium leading-snug text-white sm:text-2xl"
                     style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
                 >
-                    At 500+ restaurants, cafés and bars
-                </p>
-
-                <p
-                    className="mt-4 text-pretty text-base leading-relaxed text-white"
-                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
-                >
-                    Members save an average of £23 every time they eat out.
+                    Save an average of £24 when you eat out
                 </p>
 
                 <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
