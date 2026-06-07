@@ -295,7 +295,7 @@ export default function RestaurantsPage() {
     'available-everywhere': true,
   })
 
-  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(true)
+  const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(false)
 
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
@@ -1099,7 +1099,7 @@ export default function RestaurantsPage() {
               </div>
 
               <div className="flex items-center justify-start w-full">
-                <div className="relative" ref={locationDropdownRef}>
+                <div className="relative z-40" ref={locationDropdownRef}>
                   <button
                     className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-gray-700 font-medium transition-colors"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
@@ -1115,7 +1115,7 @@ export default function RestaurantsPage() {
                   </button>
 
                   {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20 w-full">
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-[100] w-full">
                       {/* ✅ ALL LOCATIONS OPTION - Always at top */}
                       {/* <button
                         onClick={() => {
