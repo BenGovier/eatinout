@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
     return (
-        <section className="relative flex min-h-[68vh] w-full items-end justify-center overflow-hidden">
+        <section className="relative flex min-h-[65vh] w-full items-end justify-center overflow-hidden">
             {/* Dine-in background image */}
             <Image
                 src="/images/asignup-hero-friends.png"
@@ -15,27 +15,36 @@ export function HeroSection() {
                 className="object-cover"
             />
 
-            {/* Bottom-only gradient: top 55% untouched, lower portion darkens for text readability */}
+            {/* Bottom-only gradient: top stays bright, lower portion darkens into a dedicated content area */}
             <div
                 className="absolute inset-0"
                 style={{
                     background:
-                        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.72) 100%)",
+                        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.75) 80%, rgba(0,0,0,0.92) 100%)",
                 }}
                 aria-hidden="true"
             />
 
-            {/* Hero content - sits over the darker lower portion */}
-            <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-6 pb-12 text-center">
-                <h1 className="text-balance text-[44px] font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-lg sm:text-6xl">
+            {/* Hero content - sits low over the darker table-edge area */}
+            <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-6 pb-10 text-center">
+                <h1
+                    className="text-balance text-[44px] font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl"
+                    style={{ textShadow: "0 3px 12px rgba(0,0,0,0.6)" }}
+                >
                     Save up to 50%
                 </h1>
 
-                <p className="mt-4 text-pretty text-[22px] font-medium leading-snug text-white drop-shadow-md sm:text-3xl">
+                <p
+                    className="mt-4 text-pretty text-[22px] font-medium leading-snug text-white sm:text-3xl"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
+                >
                     At 500+ restaurants, cafés and bars
                 </p>
 
-                <p className="mt-4 text-pretty text-base leading-relaxed text-white drop-shadow-md">
+                <p
+                    className="mt-4 text-pretty text-base leading-relaxed text-white"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
+                >
                     Members save an average of £23 every time they eat out.
                 </p>
 
