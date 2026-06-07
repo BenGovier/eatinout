@@ -49,11 +49,11 @@ export function HeroSection() {
                 </p>
 
                 <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
-                    {/* Primary - Eatinout red */}
+                    {/* Primary - new green */}
                     <Button
                         asChild
                         size="lg"
-                        className="w-full rounded-full bg-primary py-6 text-base font-semibold text-primary-foreground hover:bg-primary/90"
+                        className="w-full rounded-full bg-[#14805E] py-6 text-base font-semibold text-white hover:bg-[#116b4f]"
                     >
                         <Link href="/restaurants">See restaurants</Link>
                     </Button>
