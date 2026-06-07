@@ -15,9 +15,13 @@ export function HeroSection() {
                 className="object-cover"
             />
 
-            {/* Soft bottom-only gradient: top 60% almost untouched, bottom 40% darker for readability */}
+            {/* Bottom-only gradient: top 55% untouched, lower portion darkens for text readability */}
             <div
-                className="absolute inset-0 bg-gradient-to-b from-transparent from-55% via-black/45 to-black/80"
+                className="absolute inset-0"
+                style={{
+                    background:
+                        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.72) 100%)",
+                }}
                 aria-hidden="true"
             />
 
