@@ -7,25 +7,25 @@ const benefits = ["Restaurants, cafés & bars", "Up to 50% off food & drinks", "
 
 export function HeroSection() {
     return (
-        <section className="relative flex min-h-[92vh] w-full items-end justify-center overflow-hidden">
+        <section className="relative flex min-h-[92vh] w-full items-center justify-center overflow-hidden">
             {/* Full-screen dine-in background image */}
             <Image
-                src="/images/asignup-hero-sharing.jpg"
-                alt="Friends sharing plates of food together at a restaurant table"
+                src="/images/asignup-hero-friends.png"
+                alt="Friends laughing together over a table full of food at a restaurant"
                 fill
                 priority
                 sizes="100vw"
                 className="object-cover"
             />
 
-            {/* Vertical gradient overlay - transparent top, strong bottom for readability */}
+            {/* Overlay - balanced for centered text readability */}
             <div
-                className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/30 to-black/85"
+                className="absolute inset-0 bg-black/55"
                 aria-hidden="true"
             />
 
-            {/* Hero content - anchored to bottom 45% over the darker section */}
-            <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 pb-12 pt-0 text-center">
+            {/* Hero content - centered to mid screen */}
+            <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-16 text-center">
                 <h1 className="text-balance text-[30px] font-bold leading-[1.1] tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl">
                     Save up to 50% at 500+ restaurants
                 </h1>
