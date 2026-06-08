@@ -428,45 +428,50 @@ export default function SignInPage() {
     "Cancel anytime",
   ];
 
+  const trustPills = ["30 days free", "£4.99/month", "Cancel anytime"];
+
+  const foodImage =
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg";
+
   return (
-    <div className="min-h-screen bg-[#fdfaf5] flex flex-col lg:flex-row">
-      {/* Left: membership benefit panel (desktop only) */}
-      <div className="relative hidden lg:block lg:w-1/2 bg-[#FFF3E2] overflow-hidden">
+    <div className="min-h-screen bg-[#fdf6ec] flex flex-col lg:flex-row">
+      {/* Left: warm restaurant brand panel (desktop only) */}
+      <div className="relative hidden lg:flex lg:w-1/2 overflow-hidden">
         <Image
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg"
-          alt="Restaurant table with dishes and drinks"
-          width={900}
-          height={500}
-          className="h-40 w-full object-cover lg:h-56"
+          src={foodImage}
+          alt="Friends enjoying dishes and drinks at a restaurant"
+          fill
+          sizes="50vw"
+          className="object-cover"
           priority
         />
-        <div className="px-6 py-8 md:px-10 lg:py-12">
-          <div className="max-w-md mx-auto lg:mx-0 space-y-5">
-            <Image
-              src="/eatinout-logo.webp"
-              alt="Eatinout"
-              width={140}
-              height={36}
-              className="h-8 w-auto"
-            />
-            <div className="space-y-2">
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground text-balance">
-                Restaurant discounts when you eat out
-              </h2>
-              <p className="text-base text-muted-foreground text-pretty">
-                Save up to 50% at 500+ restaurants, cafés and bars.
-              </p>
-            </div>
-            <ul className="space-y-3">
-              {benefits.map((benefit) => (
-                <li key={benefit} className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                    <Check className="h-3.5 w-3.5 text-primary" strokeWidth={3} />
-                  </span>
-                  <span className="text-[15px] leading-snug text-foreground">{benefit}</span>
-                </li>
+        {/* Warm gradient overlay for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+        <div className="relative z-10 flex flex-col justify-between w-full p-10 xl:p-12">
+          <Image
+            src="/eatinout-logo.webp"
+            alt="Eatinout"
+            width={150}
+            height={38}
+            className="h-9 w-auto brightness-0 invert"
+          />
+          <div className="space-y-5 max-w-md">
+            <h2 className="text-3xl xl:text-4xl font-bold tracking-tight text-white text-balance leading-tight">
+              Restaurant discounts when you eat out
+            </h2>
+            <p className="text-lg text-white/85 text-pretty">
+              Save up to 50% at 500+ restaurants, cafés and bars.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {trustPills.map((pill) => (
+                <span
+                  key={pill}
+                  className="rounded-full bg-white/15 backdrop-blur-sm px-3.5 py-1.5 text-sm font-medium text-white border border-white/25"
+                >
+                  {pill}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -485,14 +490,33 @@ export default function SignInPage() {
             />
           </div>
 
+          {/* Mobile warm image / benefit strip */}
+          <div className="relative h-28 rounded-3xl overflow-hidden shadow-sm lg:hidden">
+            <Image
+              src={foodImage}
+              alt="Friends enjoying dishes at a restaurant"
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/20" />
+            <div className="relative z-10 h-full flex flex-col justify-center px-5">
+              <p className="text-white font-bold text-base leading-snug text-balance">
+                Restaurant discounts when you eat out
+              </p>
+              <p className="text-white/85 text-xs mt-1">Save up to 50% at 500+ places</p>
+            </div>
+          </div>
+
           {/* Login card */}
-          <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm p-6 md:p-7 space-y-5">
+          <div className="bg-white rounded-2xl border border-[#ecdfcb] shadow-md shadow-black/5 p-6 md:p-7 space-y-5">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 Sign in to your membership
               </h1>
               <p className="text-sm text-muted-foreground">
-                Welcome back — sign in to view your offers.
+                Welcome back — view your offers and saved restaurants.
               </p>
             </div>
 
@@ -506,7 +530,7 @@ export default function SignInPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-13 text-base rounded-xl bg-[#fafafa] border border-border placeholder:text-muted-foreground"
+                className="w-full h-12 text-base rounded-xl bg-[#faf7f1] border border-[#ecdfcb] focus-visible:ring-primary/30 placeholder:text-muted-foreground"
                 required
               />
               <div className="relative">
@@ -516,7 +540,7 @@ export default function SignInPage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-13 text-base rounded-xl bg-[#fafafa] border border-border placeholder:text-muted-foreground pr-12"
+                  className="w-full h-12 text-base rounded-xl bg-[#faf7f1] border border-[#ecdfcb] focus-visible:ring-primary/30 placeholder:text-muted-foreground pr-12"
                   required
                 />
                 <button
@@ -539,7 +563,7 @@ export default function SignInPage() {
               </div>
               <Button
                 type="submit"
-                className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
+                className="w-full h-14 text-lg font-semibold rounded-xl bg-[#1a1a1a] text-white hover:bg-[#1a1a1a]/90 transition-colors"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -574,11 +598,11 @@ export default function SignInPage() {
           </div>
 
           {/* New user card */}
-          <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm p-6 md:p-7 space-y-4">
+          <div className="rounded-2xl border border-primary/15 bg-primary/[0.05] shadow-sm p-6 md:p-7 space-y-4">
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-foreground">New to Eatinout?</h2>
               <p className="text-sm text-muted-foreground text-pretty">
-                Save up to 50% when you eat out. Start with 30 days free, then £4.99/month.
+                Start 30 days free and save up to 50% when you eat out.
               </p>
             </div>
             <Button
@@ -590,15 +614,17 @@ export default function SignInPage() {
             </Button>
           </div>
 
-          {/* Compact benefits (mobile-friendly reassurance) */}
-          <ul className="grid grid-cols-1 gap-2 px-1 lg:hidden">
+          {/* Compact benefits block */}
+          <div className="rounded-2xl border border-[#ecdfcb] bg-[#fffaf2] p-4 space-y-2.5">
             {benefits.map((benefit) => (
-              <li key={benefit} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Check className="h-4 w-4 text-primary shrink-0" strokeWidth={3} />
-                <span>{benefit}</span>
-              </li>
+              <div key={benefit} className="flex items-center gap-3">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                  <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+                </span>
+                <span className="text-sm text-foreground">{benefit}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       </div>
 
