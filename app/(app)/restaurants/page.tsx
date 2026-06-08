@@ -25,6 +25,7 @@ import { FlavourSection } from "@/components/FlavourSection"
 import { AvailableEverywhereCarousel } from "@/components/AvailableEverywhereCarousel"
 import { AuthCarouselList } from "@/components/AuthCarouselList"
 import { RestaurantCardSkeleton } from "@/components/restaurant-card-skeleton"
+import { RestaurantsLoader } from "@/components/ui/restaurants-loader"
 import Link from "next/link"
 import Image from "next/image"
 import { toast } from "react-toastify"
@@ -297,6 +298,19 @@ export default function RestaurantsPage() {
 
   const [showWelcomeLocationModal, setShowWelcomeLocationModal] = useState(false)
 
+  // True once the first restaurant fetch has resolved. Used to ensure the
+  // full-screen branded loader only appears on initial load, never on filter changes.
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+
+  // Enforces a minimum visible duration for the initial branded loader so it
+  // never flashes. Applies ONLY to the first load (filter changes never re-show it).
+  const [minLoaderTimeElapsed, setMinLoaderTimeElapsed] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinLoaderTimeElapsed(true), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
 
@@ -458,6 +472,7 @@ export default function RestaurantsPage() {
           hasNextPage: data.pagination?.hasNextPage || false
         }
       }))
+      setInitialLoadComplete(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       setPageState(prev => ({
@@ -467,6 +482,7 @@ export default function RestaurantsPage() {
         loadingListReset: false,
         restaurants: reset ? [] : prev.restaurants
       }))
+      setInitialLoadComplete(true)
     } finally {
       fetchingRef.current.delete(requestKey)
     }
@@ -1060,6 +1076,7 @@ export default function RestaurantsPage() {
   // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
   return (
     <>
+      {(!initialLoadComplete || !minLoaderTimeElapsed) && <RestaurantsLoader />}
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
         <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
           <div className="container mx-auto px-4">
