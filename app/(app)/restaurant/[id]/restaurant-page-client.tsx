@@ -291,7 +291,7 @@ export function RestaurantPageClient({
 
 
   return (
-    <div className="min-h-screen bg-soft-bg bg-gray-50 pb-24 lg:pb-0">
+    <div className="min-h-screen bg-[#FFFBF7] pb-24 lg:pb-0">
       <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
 
       <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
@@ -357,28 +357,41 @@ export function RestaurantPageClient({
         onValueChange={(value) => setUIState(prev => ({ ...prev, activeTab: value }))} 
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 rounded-none border-b border-lines bg-white h-auto p-0 mb-6 sticky top-0 z-30">
+        <TabsList className="flex w-full gap-2 rounded-none bg-transparent h-auto p-3 mb-2 sticky top-0 z-30 bg-[#FFFBF7]/90 backdrop-blur-sm border-b border-lines/60">
           <TabsTrigger
             value="information"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-2 py-4 font-medium text-sm"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Information
           </TabsTrigger>
           <TabsTrigger
             value="offers"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-2 py-4 font-medium text-sm"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Offers ({offers.length})
           </TabsTrigger>
           <TabsTrigger
             value="gallery"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-2 py-4 font-medium text-sm"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Gallery
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="offers" className="px-4 py-6 space-y-6 animate-in fade-in duration-700">
+          <div className="mb-1">
+            <h2
+              className="text-lg font-bold text-dark-ink"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Available offers
+            </h2>
+            {!canViewFullDetails && (
+              <p className="text-sm text-dark-ink/60 mt-0.5">
+                Start free to unlock this restaurant&apos;s offers.
+              </p>
+            )}
+          </div>
           {offers.map((offer: any, index: number) => (
             <div key={offer.id}>
               <div ref={(el) => { offerRefs.current[offer.id] = el }}>
@@ -596,18 +609,18 @@ export function RestaurantPageClient({
       )}
       {/* Mobile-only sticky CTA for logged-out users */}
       {!canViewFullDetails && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-lines bg-white/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-lines bg-white/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-dark-ink leading-tight">Start 30 days free</p>
-              <p className="text-xs text-muted-foreground truncate">Unlock offers at this restaurant</p>
+              <p className="text-sm font-bold text-dark-ink leading-tight">Unlock this offer</p>
+              <p className="text-xs text-dark-ink/60 truncate">Start 30 days free</p>
             </div>
             <Button
               onClick={() => {
                 const currentUrl = window.location.pathname + window.location.search;
                 router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
               }}
-              className="flex-shrink-0 bg-primary hover:bg-primary/90 text-white font-bold px-5"
+              className="flex-shrink-0 bg-primary hover:bg-primary/90 text-white font-bold px-5 rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)]"
             >
               Start free
             </Button>
