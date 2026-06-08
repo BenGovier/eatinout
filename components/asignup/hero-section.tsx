@@ -38,7 +38,7 @@ export function HeroSection() {
                     className="mt-4 text-pretty text-lg font-medium leading-snug text-white sm:text-2xl"
                     style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
                 >
-                    Save an average of £24 when you eat out
+                    Save up to £25 on a £50 meal when you eat out
                 </p>
 
                 <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">

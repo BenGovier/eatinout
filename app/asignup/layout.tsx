@@ -4,8 +4,7 @@ import { Header } from "@/components/asignup/header"
 import { Footer } from "@/components/asignup/footer"
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { Spinner } from "@/components/ui/spinner"
+import { useEffect } from "react"
 import "./asignup-styles.css"
 
 export default function AsignupLayout({
@@ -15,29 +14,14 @@ export default function AsignupLayout({
 }) {
     const { user, authLoading } = useAuth()
     const router = useRouter()
-    const [isReady, setIsReady] = useState(false)
 
-    useEffect(() => {
-        if (!authLoading) {
-            setIsReady(true)
-        }
-    }, [authLoading])
-
+    // Logged-in users are redirected to /restaurants in the background.
+    // Public users always see the landing page immediately (no loader gate).
     useEffect(() => {
         if (!authLoading && user) {
             router.replace("/restaurants")
         }
     }, [user, authLoading, router])
-
-    const isUserPotentiallyLoggedIn = typeof window !== "undefined" && document.cookie.includes("auth_token")
-
-    if (!isReady || authLoading || user || (isUserPotentiallyLoggedIn && !user)) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-[#FFFBF7]">
-                <Spinner />
-            </div>
-        )
-    }
 
     return (
         <div className="asignup-container min-h-screen flex flex-col font-sans">

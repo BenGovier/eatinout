@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Check } from "lucide-react";
@@ -448,13 +449,21 @@ export default function SignInPage() {
         {/* Warm gradient overlay for legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
         <div className="relative z-10 flex flex-col justify-between w-full p-10 xl:p-12">
-          <Image
-            src="/eatinout-logo.webp"
-            alt="Eatinout"
-            width={150}
-            height={38}
-            className="h-9 w-auto brightness-0 invert"
-          />
+          <div className="flex items-center justify-between gap-4">
+            <Image
+              src="/eatinout-logo.webp"
+              alt="Eatinout"
+              width={200}
+              height={50}
+              className="h-12 w-auto brightness-0 invert"
+            />
+            <Link
+              href="/restaurants"
+              className="text-sm font-medium text-white/90 hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap"
+            >
+              Back to restaurants
+            </Link>
+          </div>
           <div className="space-y-5 max-w-md">
             <h2 className="text-3xl xl:text-4xl font-bold tracking-tight text-white text-balance leading-tight">
               Restaurant discounts when you eat out
@@ -479,15 +488,21 @@ export default function SignInPage() {
       {/* Right: login + new user */}
       <div className="flex-1 lg:w-1/2 flex flex-col justify-center px-5 py-8 md:px-8 lg:px-12">
         <div className="w-full max-w-md mx-auto space-y-5">
-          {/* Mobile logo */}
-          <div className="flex justify-center lg:hidden">
+          {/* Mobile header */}
+          <div className="flex items-center justify-between gap-4 lg:hidden">
             <Image
               src="/eatinout-logo.webp"
               alt="Eatinout"
-              width={140}
-              height={36}
-              className="h-8 w-auto"
+              width={180}
+              height={46}
+              className="h-10 w-auto"
             />
+            <Link
+              href="/restaurants"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:underline underline-offset-4 transition-colors whitespace-nowrap"
+            >
+              Browse restaurants
+            </Link>
           </div>
 
           {/* Mobile warm image / benefit strip */}
@@ -612,6 +627,16 @@ export default function SignInPage() {
             >
               Start my 30-day free trial
             </Button>
+          </div>
+
+          {/* Secondary browsing escape */}
+          <div className="text-center">
+            <Link
+              href="/restaurants"
+              className="text-sm text-muted-foreground hover:text-foreground hover:underline underline-offset-4 transition-colors"
+            >
+              Just browsing? View restaurants
+            </Link>
           </div>
 
           {/* Compact benefits block */}
