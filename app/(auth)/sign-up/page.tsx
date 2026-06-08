@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Image from "next/image"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Check } from "lucide-react"
 import { toast } from "react-toastify"
 import { useSession } from "next-auth/react"
 import axios from "axios"
@@ -21,7 +21,7 @@ function SignUpPageContent() {
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
-  const [step, setStep] = useState<'main' | 'register' | 'login'>('register')
+  const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
   const { data: session, status }: any = useSession()
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
@@ -41,7 +41,6 @@ function SignUpPageContent() {
   const [areas, setAreas] = useState<{ value: string; label: string }[]>([])
   const [areasLoading, setAreasLoading] = useState(true)
   const [restaurantCount, setRestaurantCount] = useState(0)
-  const [isOpen, setIsOpen] = useState(false);
 
   const [offerCount, setOfferCount] = useState(0)
 
@@ -89,7 +88,10 @@ function SignUpPageContent() {
     },
   ]
 
-  const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null)
+  // Default the selected plan to Monthly so a real price ID is set from the start
+  const [selectedPriceId, setSelectedPriceId] = useState<string | null>(
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? null
+  )
 
 // ✅ KEEP only the useEffect, no early returns here
 useEffect(() => {
@@ -514,35 +516,45 @@ useEffect(() => {
                 <div className="space-y-6">
                   {/* Headline */}
                   <div className="space-y-3">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      Get up to 50% off when dining out
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground text-balance">
+                      Choose your Eatinout membership
                     </h1>
-                    <p className="text-base text-muted-foreground">
-                      Start with 7 days free and unlock offers at restaurants, cafés, bars and more.
+                    <p className="text-base text-muted-foreground text-pretty">
+                      Save up to 50% when you eat out at 500+ restaurants, cafés and bars.
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Then just £4.99/month. Cancel anytime.
-                    </p>
+                  </div>
+
+                  {/* Membership plan card */}
+                  <div className="bg-card rounded-2xl p-5 border-2 border-primary">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-foreground font-semibold text-base">Monthly</p>
+                        <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-foreground">£4.99</p>
+                        <p className="text-xs text-muted-foreground">/month</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="text-sm font-semibold text-primary">30 days free, then £4.99/month. Cancel anytime.</p>
+                    </div>
                   </div>
 
                   {/* Benefits List */}
                   <div className="bg-card rounded-2xl p-5 border border-border space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="text-primary text-base mt-0.5">&#10003;</div>
-                      <div className="text-foreground text-sm">Up to 50% off dining out</div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="text-primary text-base mt-0.5">&#10003;</div>
-                      <div className="text-foreground text-sm">Access 1000&apos;s of local offers</div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="text-primary text-base mt-0.5">&#10003;</div>
-                      <div className="text-foreground text-sm">Show your code at the restaurant</div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="text-primary text-base mt-0.5">&#10003;</div>
-                      <div className="text-foreground text-sm">No delivery. No points. Just real savings.</div>
-                    </div>
+                    {[
+                      "Save up to 50% when you eat out",
+                      "500+ restaurants, cafés and bars",
+                      "Show your voucher in venue",
+                      "New offers added regularly",
+                      "Cancel anytime",
+                    ].map((benefit) => (
+                      <div key={benefit} className="flex items-start gap-3">
+                        <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                        <div className="text-foreground text-sm">{benefit}</div>
+                      </div>
+                    ))}
                   </div>
 
                   {/* CTA */}
@@ -552,7 +564,7 @@ useEffect(() => {
                       className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
                       style={{ backgroundColor: "#eb221c" }}
                     >
-                      Start my 7-day free trial
+                      Start my 30-day free trial
                     </Button>
 
                     <div className="text-center">
@@ -571,7 +583,7 @@ useEffect(() => {
                     </div>
 
                     <p className="text-center text-xs text-muted-foreground">
-                      Free for 7 days. No commitment.
+                      30 days free, then £4.99/month. Cancel anytime.
                     </p>
                   </div>
 
@@ -579,7 +591,7 @@ useEffect(() => {
                   <div className="bg-card rounded-2xl p-5 border border-border">
                     <p className="text-foreground font-semibold text-sm mb-3">One meal can cover your membership</p>
                     <div className="space-y-2 text-muted-foreground text-sm">
-                      <p>£50 dinner</p>
+                      <p>£50 meal out</p>
                       <p>50% off offer</p>
                       <p>£25 saved</p>
                     </div>
@@ -610,12 +622,12 @@ useEffect(() => {
                     <div className="space-y-2">
                       <details className="bg-card rounded-xl border border-border group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
-                          Is Eatinout a delivery app?
+                          How much can I save?
                           <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">No. Eatinout is for dining out at participating venues.</p>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">Save up to 50% when you eat out at 500+ participating restaurants, cafés and bars.</p>
                       </details>
                       <details className="bg-card rounded-xl border border-border group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
@@ -624,7 +636,7 @@ useEffect(() => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 7 days, membership is £4.99/month unless you cancel.</p>
+                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 30 days, membership is £4.99/month unless you cancel.</p>
                       </details>
                       <details className="bg-card rounded-xl border border-border group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
@@ -640,7 +652,7 @@ useEffect(() => {
 
                   {/* Footer */}
                   <p className="text-center text-muted-foreground text-xs">
-                    No delivery. No hassle. Just dining out deals.
+                    Save up to 50% when you eat out. Cancel anytime.
                   </p>
                 </div>
               ) : step === 'login' ? (
@@ -694,7 +706,7 @@ useEffect(() => {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
-                    <p className="text-sm text-muted-foreground">Start your 7-day free trial</p>
+                    <p className="text-sm text-muted-foreground">30 days free, then £4.99/month. Cancel anytime.</p>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
@@ -785,49 +797,42 @@ useEffect(() => {
                     )}
 
 
-                    <div className="p-4 bg-card border border-border rounded-2xl">
-                      <label className="text-foreground text-sm font-medium mb-2 block">
-                        Choose Your Plan
+                    <div className="space-y-3">
+                      <label className="text-foreground text-sm font-medium block">
+                        Your plan
                       </label>
 
-                      <div className="relative">
-                        {/* Dropdown button */}
-                        <button
-                          type="button"
-                          onClick={() => setIsOpen(!isOpen)}
-                          className="w-full h-14 bg-muted text-foreground text-base rounded-xl pl-4 pr-10 text-left flex items-center justify-between border border-border"
-                        >
-                          {PLANS.find(plan => plan.priceId === selectedPriceId)?.name || PLANS[0].name}
-                          <span className="ml-2">&#9662;</span> {/* Down arrow */}
-                        </button>
-
-                        {/* Dropdown list */}
-                        {isOpen && (
-                          <ul className="absolute top-full w-full mt-1 bg-card rounded-xl max-h-60 overflow-y-auto z-10 shadow-lg border border-border">
-                            {PLANS.map(plan => (
-                              <li
-                                key={plan.id}
-                                onClick={() => {
-                                  setSelectedPriceId(plan.priceId ?? PLANS[0]?.priceId ?? null);
-                                  setIsOpen(false);
-                                }}
-                                className="px-4 py-3 text-foreground hover:bg-muted cursor-pointer"
+                      {PLANS.filter((plan) => Boolean(plan.priceId)).map((plan) => {
+                        const isSelected = selectedPriceId === plan.priceId
+                        return (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                            className={`w-full text-left rounded-2xl p-4 border-2 transition-colors flex items-center justify-between ${
+                              isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-muted-foreground/40"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                                }`}
                               >
-                                {plan.name} - {plan.price}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Selected plan details */}
-                      {selectedPriceId && (
-                        PLANS.filter(plan => plan.priceId === selectedPriceId).map(plan => (
-                          <div key={plan.id} className="flex items-center justify-between mt-4 text-muted-foreground">
-                            {/* You can add any additional info here */}
-                          </div>
-                        ))
-                      )}
+                                {isSelected && <Check className="h-3 w-3 text-white" />}
+                              </span>
+                              <div>
+                                <p className="text-foreground font-semibold text-sm">{plan.name}</p>
+                                <p className="text-xs text-muted-foreground">30 days free, cancel anytime</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-foreground font-bold text-base">{plan.price}</p>
+                              <p className="text-xs text-muted-foreground">{plan.period}</p>
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
 
                     <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
@@ -889,7 +894,7 @@ useEffect(() => {
                           Creating Account...
                         </div>
                       ) : (
-                        "Create Account"
+                        "Create account"
                       )}
                     </Button>
                   </form>
