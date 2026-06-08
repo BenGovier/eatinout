@@ -811,37 +811,63 @@ useEffect(() => {
                         Your plan
                       </label>
 
-                      {PLANS.filter((plan) => Boolean(plan.priceId)).map((plan) => {
-                        const isSelected = selectedPriceId === plan.priceId
+                      {/* Tab-style plan selector */}
+                      {(() => {
+                        const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
+                        const selectedPlan =
+                          availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
+
+                        const planLabels: Record<string, { title: string; then: string }> = {
+                          monthly: { title: "Monthly membership", then: "Then £4.99/month" },
+                          six: { title: "6 month membership", then: "Then £29.94 / 6 months" },
+                          annual: { title: "Annual membership", then: "Then £59.88 / year" },
+                        }
+
                         return (
-                          <button
-                            key={plan.id}
-                            type="button"
-                            onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                            className={`w-full text-left rounded-2xl p-4 border-2 transition-colors flex items-center justify-between ${
-                              isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-muted-foreground/40"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
-                                }`}
-                              >
-                                {isSelected && <Check className="h-3 w-3 text-white" />}
-                              </span>
-                              <div>
-                                <p className="text-foreground font-semibold text-sm">{plan.name}</p>
-                                <p className="text-xs text-muted-foreground">30 days free, cancel anytime</p>
+                          <>
+                            <div className="grid grid-cols-3 gap-2 rounded-full bg-[#f3ece1] p-1">
+                              {availablePlans.map((plan) => {
+                                const isSelected = selectedPlan?.priceId === plan.priceId
+                                return (
+                                  <button
+                                    key={plan.id}
+                                    type="button"
+                                    onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                                    className={`rounded-full py-2 text-sm font-semibold transition-colors ${
+                                      isSelected
+                                        ? "bg-foreground text-background shadow-sm"
+                                        : "bg-transparent text-foreground/70 hover:text-foreground"
+                                    }`}
+                                  >
+                                    {plan.name}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {/* Selected plan summary card */}
+                            {selectedPlan && (
+                              <div className="rounded-2xl border border-[#f0e6d8] bg-primary/[0.04] p-4">
+                                <div className="flex items-start gap-3">
+                                  <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary shrink-0">
+                                    <Check className="h-3 w-3 text-white" />
+                                  </span>
+                                  <div>
+                                    <p className="text-foreground font-semibold text-sm">
+                                      {planLabels[selectedPlan.id]?.title ?? selectedPlan.name}
+                                    </p>
+                                    <p className="text-sm font-medium text-primary">30 days free</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {planLabels[selectedPlan.id]?.then ?? `Then ${selectedPlan.price}${selectedPlan.period}`}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-foreground font-bold text-base">{plan.price}</p>
-                              <p className="text-xs text-muted-foreground">{plan.period}</p>
-                            </div>
-                          </button>
+                            )}
+                          </>
                         )
-                      })}
+                      })()}
                     </div>
 
                     <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
