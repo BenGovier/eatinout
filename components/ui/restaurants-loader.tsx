@@ -5,10 +5,10 @@ import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
 
 const DEAL_CARDS = [
-  { category: "Italian", headline: "Up to 50% off", support: "Use when you visit" },
-  { category: "Sunday lunch", headline: "Save when you eat out", support: "Show your voucher" },
-  { category: "Bars & cafés", headline: "Member-only offers", support: "Use in venue" },
-  { category: "Local restaurants", headline: "500+ places", support: "Ready to save" },
+  { category: "Italian restaurants", headline: "Up to 50% off", support: "Show your voucher" },
+  { category: "Sunday lunch", headline: "Save when you eat out", support: "Use when you visit" },
+  { category: "Cafés & bars", headline: "Local offers", support: "Ready to save" },
+  { category: "500+ places", headline: "Restaurants near you", support: "Unlock your discount" },
 ]
 
 const ROTATING_MESSAGES = [
@@ -56,7 +56,7 @@ export function RestaurantsLoader() {
             >
               <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#C8102E]/10 px-2.5 py-1 text-[11px] font-semibold text-[#C8102E]">
                 <Check className="h-3 w-3" strokeWidth={3} />
-                Member offer
+                Offer
               </span>
               <div>
                 <p className="text-sm font-medium text-gray-500">{card.category}</p>
@@ -85,7 +85,7 @@ export function RestaurantsLoader() {
           Finding restaurant deals near you
         </p>
         <p className="mt-1.5 text-sm text-gray-500 text-pretty">
-          Loading member-only offers at restaurants, cafés and bars.
+          Loading offers at restaurants, cafés and bars near you.
         </p>
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[#C8102E]">
           {ROTATING_MESSAGES[messageIndex]}
