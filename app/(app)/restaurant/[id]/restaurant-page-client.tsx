@@ -145,9 +145,9 @@ export function RestaurantPageClient({
 
   const handleRedeem = useCallback(async (offerId: string, offerRestaurantId: string) => {
     if (!isAuthenticated) {
-      // Redirect to sign-in page with current URL as redirect parameter
+      // Redirect new visitors to sign-up with current URL as redirect parameter
       const currentUrl = window.location.pathname + window.location.search;
-      router.push(`/sign-in?redirect=${encodeURIComponent(currentUrl)}`);
+      router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
     
