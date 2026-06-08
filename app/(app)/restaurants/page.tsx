@@ -302,6 +302,15 @@ export default function RestaurantsPage() {
   // full-screen branded loader only appears on initial load, never on filter changes.
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
+  // Enforces a minimum visible duration for the initial branded loader so it
+  // never flashes. Applies ONLY to the first load (filter changes never re-show it).
+  const [minLoaderTimeElapsed, setMinLoaderTimeElapsed] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinLoaderTimeElapsed(true), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
   // const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set())
   // const [clickedCategoryId, setClickedCategoryId] = useState<string | null>(null)
 
@@ -1067,7 +1076,7 @@ export default function RestaurantsPage() {
   // Redundant effect removed and logic moved to handleLocationSelect or consolidated filters effect
   return (
     <>
-      {!initialLoadComplete && <RestaurantsLoader />}
+      {(!initialLoadComplete || !minLoaderTimeElapsed) && <RestaurantsLoader />}
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
         <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
           <div className="container mx-auto px-4">
