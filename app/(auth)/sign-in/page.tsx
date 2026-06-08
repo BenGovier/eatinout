@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signOut, useSession } from "next-auth/react"; // Import useSession
+import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Logo } from "@/components/logo";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Check } from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "axios";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
@@ -31,7 +31,6 @@ export default function SignInPage() {
   const [pendingApproval, setPendingApproval] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [isPending, setIsPending] = useState(true);
-  const [showLoginForm, setShowLoginForm] = useState(true);
 
   const restaurantId = searchParams.get("restaurantId");
 
@@ -414,114 +413,91 @@ export default function SignInPage() {
     );
   }
 
-  const logoutUserHandler: any = async () => {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      })
+  // Build the sign-up CTA href, preserving redirect and restaurantId query intent
+  const goToSignUp = () => {
+    const params = new URLSearchParams();
+    if (redirectUrl) params.set("redirect", redirectUrl);
+    if (restaurantId) params.set("restaurantId", restaurantId);
+    const query = params.toString();
+    router.push(query ? `/sign-up?${query}` : "/sign-up");
+  };
 
-      // Clear NextAuth session
-      await signOut({ callbackUrl: "/", redirect: false })
+  const benefits = [
+    "30 days free, then £4.99/month",
+    "Show your voucher when you visit",
+    "Cancel anytime",
+  ];
 
-      // Clear client-side auth token cookie
-      document.cookie = "auth_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
-
-      // Clear sessionStorage
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem("checkoutEmail")
-      }
-
-      // Redirect to home page
-      router.push("/")
-    } catch (error) {
-      console.error("Error during logout:", error)
-      // Still redirect even if logout fails
-      router.push("/")
-    }
-  }
   return (
-    <div className="min-h-screen relative flex flex-col">
-      {/* <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url("/images/signin-bg.webp")' }}
-      > */}
-      <div
-        className="absolute inset-0 bg-no-repeat"
-        style={{ backgroundColor: "#3e4044" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/50" />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen px-6 ">
-        {/* Back Button - Always visible */}
-        {showLoginForm && (
-          <div className="pt-4">
-            <button
-              // onClick={() => setShowLoginForm(false)}
-              onClick={() => logoutUserHandler()}
-              className="flex items-center gap-2 text-white hover:text-red-400 transition-colors font-medium"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-col items-center justify-start pt-16 max-w-sm mx-auto w-full py-16">
-          <div onClick={() => logoutUserHandler()} className="cursor-pointer hover:opacity-80 transition-opacity">
-            <Logo size="medium" />
+    <div className="min-h-screen bg-[#fdfaf5] flex flex-col lg:flex-row">
+      {/* Left: membership benefit panel (desktop only) */}
+      <div className="relative hidden lg:block lg:w-1/2 bg-[#FFF3E2] overflow-hidden">
+        <Image
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg"
+          alt="Restaurant table with dishes and drinks"
+          width={900}
+          height={500}
+          className="h-40 w-full object-cover lg:h-56"
+          priority
+        />
+        <div className="px-6 py-8 md:px-10 lg:py-12">
+          <div className="max-w-md mx-auto lg:mx-0 space-y-5">
+            <Image
+              src="/eatinout-logo.webp"
+              alt="Eatinout"
+              width={140}
+              height={36}
+              className="h-8 w-auto"
+            />
+            <div className="space-y-2">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground text-balance">
+                Restaurant discounts when you eat out
+              </h2>
+              <p className="text-base text-muted-foreground text-pretty">
+                Save up to 50% at 500+ restaurants, cafés and bars.
+              </p>
+            </div>
+            <ul className="space-y-3">
+              {benefits.map((benefit) => (
+                <li key={benefit} className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                    <Check className="h-3.5 w-3.5 text-primary" strokeWidth={3} />
+                  </span>
+                  <span className="text-[15px] leading-snug text-foreground">{benefit}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+      </div>
 
-        {!showLoginForm ? (
-          <div className="space-y-6 max-w-sm mx-auto w-full">
-            <div className="text-center space-y-4">
-              <div className="relative inline-flex items-center px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 border-2 border-red-400 rounded-2xl text-white text-sm font-bold backdrop-blur-sm overflow-hidden shadow-lg shadow-red-500/50">
-                <div className="absolute inset-0 rounded-2xl border-2 border-red-300 animate-pulse"></div>
-                <div className="absolute inset-0 rounded-2xl border-2 border-red-400 animate-ping opacity-30"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 to-orange-400/20 rounded-2xl animate-pulse"></div>
-                <div className="relative z-10">🎉 30 days free • Cancel anytime</div>
-              </div>
-            </div>
+      {/* Right: login + new user */}
+      <div className="flex-1 lg:w-1/2 flex flex-col justify-center px-5 py-8 md:px-8 lg:px-12">
+        <div className="w-full max-w-md mx-auto space-y-5">
+          {/* Mobile logo */}
+          <div className="flex justify-center lg:hidden">
+            <Image
+              src="/eatinout-logo.webp"
+              alt="Eatinout"
+              width={140}
+              height={36}
+              className="h-8 w-auto"
+            />
+          </div>
 
-            <div className="text-center mb-8 px-4 py-6 bg-black/30 rounded-2xl backdrop-blur-sm border border-white/20">
-              <p className="text-3xl font-black text-white mb-4 leading-tight tracking-tight font-sans">
-                Unlock Discounts, Freebies & More - 100's of Places to Enjoy
+          {/* Login card */}
+          <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm p-6 md:p-7 space-y-5">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Sign in to your membership
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Welcome back — sign in to view your offers.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <Button
-                onClick={() => setShowLoginForm(true)}
-                className="w-full h-14 text-lg font-semibold rounded-xl text-white bg-red-600 hover:opacity-90 transition-opacity"
-              >
-                Login
-              </Button>
-
-              {/* Redirect to signup page */}
-              <Button
-                onClick={() => {
-                  const signUpUrl = restaurantId ? `/sign-up?restaurantId=${restaurantId}` : "/sign-up";
-                  router.push(signUpUrl);
-                }}
-                className="w-full h-14 text-lg font-semibold rounded-xl bg-black text-white hover:bg-gray-900"
-              >
-                Sign Up
-              </Button>
-
-              <Button
-                onClick={() => router.push("/")}
-                variant="outline"
-                className="w-full h-14 text-lg font-semibold rounded-xl bg-white/90 text-gray-900 hover:bg-white"
-              >
-                Browse
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6 max-w-sm mx-auto w-full">
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            {message && <p className="text-green-500 text-sm text-center">{message}</p>}
+            {error && <p className="text-primary text-sm">{error}</p>}
+            {message && <p className="text-foreground text-sm font-medium">{message}</p>}
 
             <form onSubmit={handleLogin} className="space-y-4">
               <Input
@@ -530,7 +506,7 @@ export default function SignInPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500"
+                className="w-full h-13 text-base rounded-xl bg-[#fafafa] border border-border placeholder:text-muted-foreground"
                 required
               />
               <div className="relative">
@@ -540,13 +516,14 @@ export default function SignInPage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-14 text-lg rounded-xl bg-white/90 border-0 placeholder:text-gray-500 pr-12"
+                  className="w-full h-13 text-base rounded-xl bg-[#fafafa] border border-border placeholder:text-muted-foreground pr-12"
                   required
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                   onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
                 >
                   {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -555,14 +532,14 @@ export default function SignInPage() {
                 <button
                   type="button"
                   onClick={handleForgotPasswordOpen}
-                  className="text-red-400 hover:underline font-medium"
+                  className="text-primary hover:underline font-medium"
                 >
-                  Forgot Password?
+                  Forgot your password?
                 </button>
               </div>
               <Button
                 type="submit"
-                className="w-full h-14 text-lg font-semibold rounded-xl text-white bg-red-600 hover:bg-red-700"
+                className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -590,30 +567,39 @@ export default function SignInPage() {
                     Signing in...
                   </div>
                 ) : (
-                  "Sign In"
+                  "Sign in"
                 )}
               </Button>
             </form>
+          </div>
 
-            <div className="text-center">
-              <p className="text-white/80 text-sm mb-2">
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const signUpUrl = restaurantId ? `/sign-up?restaurantId=${restaurantId}` : "/sign-up";
-                    router.push(signUpUrl);
-                  }}
-                  className="text-red-400 hover:text-red-300 font-semibold underline underline-offset-2 transition-colors"
-                >
-                  Sign up
-                </button>
+          {/* New user card */}
+          <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm p-6 md:p-7 space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-foreground">New to Eatinout?</h2>
+              <p className="text-sm text-muted-foreground text-pretty">
+                Save up to 50% when you eat out. Start with 30 days free, then £4.99/month.
               </p>
             </div>
+            <Button
+              onClick={goToSignUp}
+              className="w-full h-14 text-lg font-semibold rounded-xl text-white hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: "#C8102E" }}
+            >
+              Start my 30-day free trial
+            </Button>
           </div>
-        )}
 
-        <div className="h-8" />
+          {/* Compact benefits (mobile-friendly reassurance) */}
+          <ul className="grid grid-cols-1 gap-2 px-1 lg:hidden">
+            {benefits.map((benefit) => (
+              <li key={benefit} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Check className="h-4 w-4 text-primary shrink-0" strokeWidth={3} />
+                <span>{benefit}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <ForgotPasswordModal
