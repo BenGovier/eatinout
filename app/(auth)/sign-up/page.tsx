@@ -486,7 +486,7 @@ useEffect(() => {
         </div>
 
         {/* Content Section */}
-        <div className="flex-1 lg:w-1/2 flex flex-col bg-background overflow-y-auto">
+        <div className="flex-1 lg:w-1/2 flex flex-col bg-[#fdfaf5] overflow-y-auto">
           <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10">
             <div className="max-w-md mx-auto w-full">
               {/* Header with Logo and Back */}
@@ -524,37 +524,47 @@ useEffect(() => {
                     </p>
                   </div>
 
-                  {/* Membership plan card */}
-                  <div className="bg-card rounded-2xl p-5 border-2 border-primary">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-foreground font-semibold text-base">Monthly</p>
-                        <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                  {/* Membership plan + benefits card */}
+                  <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm overflow-hidden">
+                    {/* Selected plan - soft premium red */}
+                    <div className="bg-primary/[0.06] p-5 border-b border-[#f0e6d8]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary shrink-0">
+                            <Check className="h-3.5 w-3.5 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-foreground font-bold text-base">Monthly</p>
+                            <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-foreground">£4.99</p>
+                          <p className="text-xs text-muted-foreground">/month</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-foreground">£4.99</p>
-                        <p className="text-xs text-muted-foreground">/month</p>
-                      </div>
+                      <p className="mt-3 text-sm font-semibold text-primary">
+                        30 days free, then £4.99/month. Cancel anytime.
+                      </p>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <p className="text-sm font-semibold text-primary">30 days free, then £4.99/month. Cancel anytime.</p>
-                    </div>
-                  </div>
 
-                  {/* Benefits List */}
-                  <div className="bg-card rounded-2xl p-5 border border-border space-y-3">
-                    {[
-                      "Save up to 50% when you eat out",
-                      "500+ restaurants, cafés and bars",
-                      "Show your voucher in venue",
-                      "New offers added regularly",
-                      "Cancel anytime",
-                    ].map((benefit) => (
-                      <div key={benefit} className="flex items-start gap-3">
-                        <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                        <div className="text-foreground text-sm">{benefit}</div>
-                      </div>
-                    ))}
+                    {/* Benefits */}
+                    <div className="p-5 space-y-4">
+                      {[
+                        "Save up to 50% when you eat out",
+                        "500+ restaurants, cafés and bars",
+                        "Show your voucher when you visit",
+                        "New offers added regularly",
+                        "Cancel anytime",
+                      ].map((benefit) => (
+                        <div key={benefit} className="flex items-center gap-3">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          </span>
+                          <div className="text-foreground text-[15px] leading-snug">{benefit}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {/* CTA */}
@@ -588,16 +598,15 @@ useEffect(() => {
                   </div>
 
                   {/* Value Card */}
-                  <div className="bg-card rounded-2xl p-5 border border-border">
+                  <div className="bg-white rounded-3xl p-5 border border-[#f0e6d8] shadow-sm">
                     <p className="text-foreground font-semibold text-sm mb-3">One meal can cover your membership</p>
                     <div className="space-y-2 text-muted-foreground text-sm">
-                      <p>£50 meal out</p>
-                      <p>50% off offer</p>
-                      <p>£25 saved</p>
+                      <p>Spend £50 eating out</p>
+                      <p>Save 50%</p>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-border">
+                    <div className="mt-3 pt-3 border-t border-[#f0e6d8]">
                       <p className="text-foreground text-sm font-medium">
-                        That&apos;s around 5x the £4.99 monthly membership.
+                        That&apos;s £25 saved — around 5 months of Eatinout
                       </p>
                     </div>
                   </div>
@@ -605,7 +614,7 @@ useEffect(() => {
                   {/* Testimonial */}
                   <div className="space-y-3">
                     <h3 className="text-foreground text-sm font-semibold">What members say</h3>
-                    <div className="bg-card rounded-2xl p-4 border border-border">
+                    <div className="bg-white rounded-3xl p-4 border border-[#f0e6d8] shadow-sm">
                       <p className="text-foreground text-sm mb-3">&quot;{testimonials[currentTestimonial].text}&quot;</p>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-semibold">
@@ -620,7 +629,7 @@ useEffect(() => {
                   <div className="space-y-3">
                     <h3 className="text-foreground text-sm font-semibold">FAQs</h3>
                     <div className="space-y-2">
-                      <details className="bg-card rounded-xl border border-border group">
+                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
                           How much can I save?
                           <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -629,7 +638,7 @@ useEffect(() => {
                         </summary>
                         <p className="px-3 pb-3 text-muted-foreground text-sm">Save up to 50% when you eat out at 500+ participating restaurants, cafés and bars.</p>
                       </details>
-                      <details className="bg-card rounded-xl border border-border group">
+                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
                           What happens after the free trial?
                           <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -638,7 +647,7 @@ useEffect(() => {
                         </summary>
                         <p className="px-3 pb-3 text-muted-foreground text-sm">After 30 days, membership is £4.99/month unless you cancel.</p>
                       </details>
-                      <details className="bg-card rounded-xl border border-border group">
+                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
                         <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
                           Can I cancel anytime?
                           <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
