@@ -514,88 +514,144 @@ useEffect(() => {
               {step === 'main' ? (
                 /* Main Section */
                 <div className="space-y-6">
-                  {/* Headline */}
-                  <div className="space-y-3">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground text-balance">
-                      Choose your Eatinout membership
-                    </h1>
-                    <p className="text-base text-muted-foreground text-pretty">
-                      Save up to 50% when you eat out at 500+ restaurants, cafés and bars.
-                    </p>
-                  </div>
+                  {(() => {
+                    const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
+                    const selectedPlan =
+                      availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
 
-                  {/* Membership plan + benefits card */}
-                  <div className="bg-white rounded-3xl border border-[#f0e6d8] shadow-sm overflow-hidden">
-                    {/* Selected plan - soft premium red */}
-                    <div className="bg-primary/[0.06] p-5 border-b border-[#f0e6d8]">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary shrink-0">
-                            <Check className="h-3.5 w-3.5 text-white" />
-                          </span>
-                          <div>
-                            <p className="text-foreground font-bold text-base">Monthly</p>
-                            <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                    const planContent: Record<
+                      string,
+                      { pill: string; body: string; bottom: string }
+                    > = {
+                      monthly: {
+                        pill: "Flexible",
+                        body: "30 days free, then £4.99/month. Cancel anytime.",
+                        bottom: "£4.99/month",
+                      },
+                      six: {
+                        pill: "Save more",
+                        body: "30 days free, then £29.94 every 6 months. Cancel anytime.",
+                        bottom: "£29.94 / 6 months",
+                      },
+                      annual: {
+                        pill: "Best value",
+                        body: "30 days free, then £59.88/year. Cancel anytime.",
+                        bottom: "£59.88/year",
+                      },
+                    }
+
+                    const content = selectedPlan
+                      ? planContent[selectedPlan.id] ?? {
+                          pill: "",
+                          body: `30 days free, then ${selectedPlan.price}${selectedPlan.period}. Cancel anytime.`,
+                          bottom: `${selectedPlan.price}${selectedPlan.period}`,
+                        }
+                      : { pill: "", body: "", bottom: "" }
+
+                    const benefits = [
+                      "Save up to 50% when you eat out",
+                      "500+ restaurants, cafés and bars",
+                      "Show your voucher when you visit",
+                      "New offers added regularly",
+                      "Cancel anytime",
+                    ]
+
+                    return (
+                      /* Warm membership panel */
+                      <div className="bg-[#FFF3E2] rounded-3xl border border-[#F1DEC5] shadow-sm p-5 md:p-6 space-y-5">
+                        {/* Heading */}
+                        <div className="text-center space-y-2">
+                          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground text-balance">
+                            Choose your membership
+                          </h1>
+                          <p className="text-sm md:text-base text-muted-foreground text-pretty">
+                            Save up to 50% when you eat out at 500+ restaurants, cafés and bars.
+                          </p>
+                        </div>
+
+                        {/* Plan tabs / pills */}
+                        <div
+                          className="grid gap-2"
+                          style={{ gridTemplateColumns: `repeat(${availablePlans.length}, minmax(0, 1fr))` }}
+                        >
+                          {availablePlans.map((plan) => {
+                            const isSelected = selectedPlan?.priceId === plan.priceId
+                            return (
+                              <button
+                                key={plan.id}
+                                type="button"
+                                onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                                className={`rounded-xl py-2.5 px-2 text-sm font-semibold border transition-colors ${
+                                  isSelected
+                                    ? "bg-[#111111] text-white border-[#111111]"
+                                    : "bg-transparent text-[#111111] border-[#111111]/30 hover:border-[#111111]"
+                                }`}
+                              >
+                                {plan.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Selected plan card */}
+                        <div className="rounded-2xl overflow-hidden shadow-md bg-white">
+                          {/* Header bar */}
+                          <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#C8102E" }}>
+                            <span className="text-white text-lg font-bold">{selectedPlan?.name}</span>
+                            {content.pill && (
+                              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+                                {content.pill}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Body */}
+                          <div className="px-5 py-5 space-y-4">
+                            <p className="text-[15px] font-medium text-[#111111]">{content.body}</p>
+                            <div className="space-y-3">
+                              {benefits.map((benefit) => (
+                                <div key={benefit} className="flex items-center gap-3">
+                                  <Check className="h-5 w-5 shrink-0" style={{ color: "#C8102E" }} strokeWidth={3} />
+                                  <span className="text-base leading-snug text-[#111111]">{benefit}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Price bar */}
+                          <div className="px-5 py-4 text-center" style={{ backgroundColor: "#C8102E" }}>
+                            <span className="text-white text-xl font-bold">{content.bottom}</span>
+                          </div>
+
+                          {/* CTA */}
+                          <div className="px-5 py-5">
+                            <Button
+                              onClick={() => setStep('register')}
+                              className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
+                            >
+                              Start my 30-day free trial
+                            </Button>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-foreground">£4.99</p>
-                          <p className="text-xs text-muted-foreground">/month</p>
+
+                        {/* Login link */}
+                        <div className="text-center">
+                          <button
+                            onClick={() => {
+                              if (redirectUrl) {
+                                router.push(`/sign-in?redirect=${encodeURIComponent(redirectUrl)}`);
+                              } else {
+                                router.push('/sign-in');
+                              }
+                            }}
+                            className="text-sm text-muted-foreground hover:text-foreground underline font-medium transition-colors"
+                          >
+                            Already a member? Log in
+                          </button>
                         </div>
                       </div>
-                      <p className="mt-3 text-sm font-semibold text-primary">
-                        30 days free, then £4.99/month. Cancel anytime.
-                      </p>
-                    </div>
-
-                    {/* Benefits */}
-                    <div className="p-5 space-y-4">
-                      {[
-                        "Save up to 50% when you eat out",
-                        "500+ restaurants, cafés and bars",
-                        "Show your voucher when you visit",
-                        "New offers added regularly",
-                        "Cancel anytime",
-                      ].map((benefit) => (
-                        <div key={benefit} className="flex items-center gap-3">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          </span>
-                          <div className="text-foreground text-[15px] leading-snug">{benefit}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  <div className="space-y-3">
-                    <Button
-                      onClick={() => setStep('register')}
-                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: "#eb221c" }}
-                    >
-                      Start my 30-day free trial
-                    </Button>
-
-                    <div className="text-center">
-                      <button
-                        onClick={() => {
-                          if (redirectUrl) {
-                            router.push(`/sign-in?redirect=${encodeURIComponent(redirectUrl)}`);
-                          } else {
-                            router.push('/sign-in');
-                          }
-                        }}
-                        className="text-sm text-muted-foreground hover:text-foreground underline font-medium transition-colors"
-                      >
-                        Already a member? Log in
-                      </button>
-                    </div>
-
-                    <p className="text-center text-xs text-muted-foreground">
-                      30 days free, then £4.99/month. Cancel anytime.
-                    </p>
-                  </div>
+                    )
+                  })()}
 
                   {/* Value Card */}
                   <div className="bg-white rounded-3xl p-5 border border-[#f0e6d8] shadow-sm">
