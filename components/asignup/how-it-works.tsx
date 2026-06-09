@@ -27,11 +27,8 @@ export function HowItWorks() {
                 {/* Header */}
                 <div className="text-center mb-12 md:mb-20">
                     <h2 className="text-2xl md:text-4xl font-bold text-foreground text-balance">
-                        How Eatinout works
+                        How EatinOut works
                     </h2>
-                    <p className="mt-3 text-base md:text-lg text-muted-foreground text-pretty">
-                        Simple. Fast. No vouchers. No awkward conversations.
-                    </p>
                 </div>
 
                 {/* Steps */}

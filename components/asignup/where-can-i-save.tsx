@@ -102,7 +102,7 @@ export function WhereCanISave() {
                         Find dining out deals near you
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 7-day free trial to unlock them.
+                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 30-day free trial to unlock them.
                     </p>
                 </div>
 
