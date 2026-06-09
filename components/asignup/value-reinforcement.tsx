@@ -28,7 +28,7 @@ export function ValueReinforcement() {
                                 </div>
                                 <div className="flex items-center justify-between text-sm md:text-base">
                                     <span className="text-muted-foreground">50% off offer saves</span>
-                                    <span className="font-semibold text-primary">−£25</span>
+                                    <span className="font-semibold text-primary">−£24</span>
                                 </div>
                                 <div className="border-t border-border pt-3">
                                     <div className="flex items-center justify-between text-sm md:text-base">

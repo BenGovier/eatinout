@@ -16,7 +16,7 @@ export function SocialProof() {
                 <div className="text-center mb-6 md:mb-8">
                     <div className="flex items-center justify-center gap-1 mb-2" aria-hidden="true">
                         {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+                            <Star key={i} className="h-5 w-5 fill-[#F5A623] text-[#F5A623]" />
                         ))}
                     </div>
                     <p className="text-3xl md:text-4xl font-bold text-foreground leading-none">
@@ -39,7 +39,7 @@ export function SocialProof() {
                                     <div>
                                         <div className="flex items-center gap-0.5 mb-2" aria-hidden="true">
                                             {[...Array(5)].map((_, i) => (
-                                                <Star key={i} className="h-3.5 w-3.5 fill-primary text-primary" />
+                                                <Star key={i} className="h-3.5 w-3.5 fill-[#F5A623] text-[#F5A623]" />
                                             ))}
                                         </div>
                                         <p className="text-sm font-semibold text-foreground text-pretty leading-snug">

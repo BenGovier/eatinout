@@ -33,7 +33,7 @@ const trialSlides: Slide[] = [
     },
     {
         eyebrow: "Just one meal covers your membership.",
-        title: "Two people spending £50 on dinner save £25 with a 50% off offer.",
+        title: "Two people spending £50 on dinner save £24 with a 50% off offer.",
         body: "That's already 5x more than the £4.99 monthly membership.",
         image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/26.png-iNNou4R566SusNbIarXFzgAd9Yi0RG.jpeg",
         imageAlt: "Couple having romantic dinner with wine and pasta",
@@ -247,7 +247,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold py-5 md:py-6"
                                 >
                                     <a href="/sign-up">
-                                        Start my 7-day free trial
+                                        Start my 30-day free trial
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </a>
                                 </Button>

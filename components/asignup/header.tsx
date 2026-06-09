@@ -53,7 +53,7 @@ export function Header() {
                         Login / Sign Up
                     </Link>
                     <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6">
-                        <Link href="/start">Start 7 days free</Link>
+                        <Link href="/start">Start 30 days free</Link>
                     </Button>
                 </div>
 
