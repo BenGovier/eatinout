@@ -33,22 +33,22 @@ export const FlavourSection = memo(function FlavourSection({
   }
 
   return (
-    <section className="bg-[#FFFBF7] border-b border-gray-100 py-3">
+    <section className="bg-[#FFFBF7] border-b border-gray-100 py-4">
       <div className="container mx-auto px-4">
-        <div className="mb-4">
-          <h2 className="text-lg font-medium text-gray-800 mb-0.5">Popular searches</h2>
-          {/* <p className="text-xs text-gray-400">Where you going?</p> */}
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-gray-900 mb-0.5">Find your restaurant</h2>
+          <p className="text-xs text-gray-500">Browse by cuisine or venue type.</p>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-4 pb-2 min-w-max">
+          <div className="flex gap-3 pb-2 min-w-max">
             {isLoading ? (
               // Loading skeleton
-              [...Array(8)].map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 rounded-md bg-gray-200 animate-pulse" />
-                  <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
-                </div>
+              [...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-28 w-[150px] flex-shrink-0 rounded-xl bg-gray-200 animate-pulse"
+                />
               ))
             ) : cuisineTypes.length > 0 ? (
               cuisineTypes.map((cuisine) => {
@@ -60,51 +60,37 @@ export const FlavourSection = memo(function FlavourSection({
                   <button
                     key={cuisine.value}
                     onClick={() => onCuisineClick(cuisine.value, cuisine.label)}
-                    className={`flex flex-col items-center gap-2 group transition-all ${isSelected ? 'opacity-100' : 'opacity-90 hover:opacity-100'
-                      }`}
+                    aria-pressed={isSelected}
+                    className={`relative h-28 w-[150px] flex-shrink-0 overflow-hidden rounded-xl shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#DC3545] ${
+                      isSelected
+                        ? "ring-2 ring-[#DC3545] ring-offset-1"
+                        : "hover:shadow-md"
+                    }`}
                   >
-                    <div
-                      className={`relative w-16 h-16 rounded-md overflow-hidden border transition-all ${isSelected
-                          ? 'border-[#DC3545] shadow-sm'
-                          : 'border-transparent'
-                        }`}
-                    >
-                      {showPlaceholder ? (
-                        <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center">
-                          <span className="text-white text-xl font-bold">
-                            {getInitials(cuisine.label)}
-                          </span>
-                        </div>
-                      ) : (
-                        <Image
-                          src={cuisine.image || "/placeholder.svg"}
-                          alt={cuisine.label}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
-                          onError={() => handleImageError(cuisine.value)}
-                          loading="lazy"
-                          fetchPriority="high"
-                          quality={75}
-                        />
-                      )}
-                    </div>
+                    {showPlaceholder ? (
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center">
+                        <span className="text-white text-3xl font-bold opacity-60">
+                          {getInitials(cuisine.label)}
+                        </span>
+                      </div>
+                    ) : (
+                      <Image
+                        src={cuisine.image || "/placeholder.svg"}
+                        alt={cuisine.label}
+                        fill
+                        sizes="150px"
+                        className="object-cover"
+                        onError={() => handleImageError(cuisine.value)}
+                        loading="lazy"
+                        quality={75}
+                      />
+                    )}
 
-                    <span
-                      className={`block text-xs font-medium transition-all leading-snug ${isSelected
-                        ? 'text-[#DC3545] font-semibold'
-                        : 'text-gray-600 group-hover:text-[#DC3545] group-hover:font-semibold'
-                        }`}
-                    >
-                      {cuisine.label.split(' ').length > 2 ? (
-                        <>
-                          {cuisine.label.split(' ').slice(0, 2).join(' ')}
-                          <br />
-                          {cuisine.label.split(' ').slice(2).join(' ')}
-                        </>
-                      ) : (
-                        cuisine.label
-                      )}
+                    {/* Dark gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+                    <span className="absolute inset-x-0 bottom-0 p-2.5 text-left text-sm font-semibold leading-snug text-white text-balance drop-shadow-sm">
+                      {cuisine.label}
                     </span>
                   </button>
                 )

@@ -38,15 +38,15 @@ export function HeroSection() {
                     className="mt-4 text-pretty text-lg font-medium leading-snug text-white sm:text-2xl"
                     style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
                 >
-                    Save up to £25 on a £50 meal when you eat out
+                    Save an average of £24 when you eat out
                 </p>
 
                 <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
-                    {/* Primary - new green */}
+                    {/* Primary - EatinOut red */}
                     <Button
                         asChild
                         size="lg"
-                        className="w-full rounded-full bg-[#14805E] py-6 text-base font-semibold text-white hover:bg-[#116b4f]"
+                        className="w-full rounded-full bg-[#EB221C] py-5 text-base font-semibold text-white hover:bg-[#cf1d18]"
                     >
                         <Link href="/restaurants">See restaurants</Link>
                     </Button>
@@ -55,9 +55,9 @@ export function HeroSection() {
                     <Button
                         asChild
                         size="lg"
-                        className="w-full rounded-full bg-black py-6 text-base font-semibold text-white hover:bg-black/85"
+                        className="w-full rounded-full bg-black py-5 text-base font-semibold text-white hover:bg-black/85"
                     >
-                        <Link href="#how-it-works">Learn more</Link>
+                        <Link href="/start">Learn more</Link>
                     </Button>
                 </div>
             </div>
