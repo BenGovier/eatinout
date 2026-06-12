@@ -33,7 +33,6 @@ function SignUpPageContent() {
     hasSpecialChar: false
   })
   const [referral, setReferral] = useState<string | null>(null)
-  const [currentTestimonial, setCurrentTestimonial] = useState(0)
   const [selectedArea, setSelectedArea] = useState("")
   const [isLoadingDeals, setIsLoadingDeals] = useState(false)
   const [showDealsModal, setShowDealsModal] = useState(false)
@@ -52,39 +51,31 @@ function SignUpPageContent() {
       name: "Monthly",
       price: "£4.99",
       period: "/month",
+      // No discount on monthly
+      originalPrice: null as string | null,
+      discountLabel: null as string | null,
+      perMonth: null as string | null,
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
     },
     {
       id: "six",
       name: "6 Months",
-      price: "£29.94",
+      price: "£25.45",
       period: "/6 months",
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS,
+      originalPrice: "£29.94",
+      discountLabel: "15% off",
+      perMonth: "£4.24/month",
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT,
     },
     {
       id: "annual",
       name: "Annual",
-      price: "£59.88",
+      price: "£47.90",
       period: "/year",
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR,
-    },
-  ]
-
-  const testimonials = [
-    {
-      text: "Saved £38 on our bill. It paid for itself straight away.",
-      name: "Mark L.",
-      initials: "ML",
-    },
-    {
-      text: "Really easy — picked an offer, showed the code, and saved money.",
-      name: "Sarah, Preston",
-      initials: "SP",
-    },
-    {
-      text: "Great for finding local places without paying full price.",
-      name: "Emma, Lytham St Annes",
-      initials: "EL",
+      originalPrice: "£59.88",
+      discountLabel: "20% off",
+      perMonth: "£3.99/month",
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT,
     },
   ]
 
@@ -94,22 +85,6 @@ function SignUpPageContent() {
   )
 
 // ✅ KEEP only the useEffect, no early returns here
-useEffect(() => {
-  if (!authLoading && user) {
-    if (user.role === "admin") {
-      router.push("/admin/dashboard")
-    } else if (user.role === "restaurant") {
-      router.push("/dashboard")
-    } else {
-      if (redirectUrl) {
-        router.push(decodeURIComponent(redirectUrl))
-      } else {
-        router.push("/restaurants")
-      }
-    }
-  }
-}, [user, authLoading, router, redirectUrl])
-
   useEffect(() => {
     document.title = "Sign Up"
 
@@ -133,18 +108,6 @@ useEffect(() => {
       });
     }
   }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTestimonial((prev) => {
-        if (prev < testimonials.length - 1) {
-          return prev + 1
-        }
-        return prev
-      })
-    }, 4000)
-    return () => clearInterval(interval)
-  }, [testimonials.length])
 
   // Fetch areas from API
   useEffect(() => {
@@ -266,6 +229,7 @@ useEffect(() => {
         body: JSON.stringify({
           email,
           referral,
+          priceId: selectedPriceId,
         }),
       });
 
@@ -529,14 +493,14 @@ useEffect(() => {
                         bottom: "£4.99/month",
                       },
                       six: {
-                        pill: "Save more",
-                        body: "30 days free, then £29.94 every 6 months. Cancel anytime.",
-                        bottom: "£29.94 / 6 months",
+                        pill: "Save 15%",
+                        body: "30 days free, then £25.45 every 6 months (just £4.24/month). Cancel anytime.",
+                        bottom: "£25.45 / 6 months",
                       },
                       annual: {
-                        pill: "Best value",
-                        body: "30 days free, then £59.88/year. Cancel anytime.",
-                        bottom: "£59.88/year",
+                        pill: "Save 20%",
+                        body: "30 days free, then £47.90/year (just £3.99/month). Cancel anytime.",
+                        bottom: "£47.90/year",
                       },
                     }
 
@@ -581,13 +545,22 @@ useEffect(() => {
                                 key={plan.id}
                                 type="button"
                                 onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                                className={`rounded-xl py-2.5 px-2 text-sm font-semibold border transition-colors ${
+                                className={`relative flex flex-col items-center rounded-xl py-2.5 px-2 text-sm font-semibold border transition-colors ${
                                   isSelected
                                     ? "bg-[#111111] text-white border-[#111111]"
                                     : "bg-transparent text-[#111111] border-[#111111]/30 hover:border-[#111111]"
                                 }`}
                               >
-                                {plan.name}
+                                <span>{plan.name}</span>
+                                {plan.discountLabel && (
+                                  <span
+                                    className={`mt-0.5 text-[11px] font-bold leading-none ${
+                                      isSelected ? "text-white" : "text-[#C8102E]"
+                                    }`}
+                                  >
+                                    {plan.discountLabel}
+                                  </span>
+                                )}
                               </button>
                             )
                           })}
@@ -620,7 +593,23 @@ useEffect(() => {
 
                           {/* Price bar */}
                           <div className="px-5 py-4 text-center" style={{ backgroundColor: "#C8102E" }}>
-                            <span className="text-white text-xl font-bold">{content.bottom}</span>
+                            {selectedPlan?.originalPrice ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-baseline justify-center gap-2">
+                                  <span className="text-white/70 text-base font-medium line-through">
+                                    {selectedPlan.originalPrice}
+                                  </span>
+                                  <span className="text-white text-xl font-bold">{content.bottom}</span>
+                                </div>
+                                {selectedPlan?.perMonth && (
+                                  <span className="text-white/90 text-sm font-medium">
+                                    Just {selectedPlan.perMonth}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-white text-xl font-bold">{content.bottom}</span>
+                            )}
                           </div>
 
                           {/* CTA */}
@@ -652,73 +641,6 @@ useEffect(() => {
                       </div>
                     )
                   })()}
-
-                  {/* Value Card */}
-                  <div className="bg-white rounded-3xl p-5 border border-[#f0e6d8] shadow-sm">
-                    <p className="text-foreground font-semibold text-sm mb-3">One meal can cover your membership</p>
-                    <div className="space-y-2 text-muted-foreground text-sm">
-                      <p>Spend £50 eating out</p>
-                      <p>Save 50%</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-[#f0e6d8]">
-                      <p className="text-foreground text-sm font-medium">
-                        That&apos;s £25 saved — around 5 months of Eatinout
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Testimonial */}
-                  <div className="space-y-3">
-                    <h3 className="text-foreground text-sm font-semibold">What members say</h3>
-                    <div className="bg-white rounded-3xl p-4 border border-[#f0e6d8] shadow-sm">
-                      <p className="text-foreground text-sm mb-3">&quot;{testimonials[currentTestimonial].text}&quot;</p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-semibold">
-                          {testimonials[currentTestimonial].initials}
-                        </div>
-                        <p className="text-muted-foreground text-sm">{testimonials[currentTestimonial].name}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* FAQ Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-foreground text-sm font-semibold">FAQs</h3>
-                    <div className="space-y-2">
-                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
-                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
-                          How much can I save?
-                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">Save up to 50% when you eat out at 500+ participating restaurants, cafés and bars.</p>
-                      </details>
-                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
-                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
-                          What happens after the free trial?
-                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">After 30 days, membership is £4.99/month unless you cancel.</p>
-                      </details>
-                      <details className="bg-white rounded-2xl border border-[#f0e6d8] shadow-sm group">
-                        <summary className="p-3 text-foreground text-sm font-medium cursor-pointer list-none flex justify-between items-center">
-                          Can I cancel anytime?
-                          <svg className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </summary>
-                        <p className="px-3 pb-3 text-muted-foreground text-sm">Yes. You can cancel your membership anytime.</p>
-                      </details>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <p className="text-center text-muted-foreground text-xs">
-                    Save up to 50% when you eat out. Cancel anytime.
-                  </p>
                 </div>
               ) : step === 'login' ? (
                 /* Login Form */
@@ -875,8 +797,8 @@ useEffect(() => {
 
                         const planLabels: Record<string, { title: string; then: string }> = {
                           monthly: { title: "Monthly membership", then: "Then £4.99/month" },
-                          six: { title: "6 month membership", then: "Then £29.94 / 6 months" },
-                          annual: { title: "Annual membership", then: "Then £59.88 / year" },
+                          six: { title: "6 month membership", then: "Then £25.45 / 6 months (£4.24/month) — save 15%" },
+                          annual: { title: "Annual membership", then: "Then £47.90 / year (£3.99/month) — save 20%" },
                         }
 
                         return (
