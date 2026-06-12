@@ -67,7 +67,7 @@ export function HowItWorks() {
                 {/* CTA */}
                 <div className="text-center mt-16 md:mt-24">
                     <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8 py-6 text-base font-semibold">
-                        <Link href="/start">Start saving today</Link>
+                        <Link href="/sign-up">Start saving today</Link>
                     </Button>
                 </div>
             </div>
