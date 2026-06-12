@@ -17,8 +17,8 @@ export function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     return (
-        <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border">
-            <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
+        <header className="sticky top-0 z-50 w-full bg-white border-b border-border">
+            <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 lg:px-8">
                 {/* Logo */}
                 <Link href="/asignup" className="flex-shrink-0">
                     <Image
@@ -26,7 +26,7 @@ export function Header() {
                         alt="EatinOut"
                         width={140}
                         height={36}
-                        className="h-8 w-auto"
+                        className="h-9 w-auto"
                         priority
                     />
                 </Link>
@@ -53,7 +53,7 @@ export function Header() {
                         Login / Sign Up
                     </Link>
                     <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6">
-                        <Link href="/start">Start 7 days free</Link>
+                        <Link href="/start">Start 30 days free</Link>
                     </Button>
                 </div>
 

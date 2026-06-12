@@ -98,6 +98,19 @@ export function RestaurantPageClient({
   const offers = useMemo(() => restaurant?.offers || [], [restaurant?.offers])
   const membersUsed = 1274
 
+  // Presentational only: which offer (if any) is deep-linked, so its compact
+  // card can render expanded. Does not affect the scroll effect below.
+  const deepLinkOfferId = useMemo(() => {
+    if (offerId) return offerId
+    if (offerSlug && offers.length > 0) {
+      const match = offers.find(
+        (offer: any) => generateSlug(offer.offerTitle || offer.title || "", offer.id) === offerSlug,
+      )
+      return match?.id ?? null
+    }
+    return null
+  }, [offerId, offerSlug, offers])
+
 
   useEffect(() => {
     setRestaurantState({
@@ -145,9 +158,9 @@ export function RestaurantPageClient({
 
   const handleRedeem = useCallback(async (offerId: string, offerRestaurantId: string) => {
     if (!isAuthenticated) {
-      // Redirect to sign-in page with current URL as redirect parameter
+      // Redirect new visitors to sign-up with current URL as redirect parameter
       const currentUrl = window.location.pathname + window.location.search;
-      router.push(`/sign-in?redirect=${encodeURIComponent(currentUrl)}`);
+      router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
     
@@ -278,7 +291,7 @@ export function RestaurantPageClient({
 
 
   return (
-    <div className="min-h-screen bg-soft-bg bg-gray-50">
+    <div className="min-h-screen bg-[#FFFBF7] pb-24 lg:pb-0">
       <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
 
       <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
@@ -295,8 +308,8 @@ export function RestaurantPageClient({
           blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
         <div
-          className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent transition-opacity duration-300"
-          style={{ opacity: uiState.heroOverlayOpacity }}
+          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity duration-300"
+          style={{ opacity: Math.max(uiState.heroOverlayOpacity, 0.5) }}
         />
         {/* Back Button */}
         <div className="absolute top-4 left-4">
@@ -311,12 +324,17 @@ export function RestaurantPageClient({
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
-          <h1 className="text-2xl font-bold text-white mb-2" style={{ fontFamily: "var(--font-heading)" }}>
+          {offers.length > 0 && (
+            <Badge className="mb-2 bg-primary text-white border-0 text-xs font-semibold shadow-md">
+              {offers.length} {offers.length === 1 ? "offer" : "offers"} available
+            </Badge>
+          )}
+          <h1 className="text-2xl font-bold text-white mb-2 text-balance drop-shadow-sm" style={{ fontFamily: "var(--font-heading)" }}>
             {restaurant.name}
           </h1>
           <div className="flex flex-wrap gap-2">
             {cuisines.map((cuisine: string) => (
-              <Badge key={cuisine} className="bg-[#F1F5F9] text-[#475569] border-0 text-xs font-medium">
+              <Badge key={cuisine} className="bg-white/95 text-[#475569] border-0 text-xs font-medium">
                 {cuisine}
               </Badge>
             ))}
@@ -324,8 +342,9 @@ export function RestaurantPageClient({
               restaurant.area.map((area: any) => (
                 <Badge
                   key={area.id}
-                  className="bg-[#F1F5F9] text-[#475569] border-0 text-xs font-medium"
+                  className="bg-white/95 text-[#475569] border-0 text-xs font-medium"
                 >
+                  <MapPin className="h-3 w-3 mr-1" aria-hidden="true" />
                   {area.name}
                 </Badge>
               ))}
@@ -338,104 +357,113 @@ export function RestaurantPageClient({
         onValueChange={(value) => setUIState(prev => ({ ...prev, activeTab: value }))} 
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 rounded-none border-b border-lines bg-white h-auto p-0 mb-6">
+        <TabsList className="flex w-full gap-2 rounded-none bg-transparent h-auto p-3 mb-2 sticky top-0 z-30 bg-[#FFFBF7]/90 backdrop-blur-sm border-b border-lines/60">
           <TabsTrigger
             value="information"
-            className="rounded-none border-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3 font-medium"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Information
           </TabsTrigger>
           <TabsTrigger
             value="offers"
-            className="rounded-none border-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3 font-medium"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Offers ({offers.length})
           </TabsTrigger>
           <TabsTrigger
             value="gallery"
-            className="rounded-none border-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3 font-medium"
+            className="flex-1 rounded-full border border-lines bg-white text-dark-ink/70 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_2px_8px_rgba(227,30,36,0.2)] px-3 py-2.5 font-medium text-sm transition-colors"
           >
             Gallery
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="offers" className="px-4 py-6 space-y-6 animate-in fade-in duration-700">
-          {offers.map((offer: any, index: number) => (
-            <div
-              key={offer.id}
-              ref={(el) => { offerRefs.current[offer.id] = el }}
+          <div className="mb-1">
+            <h2
+              className="text-lg font-bold text-dark-ink"
+              style={{ fontFamily: "var(--font-heading)" }}
             >
-              <RestaurantDeal
-                deal={offer}
-                phoneNumber={phone}
-                membersUsed={membersUsed}
-                onRedeem={handleRedeem}
-                isLoading={redeemState.loadingId}
-                style={{ animationDelay: `${index * 100}ms` }}
-              />
+              Available offers
+            </h2>
+            {!canViewFullDetails && (
+              <p className="text-sm text-dark-ink/60 mt-0.5">
+                Start free to unlock this restaurant&apos;s offers.
+              </p>
+            )}
+          </div>
+          {offers.map((offer: any, index: number) => (
+            <div key={offer.id}>
+              <div ref={(el) => { offerRefs.current[offer.id] = el }}>
+                <RestaurantDeal
+                  deal={offer}
+                  phoneNumber={phone}
+                  membersUsed={membersUsed}
+                  onRedeem={handleRedeem}
+                  isLoading={redeemState.loadingId}
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  featured={index === 0}
+                  defaultExpanded={offer.id === deepLinkOfferId}
+                />
+              </div>
+
+              {/* Compact unlock explainer, placed directly under the featured offer */}
+              {index === 0 && !canViewFullDetails && (
+                <Card
+                  className="mt-6 rounded-2xl shadow-md border-lines p-5 bg-gradient-to-br from-white to-soft-bg animate-in fade-in duration-700"
+                  style={{ animationDelay: "150ms" }}
+                >
+                  <h3
+                    className="text-base font-bold text-dark-ink mb-4 text-center"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    Unlock your discount in 3 easy steps
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <div className="w-10 h-10 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-2">
+                        <Smartphone className="h-5 w-5 text-primary" aria-hidden="true" />
+                      </div>
+                      <p className="text-xs font-semibold text-dark-ink">1. Pick an offer</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="w-10 h-10 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-2">
+                        <Users className="h-5 w-5 text-primary" aria-hidden="true" />
+                      </div>
+                      <p className="text-xs font-semibold text-dark-ink">2. Start 30 days free</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="w-10 h-10 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-2">
+                        <Gift className="h-5 w-5 text-primary" aria-hidden="true" />
+                      </div>
+                      <p className="text-xs font-semibold text-dark-ink">3. Show your voucher when you visit</p>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      onClick={() => {
+                        const currentUrl = window.location.pathname + window.location.search;
+                        router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-white font-semibold"
+                    >
+                      Start 30 days free
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const currentUrl = window.location.pathname + window.location.search;
+                        router.push(`/sign-in?redirect=${encodeURIComponent(currentUrl)}`);
+                      }}
+                      className="border-primary text-primary hover:bg-primary/5 font-semibold"
+                    >
+                      Log in
+                    </Button>
+                  </div>
+                </Card>
+              )}
             </div>
           ))}
-          {!canViewFullDetails && (
-            <>
-              <Card
-                className="rounded-2xl shadow-md border-lines p-6 bg-gradient-to-br from-white to-soft-bg animate-in fade-in duration-700"
-                style={{ animationDelay: "300ms" }}
-              >
-                <h3
-                  className="text-xl font-bold text-dark-ink mb-2 text-center"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  Unlock your discount in 3 easy steps
-                </h3>
-                <p className="text-sm text-muted-foreground text-center mb-6">It's quick, simple, and free to try</p>
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-3 transition-transform hover:scale-110">
-                      <Smartphone className="h-7 w-7 text-primary" aria-hidden="true" />
-                    </div>
-                    <p className="text-xs font-semibold text-dark-ink mb-1">1. Tap Get Offer Code</p>
-                    <p className="text-xs text-muted-foreground">Click the button above</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-3 transition-transform hover:scale-110">
-                      <Users className="h-7 w-7 text-primary" aria-hidden="true" />
-                    </div>
-                    <p className="text-xs font-semibold text-dark-ink mb-1">2. Sign up</p>
-                    <p className="text-xs text-muted-foreground">Free trial included</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF1F2] border-2 border-primary/20 flex items-center justify-center mx-auto mb-3 transition-transform hover:scale-110">
-                      <Gift className="h-7 w-7 text-primary" aria-hidden="true" />
-                    </div>
-                    <p className="text-xs font-semibold text-dark-ink mb-1">3. Show code</p>
-                    <p className="text-xs text-muted-foreground">At the venue</p>
-                  </div>
-                </div>
-                <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button
-                    onClick={() => {
-                      const currentUrl = window.location.pathname + window.location.search;
-                      router.push(`/sign-in?redirect=${encodeURIComponent(currentUrl)}`);
-                    }}
-                    className="bg-primary hover:bg-primary/90 text-white font-semibold"
-                  >
-                    Login to view full details
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const currentUrl = window.location.pathname + window.location.search;
-                      router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
-                    }}
-                    className="border-primary text-primary hover:bg-primary/5 font-semibold"
-                  >
-                    Sign up
-                  </Button>
-                </div>
-              </Card>
-
-            </>
-          )}
         </TabsContent>
 
         <TabsContent value="information" className="px-4 py-6">
@@ -576,6 +604,26 @@ export function RestaurantPageClient({
               style={{ maxHeight: "90vh", objectFit: "contain" }}
               loading="lazy"
             />
+          </div>
+        </div>
+      )}
+      {/* Mobile-only sticky CTA for logged-out users */}
+      {!canViewFullDetails && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-lines bg-white/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-dark-ink leading-tight">Unlock this offer</p>
+              <p className="text-xs text-dark-ink/60 truncate">Start 30 days free</p>
+            </div>
+            <Button
+              onClick={() => {
+                const currentUrl = window.location.pathname + window.location.search;
+                router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
+              }}
+              className="flex-shrink-0 bg-primary hover:bg-primary/90 text-white font-bold px-5 rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)]"
+            >
+              Start free
+            </Button>
           </div>
         </div>
       )}
