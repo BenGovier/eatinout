@@ -1,5 +1,7 @@
 "use client"
 
+// Redeploy marker: no functional change (touched 2026-06-12)
+
 import type React from "react"
 
 import { useEffect, useState, Suspense } from "react"
