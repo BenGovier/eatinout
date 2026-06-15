@@ -252,14 +252,14 @@ export default function SignInPage() {
         console.log("Subscription access check:", subscriptionData);
 
         if (!subscriptionData.hasAccess) {
-          console.log("Access denied, redirecting to conversion-popup:", subscriptionData.accessReason);
+          console.log("Access denied, redirecting to sign-up:", subscriptionData.accessReason);
           sessionStorage.setItem('triggeredLogin', 'true');
-          // Store email for checkout and redirect to conversion-popup
+          // Store email for checkout and redirect to the subscription flow
           const checkoutEmail = data.email || email;
           if (checkoutEmail) {
             sessionStorage.setItem('checkoutEmail', checkoutEmail);
           }
-          router.push('/conversion-popup');
+          router.push('/sign-up');
           return;
         } else {
           console.log("Access granted:", subscriptionData.accessReason);
