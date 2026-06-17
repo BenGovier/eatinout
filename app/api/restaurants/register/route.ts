@@ -59,19 +59,27 @@ export async function POST(req: any) {
     // Check if user already exists
     try {
       const existingUser = await User.findOne({ email });
-      const existingRestaurant = await Restaurant.findOne({ email });
-      if (existingUser || existingRestaurant) {
+      const existingRestaurantEmail = await Restaurant.findOne({ email });
+      if (existingUser || existingRestaurantEmail) {
         return NextResponse.json(
           { success: false, message: "User already exists" },
           { status: 400 },
         );
       }
+
+      const existingRestaurantName = await Restaurant.findOne({ name: data.restaurantName });
+      if (existingRestaurantName) {
+        return NextResponse.json(
+          { success: false, message: "Restaurant name already exist" },
+          { status: 400 },
+        );
+      }
     } catch (findError: any) {
-      console.error("Error checking for existing user:", findError);
+      console.error("Error checking for existing user/restaurant:", findError);
       return NextResponse.json(
         {
           success: false,
-          message: "Error checking for existing user",
+          message: "Error checking for existing user/restaurant",
           error: findError.message,
         },
         { status: 500 },
@@ -90,7 +98,25 @@ export async function POST(req: any) {
 
     await user.save();
 
-    const slug = await generateUniqueRestaurantSlug(data.restaurantName ?? "");
+    // Get area name for slug generation
+    let firstAreaName = "";
+    if (data.area && data.area.length > 0) {
+      try {
+        const Area = (await import("@/models/Area")).default;
+        const firstArea = await Area.findById(data.area[0]);
+        if (firstArea) {
+          firstAreaName = firstArea.name;
+        }
+      } catch (e) {
+        console.error("Failed to fetch area for slug generation", e);
+      }
+    }
+
+    const slug = await generateUniqueRestaurantSlug(
+      data.restaurantName ?? "",
+      firstAreaName,
+      data.city ?? ""
+    );
 
     // Create restaurant record — lat/lng/location from geocode on join-restaurant (or map defaults)
     const regLat = parseCoord(data.lat) ?? DEFAULT_MAP_CENTER_LAT_LNG.lat;

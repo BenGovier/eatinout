@@ -43,6 +43,7 @@ type AreaOption = {
 interface RestaurantListingCardProps {
   restaurant: {
     id: string
+    slug?: string
     name: string
     zipCode?: string
     area: string | string[]
@@ -118,7 +119,7 @@ export const RestaurantListingCard = memo(({
     if (!isAuthenticated && onUnlockClick) {
       onUnlockClick(restaurant)
     } else if (currentOffer) {
-      onNavigate(restaurant.id, currentOffer.id)
+      onNavigate(restaurant.slug || restaurant.id, currentOffer.id)
     }
   }
 
@@ -128,7 +129,7 @@ export const RestaurantListingCard = memo(({
         if (!isAuthenticated && onUnlockClick) {
           onUnlockClick(restaurant)
         } else {
-          onNavigate(restaurant.id)
+          onNavigate(restaurant.slug || restaurant.id)
         }
       }}>
         <Image

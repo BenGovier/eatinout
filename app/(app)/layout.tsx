@@ -20,7 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
 
-  const isPublicRestaurantPage = pathname?.startsWith("/restaurant/");
+  const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
 
   useEffect(() => {
     if (isPublicRestaurantPage) {
@@ -36,7 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
       if (user && user.role === "user") {
         if (user.subscriptionStatus === "inactive") {
-          router.push("/conversion-popup");
+          router.push("/sign-up");
           return;
         }
         setLayoutReady(true);
@@ -49,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       clearTimeout(checkTimeoutRef.current);
     }
 
-    if (subscriptionCheckRef.current || pathname === "/conversion-popup" || isPublicRestaurantPage) {
+    if (subscriptionCheckRef.current || isPublicRestaurantPage) {
       setLayoutReady(true);
       return;
     }

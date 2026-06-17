@@ -48,8 +48,8 @@ export async function POST(request: Request) {
       allow_promotion_codes: true,
       billing_address_collection: "required",
       subscription_data: {
-        // Maintain 7-day trial for first-time subscribers
-        ...(hasSubscribedBefore ? {} : { trial_period_days: 7 }),
+        // 30-day free trial for first-time subscribers
+        ...(hasSubscribedBefore ? {} : { trial_period_days: 30 }),
         // Add Rewardful referral to subscription metadata for conversion tracking
         ...(rewardfulReferral ? {
           metadata: {

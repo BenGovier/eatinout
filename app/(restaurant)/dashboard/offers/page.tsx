@@ -405,7 +405,7 @@ export default function OffersPage() {
     try {
       const shareUrl = restaurantSlug && offerSlug
         ? `${window.location.origin}/restaurant/${restaurantSlug}?offer=${offerSlug}`
-        : `${window.location.origin}/restaurant/${restaurantIdParam}?offerId=${offerId}`
+        : `${window.location.origin}/restaurant/${restaurantSlug || restaurantIdParam}?offerId=${offerId}`
       await navigator.clipboard.writeText(shareUrl)
       setCopiedOfferId(offerId)
       toast.success("Share link copied to clipboard!")
