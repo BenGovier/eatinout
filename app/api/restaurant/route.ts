@@ -235,7 +235,37 @@ export async function POST(request: Request) {
     data.deliveryAvailable =
       data.deliveryAvailable !== undefined ? data.deliveryAvailable : false;
 
-    data.slug = await generateUniqueRestaurantSlug(data.name ?? "");
+    if (data.name) {
+      const existingRestaurant = await Restaurant.findOne({
+        name: { $regex: new RegExp(`^${data.name}$`, "i") },
+      });
+      if (existingRestaurant) {
+        return NextResponse.json(
+          { message: "Restaurant name already exist" },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Get area name for slug generation
+    let firstAreaName = "";
+    if (data.area && data.area.length > 0) {
+      try {
+        const Area = (await import("@/models/Area")).default;
+        const firstArea = await Area.findById(data.area[0]);
+        if (firstArea) {
+          firstAreaName = firstArea.name;
+        }
+      } catch (e) {
+        console.error("Failed to fetch area for slug generation in POST", e);
+      }
+    }
+
+    data.slug = await generateUniqueRestaurantSlug(
+      data.name ?? "",
+      firstAreaName,
+      data.city ?? ""
+    );
 
     if (typeof data.lat !== "number" || !Number.isFinite(data.lat)) {
       data.lat = DEFAULT_MAP_CENTER_LAT_LNG.lat;
@@ -338,10 +368,44 @@ export async function PUT(request: Request) {
       searchTags,
     };
 
-    if (typeof rest.name === "string" && rest.name.trim()) {
+    if (rest.name) {
+      const existingRestaurant = await Restaurant.findOne({
+        name: { $regex: new RegExp(`^${rest.name}$`, "i") },
+        _id: { $ne: restaurantId }
+      });
+      if (existingRestaurant) {
+        return NextResponse.json(
+          { message: "Restaurant name already exist" },
+          { status: 400 },
+        );
+      }
+    }
+
+    // We need to fetch the existing restaurant to know the name, area, and city if they are not provided in the update
+    const currentRestaurant = await Restaurant.findById(restaurantId).lean();
+    if (currentRestaurant) {
+      const updatedName = typeof rest.name === "string" ? rest.name : currentRestaurant.name;
+      const updatedCity = typeof rest.city === "string" ? rest.city : currentRestaurant.city;
+
+      let firstAreaName = "";
+      const areaIds = rest.area || currentRestaurant.area || [];
+      if (areaIds && areaIds.length > 0) {
+        try {
+          const Area = (await import("@/models/Area")).default;
+          const firstArea = await Area.findById(areaIds[0]);
+          if (firstArea) {
+            firstAreaName = firstArea.name;
+          }
+        } catch (e) {
+          console.error("Failed to fetch area for slug update", e);
+        }
+      }
+
       setPayload.slug = await generateUniqueRestaurantSlug(
-        rest.name,
-        restaurantId,
+        updatedName,
+        firstAreaName,
+        updatedCity,
+        restaurantId
       );
     }
 
