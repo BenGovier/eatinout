@@ -159,7 +159,8 @@ export async function POST(request: Request) {
     
     // Calculate trial end date (7 days from now)
     const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 7);
+    // trialEndDate.setDate(trialEndDate.getDate() + 7);
+    trialEndDate.setDate(trialEndDate.getDate() + 30);
 
     // Send Welcome Email
     try {
@@ -174,10 +175,11 @@ export async function POST(request: Request) {
           }
         })
       );
-
       await sendEmail(
         user.email,
-        "Welcome to Eatinout - Your 7-Day Free Trial Starts Now!",
+        // "Welcome to Eatinout - Your 7-Day Free Trial Starts Now!",
+        "Welcome to Eatinout - Your 30 days free Trial Starts Now!",
+
         welcomeEmailHtml
       );
 
