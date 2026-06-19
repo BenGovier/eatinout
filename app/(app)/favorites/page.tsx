@@ -131,7 +131,7 @@ export default function FavoriteRestaurantsPage() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
                     {favorites.map((restaurant) => {
-                        const rid = restaurant.id || restaurant._id;
+                        const rid = restaurant.slug || restaurant.id || restaurant._id;
                         const liked = likedStatus[rid] ?? true;
                         const offers = restaurant.offers || [];
 

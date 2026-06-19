@@ -2,6 +2,7 @@ import mongoose, { Schema, type Document } from "mongoose";
 
 export interface IRestaurant extends Document {
   name: string;
+  slug?: string;
   description: string;
   address: string;
   city: string;
@@ -48,6 +49,7 @@ export interface IRestaurant extends Document {
 const RestaurantSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
+    slug: { type: String, unique: true, sparse: true },
     description: { type: String, required: true },
     address: { type: String, required: true },
     city: { type: String, required: true },
@@ -130,6 +132,7 @@ RestaurantSchema.index({ status: 1 });
 RestaurantSchema.index({ hidden: 1 });
 RestaurantSchema.index({ _id: 1, hidden: 1 });
 RestaurantSchema.index({ name: 1 });
+// RestaurantSchema.index({ slug: 1 });
 RestaurantSchema.index({ city: 1 });
 RestaurantSchema.index({ searchTags: 1 });
 

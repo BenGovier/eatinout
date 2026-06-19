@@ -1423,7 +1423,7 @@ export default function RestaurantsPage() {
                   (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
                 return (
-                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.id)} className="w-full">
+                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.slug || restaurant.id)} className="w-full">
                     <div className="w-full">
                       <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
                         <div className="relative h-[130px] w-full overflow-hidden">
