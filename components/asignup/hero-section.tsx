@@ -1,10 +1,13 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { trackAsignupEvent } from "@/components/asignup/track"
 
 export function HeroSection() {
     return (
-        <section className="relative flex min-h-[65vh] w-full items-end justify-center overflow-hidden">
+        <section className="relative flex min-h-[78vh] w-full items-end justify-center overflow-hidden">
             {/* Dine-in background image */}
             <Image
                 src="/images/asignup-hero-friends.png"
@@ -15,12 +18,12 @@ export function HeroSection() {
                 className="object-cover"
             />
 
-            {/* Bottom-only gradient: top stays bright, lower portion darkens into a dedicated content area */}
+            {/* Darker gradient overlay so the offer stays readable on mobile and desktop */}
             <div
                 className="absolute inset-0"
                 style={{
                     background:
-                        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.75) 80%, rgba(0,0,0,0.92) 100%)",
+                        "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.8) 80%, rgba(0,0,0,0.94) 100%)",
                 }}
                 aria-hidden="true"
             />
@@ -31,33 +34,51 @@ export function HeroSection() {
                     className="text-balance text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl"
                     style={{ textShadow: "0 3px 12px rgba(0,0,0,0.6)" }}
                 >
-                    Up to 50% off the total bill in restaurants
+                    Eat out for less at restaurants near you
                 </h1>
 
                 <p
-                    className="mt-4 text-pretty text-lg font-medium leading-snug text-white sm:text-2xl"
-                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
+                    className="mt-4 text-pretty text-base font-medium leading-snug text-white sm:text-xl"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}
                 >
-                    Save an average of £24 when you eat out
+                    Save up to 50% off your total bill. Start with 30 days free, then just £4.99/month.
                 </p>
 
-                <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
-                    {/* Primary - EatinOut red */}
+                <p
+                    className="mt-2 text-sm font-medium text-white/90"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}
+                >
+                    Browse local offers before you join.
+                </p>
+
+                <div className="mt-7 flex w-full flex-col gap-3 sm:max-w-md">
+                    {/* Primary - dominant EatinOut red */}
                     <Button
                         asChild
                         size="lg"
-                        className="w-full rounded-full bg-[#EB221C] py-5 text-base font-semibold text-white hover:bg-[#cf1d18]"
+                        className="w-full rounded-full bg-[#EB221C] py-6 text-base font-bold text-white shadow-lg hover:bg-[#cf1d18]"
                     >
-                        <Link href="/restaurants">See restaurants</Link>
+                        <Link
+                            href="/sign-up"
+                            onClick={() => trackAsignupEvent("asignup_start_trial_click")}
+                        >
+                            Start my 30-day free trial
+                        </Link>
                     </Button>
 
-                    {/* Secondary - black */}
+                    {/* Secondary - lower friction but still obvious */}
                     <Button
                         asChild
                         size="lg"
-                        className="w-full rounded-full bg-black py-5 text-base font-semibold text-white hover:bg-black/85"
+                        variant="outline"
+                        className="w-full rounded-full border-2 border-white bg-white/10 py-6 text-base font-semibold text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
                     >
-                        <Link href="/start">Learn more</Link>
+                        <Link
+                            href="/restaurants"
+                            onClick={() => trackAsignupEvent("asignup_view_restaurants_click")}
+                        >
+                            See restaurants near me
+                        </Link>
                     </Button>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Tag, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRef } from "react"
+import { trackAsignupEvent } from "@/components/asignup/track"
 
 const featuredRestaurants = [
     {
@@ -94,20 +95,20 @@ export function WhereCanISave() {
     }
 
     return (
-        <section className="py-12 md:py-20 bg-background">
+        <section className="py-10 md:py-14 bg-background">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-8 md:mb-12">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-3">
+                <div className="text-center mb-6 md:mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
                         Find dining out deals near you
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 30-day free trial to unlock them.
+                        Real EatinOut offers across Lancashire, Bolton and Liverpool. Browse before you join.
                     </p>
                 </div>
 
                 {/* Restaurant Carousel */}
-                <div className="relative mb-10">
+                <div className="relative mb-8">
                     {/* Scroll buttons - hidden on mobile */}
                     <button
                         onClick={() => scroll("left")}
@@ -172,8 +173,13 @@ export function WhereCanISave() {
 
                 {/* CTA */}
                 <div className="text-center">
-                    <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
-                        <a href="/restaurants">See where I can save</a>
+                    <Button asChild className="rounded-full bg-primary px-8 py-6 text-base font-semibold text-primary-foreground hover:bg-primary/90">
+                        <a
+                            href="/restaurants"
+                            onClick={() => trackAsignupEvent("asignup_browse_restaurants_click")}
+                        >
+                            Browse all restaurants
+                        </a>
                     </Button>
                 </div>
             </div>

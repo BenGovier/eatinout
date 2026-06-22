@@ -17,14 +17,14 @@ export default function SignupPage() {
             {/* Social Proof */}
             <SocialProof />
 
+            {/* Restaurant Preview (moved up for cold-traffic proof) */}
+            <WhereCanISave />
+
             {/* How It Works */}
             <HowItWorks />
 
-            {/* Value Reinforcement */}
+            {/* Value Reinforcement / Savings example */}
             <ValueReinforcement />
-
-            {/* Where Can I Save */}
-            <WhereCanISave />
 
             {/* FAQ */}
             <FAQSection />
