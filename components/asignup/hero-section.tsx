@@ -18,45 +18,46 @@ export function HeroSection() {
                 className="object-cover"
             />
 
-            {/* Darker gradient overlay so the offer stays readable on mobile and desktop */}
+            {/* Soft gradient overlay - keeps text readable without crushing the image to black */}
             <div
                 className="absolute inset-0"
                 style={{
                     background:
-                        "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.4) 35%, rgba(0,0,0,0.65) 58%, rgba(0,0,0,0.85) 78%, rgba(0,0,0,0.96) 100%)",
+                        "linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.20) 40%, rgba(0,0,0,0.45) 65%, rgba(0,0,0,0.70) 85%, rgba(0,0,0,0.82) 100%)",
                 }}
                 aria-hidden="true"
             />
 
             {/* Hero content - sits low over the darker table-edge area */}
-            <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-6 pb-12 text-center">
+            <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center px-6 pb-12 text-center sm:max-w-2xl">
                 <h1
-                    className="text-balance text-5xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl"
-                    style={{ textShadow: "0 3px 16px rgba(0,0,0,0.7)" }}
+                    className="text-balance text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl"
+                    style={{ textShadow: "0 2px 14px rgba(0,0,0,0.55)" }}
                 >
-                    Eat out for less at restaurants near you
+                    <span className="sm:block">Eat out for less</span>{" "}
+                    <span className="sm:block">at restaurants near you</span>
                 </h1>
 
                 <p
-                    className="mt-5 text-pretty text-xl font-semibold leading-snug text-white sm:text-2xl"
-                    style={{ textShadow: "0 2px 10px rgba(0,0,0,0.7)" }}
+                    className="mt-4 text-pretty text-base font-normal leading-relaxed text-white/95 sm:text-lg"
+                    style={{ textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}
                 >
-                    Save up to 50% off your total bill
+                    Save up to 50% off your total bill with local dining offers.
                 </p>
 
-                {/* Prominent offer badge */}
-                <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#EB221C] px-5 py-2.5 shadow-lg">
-                    <span className="text-base font-bold text-white sm:text-lg">
-                        30 days free, then £4.99/month
-                    </span>
-                </div>
+                {/* Value line - subtle, not a loud badge */}
+                <p
+                    className="mt-3 text-sm font-medium text-white/90"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}
+                >
+                    30 days free, then £4.99/month. Cancel anytime.
+                </p>
 
-                <div className="mt-7 flex w-full flex-col gap-3 sm:max-w-md">
-                    {/* Primary - dominant EatinOut red */}
+                <div className="mt-6 flex w-full flex-col gap-3 sm:max-w-sm">
+                    {/* Primary - the only red element, premium height */}
                     <Button
                         asChild
-                        size="lg"
-                        className="h-auto w-full rounded-full bg-[#EB221C] py-7 text-lg font-bold text-white shadow-xl hover:bg-[#cf1d18]"
+                        className="h-14 w-full rounded-full bg-[#EB221C] text-base font-semibold text-white shadow-md hover:bg-[#cf1d18]"
                     >
                         <Link
                             href="/sign-up"
@@ -66,12 +67,11 @@ export function HeroSection() {
                         </Link>
                     </Button>
 
-                    {/* Secondary - lower friction but still obvious */}
+                    {/* Secondary - quiet ghost/outline that doesn't compete */}
                     <Button
                         asChild
-                        size="lg"
                         variant="outline"
-                        className="h-auto w-full rounded-full border-2 border-white bg-white/10 py-5 text-base font-semibold text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+                        className="h-14 w-full rounded-full border border-white/50 bg-transparent text-base font-medium text-white hover:bg-white/10 hover:text-white"
                     >
                         <Link
                             href="/restaurants"
@@ -83,8 +83,8 @@ export function HeroSection() {
                 </div>
 
                 <p
-                    className="mt-4 text-sm font-medium text-white/85"
-                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
+                    className="mt-4 text-xs font-medium text-white/75"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}
                 >
                     Browse local offers before you join.
                 </p>
