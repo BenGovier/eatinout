@@ -10,8 +10,8 @@ export function HeroSection() {
         <section className="relative flex min-h-[78vh] w-full items-end justify-center overflow-hidden">
             {/* Dine-in background image */}
             <Image
-                src="/images/asignup-hero-friends.png"
-                alt="Friends laughing together over a table full of food at a restaurant"
+                src="/images/asignup-hero-steak.jpg"
+                alt="Grilled steak topped with herb butter and rosemary, served with fries on a wooden board"
                 fill
                 priority
                 sizes="100vw"
