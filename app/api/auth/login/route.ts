@@ -256,6 +256,7 @@ export async function POST(req: any) {
         lastName: user.lastName,
         restaurantId: restaurantId,
         subscriptionStatus: user.subscriptionStatus || "inactive",
+        isTrialing: user.isTrialing || false,
       },
       JWT_SECRET,
       { expiresIn: "365d" }
@@ -282,6 +283,7 @@ export async function POST(req: any) {
       message: "Login successful",
       role: user.role,
       subscriptionStatus: user.subscriptionStatus || "inactive",
+      isTrialing: user.isTrialing || false,
       email: user.email,
       userId: user._id.toString(),              
       firstName: user.firstName || "",                  

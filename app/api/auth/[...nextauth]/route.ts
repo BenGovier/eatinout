@@ -44,6 +44,7 @@ const handler = NextAuth({
             provider: account?.provider,
             password: hashedPassword,
             subscriptionStatus: "inactive", // Default subscription status
+            isTrialing: false,
           });
 
           await existingUser.save();
@@ -53,6 +54,7 @@ const handler = NextAuth({
         user.role = existingUser.role;
         if (user.role === "user") {
           user.subscriptionStatus = existingUser.subscriptionStatus;
+          user.isTrialing = existingUser.isTrialing || false;
         }
 
         return true; // Allow sign-in
@@ -66,6 +68,7 @@ const handler = NextAuth({
       session.user.role = token.role;
       if (token.role === "user") {
         session.user.subscriptionStatus = token.subscriptionStatus;
+        session.user.isTrialing = token.isTrialing || false;
       }
       return session;
     },
@@ -75,6 +78,7 @@ const handler = NextAuth({
         token.role = user.role;
         if (user.role === "user") {
           token.subscriptionStatus = user.subscriptionStatus;
+          token.isTrialing = user.isTrialing || false;
         }
       }
       return token;

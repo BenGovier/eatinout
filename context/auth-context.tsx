@@ -11,6 +11,7 @@ export interface User {
   lastName: string;
   restaurantId: string | null;
   subscriptionStatus: "active" | "cancelled" | "inactive" | "cancelled_with_access";
+  isTrialing?: boolean;
 }
 
 interface AuthContextType {
@@ -60,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastName: (session.user as any).lastName || session.user.name?.split(" ")[1] || "",
           restaurantId: (session.user as any).restaurantId || null,
           subscriptionStatus: (session.user as any).subscriptionStatus || "inactive",
+          isTrialing: (session.user as any).isTrialing || false,
         };
         setUser(sessionUser);
         setIsAuthenticated(true);
@@ -81,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAuthLoading(false);
         return;
       }
-
+      console.log("cont user resp",data.user)
       if (res.ok && data.user) {
         const userData: User = {
           userId: data.user.userId,
@@ -91,6 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastName: data.user.lastName,
           restaurantId: data.user.restaurantId,
           subscriptionStatus: data.user.subscriptionStatus,
+          isTrialing: data.user.isTrialing || false,
         };
         setUser(userData);
         // const isUserAuthenticated =

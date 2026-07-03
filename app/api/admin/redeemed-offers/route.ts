@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const expiredFilter = searchParams.get('expired') || 'all'
 
     // Build dynamic query - only fetch redeemed offers (matching restaurant API)
-    const query: any = { 
+    const query: any = {
       offerStatus: "redeemed",
       // redeemStatus: true 
     }
@@ -47,87 +47,110 @@ export async function GET(req: NextRequest) {
     // First fetch users and offers
     const [users, offers] = await Promise.all([
       User.find({ _id: { $in: userIds } }).select('firstName lastName email phone').lean(),
-      Offer.find({ _id: { $in: offerIds } }).select('title code associatedId').lean()
+      // Offer.find({ _id: { $in: offerIds } }).select('title code associatedId').lean()
+      Offer.find({ _id: { $in: offerIds } })
+        .select("title code associatedId restaurantId")
+        .lean()
     ])
 
     // Get unique associatedIds from offers to fetch restaurants
-    const associatedIds = [...new Set(offers.map((o: any) => o.associatedId).filter(Boolean))]
-    
-    // Also get unique offerRestaurantIds from wallet entries (could be userId or ObjectId)
-    // Convert both ObjectId and string formats to string
-    const offerRestaurantIds = [...new Set(
-      walletEntries.map((w: any) => {
-        if (!w.offerRestaurantId) return null
-        return typeof w.offerRestaurantId === 'object' 
-          ? w.offerRestaurantId.toString() 
-          : w.offerRestaurantId
-      }).filter(Boolean)
-    )]
+    // const associatedIds = [...new Set(offers.map((o: any) => o.associatedId).filter(Boolean))]
 
-    // Fetch restaurants using both associatedId AND userId
-    const restaurants = await Restaurant.find({ 
-      $or: [
-        { associatedId: { $in: [...associatedIds, ...offerRestaurantIds] } },
-        { userId: { $in: offerRestaurantIds } }
-      ]
+    // // Also get unique offerRestaurantIds from wallet entries (could be userId or ObjectId)
+    // // Convert both ObjectId and string formats to string
+    // const offerRestaurantIds = [...new Set(
+    //   walletEntries.map((w: any) => {
+    //     if (!w.offerRestaurantId) return null
+    //     return typeof w.offerRestaurantId === 'object'
+    //       ? w.offerRestaurantId.toString()
+    //       : w.offerRestaurantId
+    //   }).filter(Boolean)
+    // )]
+    const restaurantIds = [
+      ...new Set(
+        offers
+          .map((o: any) => o.restaurantId?.toString())
+          .filter(Boolean)
+      ),
+    ]
+    // // Fetch restaurants using both associatedId AND userId
+    // const restaurants = await Restaurant.find({
+    //   $or: [
+    //     { associatedId: { $in: [...associatedIds, ...offerRestaurantIds] } },
+    //     { userId: { $in: offerRestaurantIds } }
+    //   ]
+    // })
+    //   .select('name email phone address associatedId userId')
+    //   .lean()
+    const restaurants = await Restaurant.find({
+      _id: { $in: restaurantIds }
     })
-      .select('name email phone address associatedId userId')
+      .select("name email phone address associatedId userId")
       .lean()
-
     // Create lookup maps
     const userMap = new Map(users.map((u: any) => [u._id.toString(), u]))
     const offerMap = new Map(offers.map((o: any) => [o._id.toString(), o]))
-    
+
     // Map restaurants by BOTH associatedId and userId for flexible lookup
     // Handle both string and ObjectId formats
+    // const restaurantMap = new Map()
+    // restaurants.forEach((r: any) => {
+    //   if (r.associatedId) {
+    //     restaurantMap.set(r.associatedId, r)
+    //     restaurantMap.set(r.associatedId.toString(), r)
+    //   }
+    //   if (r.userId) {
+    //     restaurantMap.set(r.userId.toString(), r)
+    //   }
+    //   // Also map by _id for direct lookups
+    //   restaurantMap.set(r._id.toString(), r)
+    // })
     const restaurantMap = new Map()
+
     restaurants.forEach((r: any) => {
-      if (r.associatedId) {
-        restaurantMap.set(r.associatedId, r)
-        restaurantMap.set(r.associatedId.toString(), r)
-      }
-      if (r.userId) {
-        restaurantMap.set(r.userId.toString(), r)
-      }
-      // Also map by _id for direct lookups
       restaurantMap.set(r._id.toString(), r)
     })
-
     // Format the data using the manually fetched related data
     const formattedRedemptions = walletEntries
       .map((entry: any) => {
         // Check if code is expired
         const currentTime = Date.now()
-        const isExpired = entry.redeemCodeExpiry 
-          ? currentTime > entry.redeemCodeExpiry 
+        const isExpired = entry.redeemCodeExpiry
+          ? currentTime > entry.redeemCodeExpiry
           : false
         // Get related data from maps
         const user = userMap.get(entry.userId?.toString())
         const offer = offerMap.get(entry.offerId?.toString())
-        
+
         // Skip entries without valid user data
         if (!user || !entry.userId) {
           return null
         }
-        
-        // Get restaurant - try multiple lookup strategies (handle both ObjectId and string)
-        let restaurant = null
-        
-        // Strategy 1: Try offer's associatedId
-        if (offer?.associatedId) {
-          restaurant = restaurantMap.get(offer.associatedId) || restaurantMap.get(offer.associatedId.toString())
-        }
-        
-        // Strategy 2: Try wallet's offerRestaurantId (could be ObjectId or string)
-        if (!restaurant && entry.offerRestaurantId) {
-          const restaurantIdStr = typeof entry.offerRestaurantId === 'object' 
-            ? entry.offerRestaurantId.toString() 
-            : entry.offerRestaurantId
-          restaurant = restaurantMap.get(restaurantIdStr)
-        }
 
+        // Get restaurant - try multiple lookup strategies (handle both ObjectId and string)
+        // let restaurant = null
+
+        // // Strategy 1: Try offer's associatedId
+        // if (offer?.associatedId) {
+        //   restaurant = restaurantMap.get(offer.associatedId) || restaurantMap.get(offer.associatedId.toString())
+        // }
+
+        // // Strategy 2: Try wallet's offerRestaurantId (could be ObjectId or string)
+        // if (!restaurant && entry.offerRestaurantId) {
+        //   const restaurantIdStr = typeof entry.offerRestaurantId === 'object'
+        //     ? entry.offerRestaurantId.toString()
+        //     : entry.offerRestaurantId
+        //   restaurant = restaurantMap.get(restaurantIdStr)
+        // }
+        let restaurant = null
+
+        if (offer?.restaurantId) {
+          restaurant = restaurantMap.get(
+            offer.restaurantId.toString()
+          )
+        }
         const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
-        
+
         // Skip if username is empty after trimming
         if (!userName) {
           return null
@@ -146,7 +169,8 @@ export async function GET(req: NextRequest) {
           restaurantEmail: restaurant?.email || 'N/A',
           restaurantPhone: restaurant?.phone || 'N/A',
           restaurantAddress: restaurant?.address || 'N/A',
-          restaurantId: offer?.associatedId || entry.offerRestaurantId,
+          // restaurantId: offer?.associatedId || entry.offerRestaurantId,
+          restaurantId: offer?.restaurantId || entry.offerRestaurantId || null,
           offerStatus: entry.offerStatus || 'N/A',
           redeemStatus: entry.redeemStatus,
           isExpired,
@@ -161,7 +185,7 @@ export async function GET(req: NextRequest) {
     let filteredRedemptions = formattedRedemptions
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
-      filteredRedemptions = formattedRedemptions.filter((item: any) => 
+      filteredRedemptions = formattedRedemptions.filter((item: any) =>
         item.userName.toLowerCase().includes(searchLower) ||
         item.userEmail.toLowerCase().includes(searchLower) ||
         item.offerCode.toLowerCase().includes(searchLower) ||
@@ -172,7 +196,7 @@ export async function GET(req: NextRequest) {
     // Apply expired filter
     if (expiredFilter !== 'all') {
       const showExpired = expiredFilter === 'expired'
-      filteredRedemptions = filteredRedemptions.filter((item: any) => 
+      filteredRedemptions = filteredRedemptions.filter((item: any) =>
         item.isExpired === showExpired
       )
     }
@@ -183,14 +207,19 @@ export async function GET(req: NextRequest) {
       expiredCodes: formattedRedemptions.filter((item: any) => item.isExpired).length,
       activeCodes: formattedRedemptions.filter((item: any) => !item.isExpired).length,
       uniqueUsers: new Set(formattedRedemptions.map((item: any) => item.userId.toString())).size,
-      uniqueRestaurants: new Set(formattedRedemptions.map((item: any) => item.restaurantId.toString())).size,
+      // uniqueRestaurants: new Set(formattedRedemptions.map((item: any) => item.restaurantId.toString())).size,
+      uniqueRestaurants: new Set(
+        formattedRedemptions
+          .map((item: any) => item.restaurantId?.toString())
+          .filter(Boolean)
+      ).size,
     }
 
     // Apply pagination after filtering
     const totalPages = Math.ceil(filteredRedemptions.length / limit)
     const skip = (page - 1) * limit
-    const paginatedRedemptions = isExport 
-      ? filteredRedemptions 
+    const paginatedRedemptions = isExport
+      ? filteredRedemptions
       : filteredRedemptions.slice(skip, skip + limit)
 
     return NextResponse.json({

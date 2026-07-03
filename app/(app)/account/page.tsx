@@ -25,6 +25,7 @@ interface User {
   email: string;
   role: "user" | "restaurant" | "admin";
   subscriptionStatus: "active" | "inactive" | "cancelled" | "cancelled_with_access";
+  isTrialing?: boolean;
 }
 
 interface Subscription {
@@ -39,6 +40,7 @@ export default function AccountPage() {
     email: "",
     role: "user",
     subscriptionStatus: "inactive",
+    isTrialing: false,
   });
 
   const [subscription, setSubscription] = useState<Subscription>({
@@ -75,6 +77,10 @@ export default function AccountPage() {
   }, []);
 
   const renderSubscriptionStatus = () => {
+    if (user.isTrialing) {
+      return <span>Free Trial Active</span>;
+    }
+
     if (user.subscriptionStatus === "active") {
       return <span>Active Subscription</span>;
     }
@@ -94,6 +100,7 @@ export default function AccountPage() {
   };
 
   const getStatusColor = () => {
+    if (user.isTrialing) return "bg-blue-100 text-blue-700";
     switch (subscription.status) {
       case "active":
         return "bg-green-100 text-green-700";
