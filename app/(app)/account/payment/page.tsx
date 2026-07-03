@@ -32,7 +32,6 @@ export default function SubscriptionPage() {
     const [isDeleting, setIsDeleting] = useState(false);
     const router = useRouter();
     const { user, checkAuth } = useAuth();
-    console.log("account user", user)
     const handleCancel = (subscriptionId: string) => {
         setSelectedSubscriptionId(subscriptionId);
         setShowCancelModal(true);
@@ -292,7 +291,7 @@ export default function SubscriptionPage() {
                                                         const endDate = new Date(sub.current_period_end * 1000);
                                                         const status = user?.subscriptionStatus || sub.status;
 
-                                                        if (status === 'canceled' || status === 'cancelled') {
+                                                        if (status === 'canceled' || status === 'cancelled' || status === 'cancelled_with_access') {
                                                             return (
                                                                 <span className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                                                                     Cancelled
@@ -337,7 +336,7 @@ export default function SubscriptionPage() {
                                                     });
                                                     const status = user?.subscriptionStatus || sub.status;
 
-                                                    if (status === 'canceled' || status === 'cancelled') {
+                                                    if (status === 'canceled' || status === 'cancelled' || status === 'cancelled_with_access') {
                                                         return (
                                                             <p className="text-xs sm:text-sm text-gray-700">
                                                                 Valid until <strong>{formattedDate}</strong>
@@ -374,6 +373,17 @@ export default function SubscriptionPage() {
                                                 {(() => {
                                                     const status = user?.subscriptionStatus || sub.status;
 
+                                                    if (status === 'paused' || status === 'cancelled_with_access') {
+                                                        return (
+                                                            <button
+                                                                onClick={() => handleResume(sub.id)}
+                                                                className="flex-1 border border-blue-500 text-blue-600 bg-transparent px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+                                                            >
+                                                                Resume
+                                                            </button>
+                                                        );
+                                                    }
+
                                                     if (status === 'active' || user?.isTrialing) {
                                                         return (
                                                             <button
@@ -381,17 +391,6 @@ export default function SubscriptionPage() {
                                                                 className="flex-1 border border-red-500 text-red-600 bg-transparent px-3 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium text-sm"
                                                             >
                                                                 Cancel
-                                                            </button>
-                                                        );
-                                                    }
-
-                                                    if (status === 'paused') {
-                                                        return (
-                                                            <button
-                                                                onClick={() => handleResume(sub.id)}
-                                                                className="flex-1 border border-blue-500 text-blue-600 bg-transparent px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
-                                                            >
-                                                                Resume
                                                             </button>
                                                         );
                                                     }
