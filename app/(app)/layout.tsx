@@ -19,9 +19,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const subscriptionCheckRef = useRef(false);
   const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [isVerifyingStatus, setIsVerifyingStatus] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
-
+  console.log("user",user)
   useEffect(() => {
     if (isPublicRestaurantPage) {
       setLayoutReady(true);
@@ -35,8 +36,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return;
       }
       if (user && user.role === "user") {
-        if (user.subscriptionStatus === "inactive") {
-          router.push("/sign-up");
+        if (user.subscriptionStatus === "inactive" && !user.isTrialing) {
+          const verifyStatusAndRedirect = async () => {
+            setIsVerifyingStatus(true);
+            try {
+              const res = await fetch("/api/subscriptions");
+              const data = await res.json();
+              if (res.ok && (data.status === "active" || data.status === "trialing" || data.hasAccess)) {
+                // Status is actually valid in Stripe, update context
+                // Instead of hard reloading, we'll just set layout ready, and checkAuth could be called
+                setLayoutReady(true);
+              } else {
+                router.push("/sign-up");
+              }
+            } catch (error) {
+              router.push("/sign-up");
+            } finally {
+              setIsVerifyingStatus(false);
+            }
+          };
+          verifyStatusAndRedirect();
           return;
         }
         setLayoutReady(true);
@@ -136,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!layoutReady) {
+  if (!layoutReady || isVerifyingStatus) {
     return (
       <Spinner />
     );

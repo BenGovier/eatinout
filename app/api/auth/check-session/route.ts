@@ -63,6 +63,7 @@ export async function GET(req: Request) {
         lastName: user.lastName,
         restaurantId: restaurantId,
         subscriptionStatus: user.subscriptionStatus || "inactive",
+        isTrialing: user.isTrialing || false,
       },
       JWT_SECRET,
       { expiresIn: "365d" }
@@ -75,6 +76,7 @@ export async function GET(req: Request) {
       email: user.email,
       role: user.role,
       subscriptionStatus: user.subscriptionStatus,
+      isTrialing: user.isTrialing || false,
     });
 
     response.cookies.set({
@@ -109,6 +111,7 @@ export async function GET(req: Request) {
         email: decoded.email,
         role: decoded.role,
         subscriptionStatus: decoded.subscriptionStatus,
+        isTrialing: decoded.isTrialing || false,
       });
     } catch (err) {
       return NextResponse.json(

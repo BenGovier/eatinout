@@ -106,7 +106,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const subscription: any = await stripe.subscriptions.cancel(user.subscriptionId);
+    const subscription: any = await stripe.subscriptions.update(user.subscriptionId, {
+      cancel_at_period_end: true,
+    });
 
     // Determine if access should be retained until the end of the period
     const now = new Date();
@@ -207,12 +209,24 @@ export async function GET(req: Request) {
 
       if (subscription.status === 'active') {
         hasAccess = true;
-        accessReason = "Subscription is active";
-        effectiveStatus = 'active';
+        if (subscription.cancel_at_period_end) {
+          accessReason = "Subscription active but will cancel at period end";
+          effectiveStatus = 'cancelled_with_access';
+        } else {
+          accessReason = "Subscription is active";
+          effectiveStatus = 'active';
+        }
+        user.isTrialing = false;
       } else if (subscription.status === 'trialing') {
         hasAccess = true;
-        accessReason = "Subscription is in trial period";
-        effectiveStatus = 'trialing';
+        if (subscription.cancel_at_period_end) {
+          accessReason = "Subscription in trial but will cancel at period end";
+          effectiveStatus = 'cancelled_with_access';
+        } else {
+          accessReason = "Subscription is in trial period";
+          effectiveStatus = 'inactive';
+        }
+        user.isTrialing = true;
       } else if (subscription.status === 'canceled') {
         // For cancelled subscriptions, check trial_end or current_period_end
         const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
@@ -236,14 +250,16 @@ export async function GET(req: Request) {
         hasAccess = currentPeriodEnd > now;
         accessReason = hasAccess ? "Past due but still within period" : "Past due and period expired";
         effectiveStatus = 'past_due';
+        user.isTrialing = false;
       } else {
         hasAccess = false;
         accessReason = `Subscription status: ${subscription.status}`;
         effectiveStatus = 'inactive';
+        user.isTrialing = false;
       }
 
       // Update user status if needed
-      if (effectiveStatus !== user.subscriptionStatus) {
+      if (effectiveStatus !== user.subscriptionStatus || user.isModified('isTrialing')) {
         try {
           user.subscriptionStatus = effectiveStatus;
           await user.save();
@@ -293,7 +309,7 @@ export async function PATCH(req: Request) {
   try {
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
-
+    
     if (!token) {
       return NextResponse.json(
         { error: "Authentication token required" },
@@ -343,6 +359,7 @@ export async function PATCH(req: Request) {
         user.subscriptionId,
         {
           pause_collection: null, // Remove the pause
+          cancel_at_period_end: false, // Remove cancellation
         }
       );
 

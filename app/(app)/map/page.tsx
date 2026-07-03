@@ -881,7 +881,7 @@ export default function MapPage() {
       if (
         user &&
         user.role === "user" &&
-        (user.subscriptionStatus === "inactive" ||
+        ((user.subscriptionStatus === "inactive" && !user.isTrialing) ||
           user.subscriptionStatus === "cancelled")
       ) {
         try {

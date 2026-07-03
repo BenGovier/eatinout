@@ -85,6 +85,7 @@ export async function POST(request: Request) {
           email: existingUser.email,
           role: existingUser.role,
           subscriptionStatus: existingUser.subscriptionStatus,
+          isTrialing: existingUser.isTrialing,
         },
         JWT_SECRET,
         { expiresIn: "365d" }
@@ -126,11 +127,23 @@ export async function POST(request: Request) {
       selectedPlan = PLANS[0];
     }
 
+    let subscriptionStatusToSet = "active";
+    let isTrialing = false;
+    
+    if (session.subscription) {
+      const subscriptionInfo = await stripe.subscriptions.retrieve(session.subscription as string);
+      if (subscriptionInfo.status === 'trialing') {
+        subscriptionStatusToSet = "inactive";
+        isTrialing = true;
+      }
+    }
+
     // Update user subscription status
     const user = await User.findOneAndUpdate(
       { email: session.customer_email },
       {
-        subscriptionStatus: "active",
+        subscriptionStatus: subscriptionStatusToSet,
+        isTrialing: isTrialing,
         stripeCustomerId: session.customer,
         subscriptionId: session.subscription,
         hasSubscribedBefore: true,
@@ -147,6 +160,7 @@ export async function POST(request: Request) {
         email: user.email,
         role: user.role,
         subscriptionStatus: user.subscriptionStatus,
+        isTrialing: user.isTrialing,
       },
       JWT_SECRET,
       { expiresIn: "365d" }

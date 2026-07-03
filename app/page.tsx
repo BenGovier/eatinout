@@ -17,8 +17,8 @@ export default async function RootPage() {
       try {
         const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
         await connectToDatabase()
-        const user = await User.findById(decoded.userId).select('subscriptionStatus role')
-        if (user && user.role === "user" && user.subscriptionStatus !== "inactive") {
+        const user = await User.findById(decoded.userId).select('subscriptionStatus isTrialing role')
+        if (user && user.role === "user" && (user.subscriptionStatus !== "inactive" || user.isTrialing)) {
           redirect("/restaurants")
         }
       } catch {

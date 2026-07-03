@@ -31,8 +31,7 @@ export default function SubscriptionPage() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const router = useRouter();
-    const {user, checkAuth} = useAuth();
-    
+    const { user, checkAuth } = useAuth();
     const handleCancel = (subscriptionId: string) => {
         setSelectedSubscriptionId(subscriptionId);
         setShowCancelModal(true);
@@ -138,7 +137,7 @@ export default function SubscriptionPage() {
         if (subscriptionEndDate) {
             const now = Date.now();
             const endDate = new Date(subscriptionEndDate * 1000);
-            
+
             if (now < endDate.getTime()) {
                 const formattedDate = endDate.toLocaleDateString('en-GB', {
                     year: 'numeric',
@@ -283,7 +282,7 @@ export default function SubscriptionPage() {
                                                 <div className="flex-1">
                                                     <h3 className="text-lg sm:text-xl font-bold text-gray-900">{sub.plan?.nickname || 'Eatinout'}</h3>
                                                     <p className="text-sm text-gray-600 mt-1">
-                                                        £{sub.plan?.amount / 100 || 'N/A'}/{sub.plan?.amount /100 === 4.99 ? "Monthly" : sub.plan?.amount /100 === 29.94 ? "6 Months" : sub.plan?.amount /100 === 59.88 ? "Annual" : sub.plan?.amount /100 === 89.82 ? "18 Months" : "N/A"}
+                                                        £{sub.plan?.amount / 100 || 'N/A'}/{sub.plan?.amount / 100 === 4.99 ? "Monthly" : sub.plan?.amount / 100 === 29.94 ? "6 Months" : sub.plan?.amount / 100 === 59.88 ? "Annual" : sub.plan?.amount / 100 === 89.82 ? "18 Months" : "N/A"}
                                                     </p>
                                                 </div>
                                                 <div className="flex-shrink-0">
@@ -291,15 +290,23 @@ export default function SubscriptionPage() {
                                                         const now = Date.now();
                                                         const endDate = new Date(sub.current_period_end * 1000);
                                                         const status = user?.subscriptionStatus || sub.status;
-                                                        
-                                                        if (status === 'canceled' || status === 'cancelled') {
+
+                                                        if (status === 'canceled' || status === 'cancelled' || status === 'cancelled_with_access') {
                                                             return (
                                                                 <span className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                                                                     Cancelled
                                                                 </span>
                                                             );
                                                         }
-                                                        
+
+                                                        if (user?.isTrialing) {
+                                                            return (
+                                                                <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
+                                                                    Free Trial
+                                                                </span>
+                                                            );
+                                                        }
+
                                                         if (status === 'inactive' || now > endDate.getTime()) {
                                                             return (
                                                                 <span className="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
@@ -307,7 +314,7 @@ export default function SubscriptionPage() {
                                                                 </span>
                                                             );
                                                         }
-                                                        
+
                                                         return (
                                                             <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                                                                 Active
@@ -328,15 +335,23 @@ export default function SubscriptionPage() {
                                                         day: 'numeric',
                                                     });
                                                     const status = user?.subscriptionStatus || sub.status;
-                                                    
-                                                    if (status === 'canceled' || status === 'cancelled') {
+
+                                                    if (status === 'canceled' || status === 'cancelled' || status === 'cancelled_with_access') {
                                                         return (
                                                             <p className="text-xs sm:text-sm text-gray-700">
                                                                 Valid until <strong>{formattedDate}</strong>
                                                             </p>
                                                         );
                                                     }
-                                                    
+
+                                                    if (user?.isTrialing) {
+                                                        return (
+                                                            <p className="text-xs sm:text-sm text-gray-700">
+                                                                Trial ends on <strong>{formattedDate}</strong>
+                                                            </p>
+                                                        );
+                                                    }
+
                                                     if (status === 'inactive' || now > endDate.getTime()) {
                                                         return (
                                                             <p className="text-xs sm:text-sm text-gray-700">
@@ -344,7 +359,7 @@ export default function SubscriptionPage() {
                                                             </p>
                                                         );
                                                     }
-                                                    
+
                                                     return (
                                                         <p className="text-xs sm:text-sm text-gray-700">
                                                             Renews on <strong>{formattedDate}</strong>
@@ -357,18 +372,7 @@ export default function SubscriptionPage() {
                                             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                                 {(() => {
                                                     const status = user?.subscriptionStatus || sub.status;
-                                                    
-                                                    if (status === 'active') {
-                                                        return (
-                                                            <button
-                                                                onClick={() => handleCancel(sub.id)}
-                                                                className="flex-1 border border-red-500 text-red-600 bg-transparent px-3 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium text-sm"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        );
-                                                    }
-                                                    
+
                                                     if (status === 'paused') {
                                                         return (
                                                             <button
@@ -379,7 +383,18 @@ export default function SubscriptionPage() {
                                                             </button>
                                                         );
                                                     }
-                                                    
+
+                                                    if ((status === 'active' || user?.isTrialing) && status !== 'cancelled_with_access') {
+                                                        return (
+                                                            <button
+                                                                onClick={() => handleCancel(sub.id)}
+                                                                className="flex-1 border border-red-500 text-red-600 bg-transparent px-3 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium text-sm"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        );
+                                                    }
+
                                                     return null;
                                                 })()}
                                             </div>
@@ -530,9 +545,8 @@ export default function SubscriptionPage() {
                             <button
                                 onClick={confirmCancel}
                                 disabled={isConfirming}
-                                className={`px-4 py-2 text-sm border border-red-500 text-red-600 bg-transparent hover:bg-red-50 rounded-lg transition-colors font-medium ${
-                                    isConfirming ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
+                                className={`px-4 py-2 text-sm border border-red-500 text-red-600 bg-transparent hover:bg-red-50 rounded-lg transition-colors font-medium ${isConfirming ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                             >
                                 {isConfirming ? (
                                     <div className="flex items-center justify-center gap-2">
@@ -575,17 +589,17 @@ export default function SubscriptionPage() {
                                     </p>
                                 </div>
                             )}
-                            
+
                             <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
                                 <h4 className="font-semibold text-red-900 mb-2">Are you sure?</h4>
                                 <p className="text-sm text-red-800">
-                                    Thanks, customer service will process your request and confirm within 48 hours. 
+                                    Thanks, customer service will process your request and confirm within 48 hours.
                                     Your information will be deleted from Eatinout.
                                 </p>
                             </div>
 
                             <p className="text-sm text-gray-600">
-                                This action cannot be undone. All your data, including your subscription history, 
+                                This action cannot be undone. All your data, including your subscription history,
                                 wallet offers, and personal information will be permanently deleted.
                             </p>
                         </div>
@@ -600,9 +614,8 @@ export default function SubscriptionPage() {
                             <button
                                 onClick={handleDeleteAccount}
                                 disabled={isDeleting}
-                                className={`flex items-center justify-center gap-2 px-4 py-2 text-sm border border-red-500 text-red-600 bg-transparent hover:bg-red-50 rounded-lg transition-colors font-medium ${
-                                    isDeleting ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
+                                className={`flex items-center justify-center gap-2 px-4 py-2 text-sm border border-red-500 text-red-600 bg-transparent hover:bg-red-50 rounded-lg transition-colors font-medium ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                             >
                                 {isDeleting ? (
                                     <>
