@@ -373,7 +373,7 @@ export default function SubscriptionPage() {
                                                 {(() => {
                                                     const status = user?.subscriptionStatus || sub.status;
 
-                                                    if (status === 'paused' || status === 'cancelled_with_access') {
+                                                    if (status === 'paused') {
                                                         return (
                                                             <button
                                                                 onClick={() => handleResume(sub.id)}
@@ -384,7 +384,7 @@ export default function SubscriptionPage() {
                                                         );
                                                     }
 
-                                                    if (status === 'active' || user?.isTrialing) {
+                                                    if ((status === 'active' || user?.isTrialing) && status !== 'cancelled_with_access') {
                                                         return (
                                                             <button
                                                                 onClick={() => handleCancel(sub.id)}
