@@ -374,7 +374,7 @@ export default function SubscriptionPage() {
                                                 {(() => {
                                                     const status = user?.subscriptionStatus || sub.status;
 
-                                                    if (status === 'active') {
+                                                    if (status === 'active' || user?.isTrialing) {
                                                         return (
                                                             <button
                                                                 onClick={() => handleCancel(sub.id)}
