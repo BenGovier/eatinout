@@ -883,7 +883,7 @@ export default function RestaurantsPage() {
 
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
     // Check if the user is a normal user without an active subscription
-    if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
+    if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")) {
       try {
         const response = await fetch("/api/payment/create-checkout-session", {
           method: "POST",

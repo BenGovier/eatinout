@@ -209,10 +209,12 @@ export async function GET(req: Request) {
         hasAccess = true;
         accessReason = "Subscription is active";
         effectiveStatus = 'active';
+        user.isTrialing = false;
       } else if (subscription.status === 'trialing') {
         hasAccess = true;
         accessReason = "Subscription is in trial period";
-        effectiveStatus = 'trialing';
+        effectiveStatus = 'inactive';
+        user.isTrialing = true;
       } else if (subscription.status === 'canceled') {
         // For cancelled subscriptions, check trial_end or current_period_end
         const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
@@ -236,14 +238,16 @@ export async function GET(req: Request) {
         hasAccess = currentPeriodEnd > now;
         accessReason = hasAccess ? "Past due but still within period" : "Past due and period expired";
         effectiveStatus = 'past_due';
+        user.isTrialing = false;
       } else {
         hasAccess = false;
         accessReason = `Subscription status: ${subscription.status}`;
         effectiveStatus = 'inactive';
+        user.isTrialing = false;
       }
 
       // Update user status if needed
-      if (effectiveStatus !== user.subscriptionStatus) {
+      if (effectiveStatus !== user.subscriptionStatus || user.isModified('isTrialing')) {
         try {
           user.subscriptionStatus = effectiveStatus;
           await user.save();

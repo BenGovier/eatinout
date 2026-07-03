@@ -145,7 +145,7 @@ export default function FavoriteRestaurantsPage() {
                             <div
                                 key={rid}
                                 onClick={async () => {
-                                    if (user && user.role === "user" &&  (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")) {
+                                    if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")) {
                                         try {
                                             const response = await fetch("/api/payment/create-checkout-session", {
                                                 method: "POST",
@@ -251,7 +251,7 @@ export default function FavoriteRestaurantsPage() {
                                                                 onClick={async (e) => {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    if (user && user.role === "user" && (user.subscriptionStatus === "inactive" || user.subscriptionStatus === "cancelled")                                                                    ) {
+                                                                    if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")                                                                    ) {
                                                                         try {
                                                                             const response = await fetch("/api/payment/create-checkout-session", {
                                                                                 method: "POST",

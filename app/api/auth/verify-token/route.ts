@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     // Connect to database and get user details
     await connectToDatabase();
-    const user = await User.findById(decoded.userId).select('subscriptionStatus role email firstName lastName');
+    const user = await User.findById(decoded.userId).select('subscriptionStatus isTrialing role email firstName lastName');
 
     if (!user) {
       return NextResponse.json({
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       user: {
         ...decoded,
         subscriptionStatus: user.subscriptionStatus,
+        isTrialing: user.isTrialing || false,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
