@@ -2,10 +2,10 @@ import { Calculator } from "lucide-react"
 
 export function ValueReinforcement() {
     return (
-        <section id="pricing" className="py-12 md:py-20 bg-secondary/30">
+        <section id="pricing" className="py-10 md:py-14 bg-secondary/30">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-10 md:mb-14">
+                <div className="text-center mb-8 md:mb-10">
                     <h2 className="text-2xl md:text-4xl font-bold text-foreground">
                         One meal out can cover your membership
                     </h2>
