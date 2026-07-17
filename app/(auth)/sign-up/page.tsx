@@ -500,11 +500,36 @@ function SignUpPageContent() {
     else if (currentStep === 3) step3FirstRef.current?.focus()
   }
 
-  // Directional variants for the step transition (respect reduced motion)
-  const stepVariants = {
-    enter: (dir: number) => ({ opacity: 0, x: shouldReduceMotion ? 0 : dir * 24 }),
-    center: { opacity: 1, x: 0 },
-    exit: (dir: number) => ({ opacity: 0, x: shouldReduceMotion ? 0 : dir * -24 }),
+  // Directional container variants: slide + fade the whole step, and stagger
+  // the children (heading -> text -> fields) as they enter. Respects reduced motion.
+  const stepContainerVariants = {
+    enter: (dir: number) => ({ opacity: 0, x: shouldReduceMotion ? 0 : dir * 14 }),
+    center: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: shouldReduceMotion ? 0.12 : 0.24,
+        ease: [0.16, 1, 0.3, 1] as const,
+        when: "beforeChildren" as const,
+        delayChildren: shouldReduceMotion ? 0 : 0.04,
+        staggerChildren: shouldReduceMotion ? 0 : 0.035,
+      },
+    },
+    exit: (dir: number) => ({
+      opacity: 0,
+      x: shouldReduceMotion ? 0 : dir * -14,
+      transition: { duration: shouldReduceMotion ? 0.1 : 0.2, ease: [0.4, 0, 1, 1] as const },
+    }),
+  }
+
+  // Per-item entrance (subtle rise + fade). Used for heading, supporting text and fields.
+  const stepItemVariants = {
+    enter: { opacity: 0, y: shouldReduceMotion ? 0 : 8 },
+    center: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: shouldReduceMotion ? 0.12 : 0.22, ease: [0.16, 1, 0.3, 1] as const },
+    },
   }
 
   // Enter runs the current step's Continue action (steps 1-2); step 3 submits normally.
@@ -595,12 +620,6 @@ function SignUpPageContent() {
             const selectedPlan =
               availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
 
-            const planLabels: Record<string, { title: string; then: string }> = {
-              monthly: { title: "Monthly membership", then: "Then £4.99/month" },
-              six: { title: "6 month membership", then: "Then £25.45 / 6 months (£4.24/month) — save 15%" },
-              annual: { title: "Annual membership", then: "Then £47.90 / year (£3.99/month) — save 20%" },
-            }
-
             const passwordRequirements = [
               { met: passwordValidation.hasMinLength, label: "8 or more characters" },
               { met: passwordValidation.hasNumber, label: "One number" },
@@ -614,8 +633,8 @@ function SignUpPageContent() {
             }
 
             return (
-              <div className="flex flex-1 flex-col min-h-[100dvh] lg:min-h-full">
-                {/* Compact wizard header */}
+              <div className="flex flex-1 flex-col">
+                {/* Compact wizard header (stays stable across steps) */}
                 <header className="shrink-0 flex items-center h-14 px-2 border-b border-[#F1DEC5]/70">
                   <button
                     type="button"
@@ -643,9 +662,9 @@ function SignUpPageContent() {
                   onKeyDown={handleFormKeyDown}
                   className="flex flex-1 flex-col min-h-0"
                 >
-                  {/* Scrollable step area */}
+                  {/* Scrollable step area — content flows from the top, no forced centering */}
                   <div ref={wizardScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-                    <div className="mx-auto w-full max-w-md px-5 pt-5">
+                    <div className="mx-auto w-full max-w-md px-5 pt-6">
                       {/* Progress (stable position; only the fill animates) */}
                       <div className="mb-6">
                         <div className="mb-2 flex items-center justify-between">
@@ -671,34 +690,37 @@ function SignUpPageContent() {
                         </div>
                       </div>
 
-                      {/* Animated step content */}
+                      {/* Animated step content (heading, supporting text and fields stagger in) */}
                       <AnimatePresence mode="wait" custom={direction}>
                         <motion.div
                           key={currentStep}
                           custom={direction}
-                          variants={stepVariants}
+                          variants={stepContainerVariants}
                           initial="enter"
                           animate="center"
                           exit="exit"
-                          transition={{ duration: shouldReduceMotion ? 0.12 : 0.26, ease: "easeOut" }}
                           onAnimationComplete={(def) => {
                             if (def === "center") focusCurrentStep()
                           }}
                         >
-                          {/* Heading */}
-                          <div className="mb-5 space-y-1.5">
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground text-balance">
-                              {headings[currentStep].title}
-                            </h1>
-                            <p className="text-sm text-muted-foreground text-pretty">
-                              {headings[currentStep].copy}
-                            </p>
-                          </div>
+                          {/* Heading + supporting text */}
+                          <motion.h1
+                            variants={stepItemVariants}
+                            className="mb-1.5 text-2xl font-bold tracking-tight text-foreground text-balance"
+                          >
+                            {headings[currentStep].title}
+                          </motion.h1>
+                          <motion.p
+                            variants={stepItemVariants}
+                            className="mb-5 text-sm text-muted-foreground text-pretty"
+                          >
+                            {headings[currentStep].copy}
+                          </motion.p>
 
                           {/* STEP 1 — Your details */}
                           {currentStep === 1 && (
                             <div className="space-y-4">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <motion.div variants={stepItemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                   <label htmlFor="firstName" className="sr-only">First name</label>
                                   <Input
@@ -734,8 +756,8 @@ function SignUpPageContent() {
                                     <p id="lastName-error" className="mt-1.5 text-sm text-destructive">{stepErrors.lastName}</p>
                                   )}
                                 </div>
-                              </div>
-                              <div>
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
                                 <label htmlFor="email" className="sr-only">Email</label>
                                 <Input
                                   id="email"
@@ -752,14 +774,14 @@ function SignUpPageContent() {
                                 {stepErrors.email && (
                                   <p id="email-error" className="mt-1.5 text-sm text-destructive">{stepErrors.email}</p>
                                 )}
-                              </div>
+                              </motion.div>
                             </div>
                           )}
 
                           {/* STEP 2 — Secure your account */}
                           {currentStep === 2 && (
                             <div className="space-y-4">
-                              <div>
+                              <motion.div variants={stepItemVariants}>
                                 <label htmlFor="zipCode" className="sr-only">Postcode</label>
                                 <Input
                                   ref={step2FirstRef}
@@ -777,8 +799,8 @@ function SignUpPageContent() {
                                 {stepErrors.zipCode && (
                                   <p id="zipCode-error" className="mt-1.5 text-sm text-destructive">{stepErrors.zipCode}</p>
                                 )}
-                              </div>
-                              <div>
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
                                 <label htmlFor="password" className="sr-only">Password</label>
                                 <div className="relative">
                                   <Input
@@ -800,18 +822,27 @@ function SignUpPageContent() {
                                     {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                   </button>
                                 </div>
-                                {/* Live password requirements */}
+                                {/* Live password requirements — neutral circle morphs to a check, no layout shift */}
                                 <ul id="password-requirements" className="mt-2.5 space-y-1.5" aria-live="polite">
                                   {passwordRequirements.map((req) => (
                                     <li key={req.label} className="flex items-center gap-2 text-xs">
                                       <span
-                                        className={`flex h-4 w-4 items-center justify-center rounded-full transition-colors ${
-                                          req.met ? "bg-emerald-500 text-white" : "bg-[#e6dccb] text-transparent"
+                                        className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-300 ease-out ${
+                                          req.met ? "border-emerald-500 bg-emerald-500" : "border-[#cfc2ad] bg-transparent"
                                         }`}
                                       >
-                                        <Check className="h-3 w-3" strokeWidth={3} />
+                                        <Check
+                                          className={`h-2.5 w-2.5 text-white transition-all duration-300 ease-out ${
+                                            req.met ? "scale-100 opacity-100" : "scale-0 opacity-0"
+                                          }`}
+                                          strokeWidth={3.5}
+                                        />
                                       </span>
-                                      <span className={req.met ? "font-medium text-emerald-700" : "text-muted-foreground"}>
+                                      <span
+                                        className={`transition-colors duration-300 ${
+                                          req.met ? "font-medium text-emerald-700" : "text-muted-foreground"
+                                        }`}
+                                      >
                                         {req.label}
                                       </span>
                                     </li>
@@ -820,8 +851,8 @@ function SignUpPageContent() {
                                 {stepErrors.password && formData.password.length === 0 && (
                                   <p className="mt-1.5 text-sm text-destructive">{stepErrors.password}</p>
                                 )}
-                              </div>
-                              <div>
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
                                 <label htmlFor="confirmPassword" className="sr-only">Confirm password</label>
                                 <div className="relative">
                                   <Input
@@ -847,14 +878,15 @@ function SignUpPageContent() {
                                 {stepErrors.confirmPassword && (
                                   <p id="confirmPassword-error" className="mt-1.5 text-sm text-destructive">{stepErrors.confirmPassword}</p>
                                 )}
-                              </div>
+                              </motion.div>
                             </div>
                           )}
 
                           {/* STEP 3 — Choose your plan */}
                           {currentStep === 3 && (
                             <div className="space-y-4">
-                              <div
+                              <motion.div
+                                variants={stepItemVariants}
                                 className="space-y-3"
                                 role="radiogroup"
                                 aria-label="Membership plan"
@@ -877,10 +909,10 @@ function SignUpPageContent() {
                                           return next
                                         })
                                       }}
-                                      className={`w-full rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fdfaf5] ${
+                                      className={`w-full rounded-2xl p-4 text-left transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fdfaf5] ${
                                         isSelected
-                                          ? "border-2 border-[#eb221c] bg-[#fdecec] shadow-md"
-                                          : "border border-[#e6d8c2] bg-white hover:border-[#d8c3a3]"
+                                          ? "-translate-y-0.5 border-2 border-[#eb221c] bg-[#fdecec] shadow-lg shadow-[#eb221c]/10"
+                                          : "border-2 border-[#e6d8c2] bg-white shadow-none hover:border-[#d8c3a3]"
                                       }`}
                                     >
                                       <div className="flex items-start justify-between gap-3">
@@ -906,13 +938,18 @@ function SignUpPageContent() {
                                           <p className="mt-1 text-xs font-semibold text-[#eb221c]">30 days free</p>
                                         </div>
                                         <span
-                                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200 ${
                                             isSelected
-                                              ? "border-[#eb221c] bg-[#eb221c] text-white"
-                                              : "border-[#d8c7ad] text-transparent"
+                                              ? "border-[#eb221c] bg-[#eb221c]"
+                                              : "border-[#d8c7ad] bg-transparent"
                                           }`}
                                         >
-                                          <Check className="h-4 w-4" strokeWidth={3} />
+                                          <Check
+                                            className={`h-4 w-4 text-white transition-all duration-200 ease-out ${
+                                              isSelected ? "scale-100 opacity-100" : "scale-0 opacity-0"
+                                            }`}
+                                            strokeWidth={3}
+                                          />
                                         </span>
                                       </div>
                                     </button>
@@ -921,31 +958,10 @@ function SignUpPageContent() {
                                 {stepErrors.plan && (
                                   <p className="text-sm text-destructive">{stepErrors.plan}</p>
                                 )}
-                              </div>
-
-                              {/* Selected plan summary */}
-                              {selectedPlan && (
-                                <div className="rounded-2xl border border-[#f0e6d8] bg-[#eb221c]/[0.04] p-4">
-                                  <div className="flex items-start gap-3">
-                                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#eb221c]">
-                                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                                    </span>
-                                    <div className="text-sm">
-                                      <p className="font-semibold text-foreground">
-                                        {planLabels[selectedPlan.id]?.title ?? selectedPlan.name}
-                                      </p>
-                                      <p className="font-medium text-[#eb221c]">30 days free</p>
-                                      <p className="text-muted-foreground">
-                                        {planLabels[selectedPlan.id]?.then ?? `Then ${selectedPlan.price}${selectedPlan.period}`}
-                                      </p>
-                                      <p className="text-muted-foreground">Cancel anytime</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                              </motion.div>
 
                               {/* Terms — whole row taps toggle the checkbox; links never toggle it */}
-                              <div className="rounded-xl border border-border bg-card p-3">
+                              <motion.div variants={stepItemVariants} className="rounded-xl border border-border bg-card p-3">
                                 <div className="flex items-start gap-3">
                                   <Checkbox
                                     id="terms"
@@ -997,7 +1013,7 @@ function SignUpPageContent() {
                                     </button>
                                   </p>
                                 </div>
-                              </div>
+                              </motion.div>
                               {stepErrors.terms && (
                                 <p className="text-sm text-destructive">{stepErrors.terms}</p>
                               )}
@@ -1005,39 +1021,45 @@ function SignUpPageContent() {
                           )}
                         </motion.div>
                       </AnimatePresence>
-                    </div>
-                  </div>
 
-                  {/* Sticky bottom action area */}
-                  <div className="shrink-0 border-t border-[#F1DEC5]/70 bg-[#fdfaf5]/95 px-5 pt-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] backdrop-blur-sm">
-                    <div className="mx-auto w-full max-w-md">
-                      {currentStep < 3 ? (
-                        <Button
-                          type="button"
-                          onClick={handleContinue}
-                          className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#d41f19] active:bg-[#bd1b16]"
-                        >
-                          Continue
-                        </Button>
-                      ) : (
-                        <Button
-                          type="submit"
-                          disabled={!formData.agreeToTerms || isLoading}
-                          className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#d41f19] active:bg-[#bd1b16] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isLoading ? (
-                            <div className="flex items-center justify-center">
-                              <svg className="-ml-1 mr-2 h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Creating account...
-                            </div>
-                          ) : (
-                            "Start my 30-day free trial"
-                          )}
-                        </Button>
-                      )}
+                      {/* Primary CTA — sits directly under the step content (~28px), never pinned to
+                          the viewport bottom. Sticks to the bottom only while the step overflows/scrolls
+                          (e.g. keyboard open) so it never overlays the keyboard or the focused field. */}
+                      <motion.div
+                        key={`cta-${currentStep}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: shouldReduceMotion ? 0.12 : 0.25, delay: shouldReduceMotion ? 0 : 0.16, ease: "easeOut" }}
+                        className="sticky bottom-0 z-10 -mx-5 mt-7 bg-gradient-to-t from-[#fdfaf5] via-[#fdfaf5] to-transparent px-5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-3"
+                      >
+                        {currentStep < 3 ? (
+                          <Button
+                            type="button"
+                            onClick={handleContinue}
+                            className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-all duration-150 ease-out hover:bg-[#d41f19] active:scale-[0.98] active:bg-[#bd1b16]"
+                          >
+                            Continue
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            disabled={!formData.agreeToTerms || isLoading}
+                            className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-all duration-150 ease-out hover:bg-[#d41f19] active:scale-[0.98] active:bg-[#bd1b16] disabled:cursor-not-allowed disabled:bg-[#eb221c]/40 disabled:text-white disabled:shadow-none disabled:active:scale-100"
+                          >
+                            {isLoading ? (
+                              <div className="flex items-center justify-center">
+                                <svg className="-ml-1 mr-2 h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Creating account...
+                              </div>
+                            ) : (
+                              "Start my 30-day free trial"
+                            )}
+                          </Button>
+                        )}
+                      </motion.div>
                     </div>
                   </div>
                 </form>
