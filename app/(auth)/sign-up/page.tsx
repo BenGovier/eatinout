@@ -915,114 +915,45 @@ function SignUpPageContent() {
                           {/* STEP 3 — Choose your plan */}
                           {currentStep === 3 && (
                             <div className="space-y-4">
-                              {/* Free-trial reassurance — the dominant message on this step */}
-                              <motion.div
-                                variants={stepItemVariants}
-                                className="rounded-2xl border-2 border-[#eb221c]/25 bg-[#fdecec] p-5"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eb221c]">
-                                    <Check className="h-6 w-6 text-white" strokeWidth={3} />
-                                  </span>
-                                  <div className="min-w-0">
-                                    <p className="text-xl font-bold leading-tight text-foreground">30 days free</p>
-                                    <p className="mt-0.5 text-sm text-muted-foreground">
-                                      Then {selectedPlan?.price}{selectedPlan?.period}. Cancel anytime.
-                                    </p>
-                                  </div>
-                                </div>
-                              </motion.div>
-
-                              {availablePlans.length > 1 ? (
-                                /* Two or more plans — compact selectable cards under the trial message */
+                              {/* Concise summary of the plan chosen on the membership screen.
+                                  The plan is NOT re-selected here — use "Change plan" to go back. */}
+                              {selectedPlan && (
                                 <motion.div
                                   variants={stepItemVariants}
-                                  className="space-y-2.5"
-                                  role="radiogroup"
-                                  aria-label="How would you like to pay after your free trial?"
+                                  className="rounded-2xl border-2 border-[#eb221c]/25 bg-[#fdecec] p-4"
                                 >
-                                  <p className="text-sm font-semibold text-foreground">
-                                    How would you like to pay after your free trial?
-                                  </p>
-                                  {availablePlans.map((plan, index) => {
-                                    const isSelected = selectedPlan?.priceId === plan.priceId
-                                    return (
-                                      <button
-                                        key={plan.id}
-                                        ref={index === 0 ? step3FirstRef : undefined}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={isSelected}
-                                        onClick={() => {
-                                          setSelectedPriceId(plan.priceId ?? null)
-                                          setStepErrors((prev) => {
-                                            if (!prev.plan) return prev
-                                            const next = { ...prev }
-                                            delete next.plan
-                                            return next
-                                          })
-                                        }}
-                                        className={`w-full rounded-xl p-3.5 text-left transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fdfaf5] ${
-                                          isSelected
-                                            ? "border-2 border-[#eb221c] bg-[#fdecec]"
-                                            : "border-2 border-[#e6d8c2] bg-white hover:border-[#d8c3a3]"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                              <span className="text-sm font-bold text-foreground">{plan.name}</span>
-                                              {plan.discountLabel && (
-                                                <span className="rounded-full bg-[#eb221c] px-2 py-0.5 text-[11px] font-semibold text-white">
-                                                  {plan.discountLabel}
-                                                </span>
-                                              )}
-                                            </div>
-                                            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
-                                              {plan.originalPrice && (
-                                                <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
-                                              )}
-                                              <span className="text-sm font-semibold text-foreground">{plan.price}</span>
-                                              <span className="text-xs text-muted-foreground">{plan.period}</span>
-                                              {plan.perMonth && (
-                                                <span className="text-xs text-muted-foreground">· {plan.perMonth}</span>
-                                              )}
-                                            </div>
-                                          </div>
-                                          <span
-                                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200 ${
-                                              isSelected ? "border-[#eb221c] bg-[#eb221c]" : "border-[#d8c7ad] bg-transparent"
-                                            }`}
-                                          >
-                                            <Check
-                                              className={`h-3.5 w-3.5 text-white transition-all duration-200 ease-out ${
-                                                isSelected ? "scale-100 opacity-100" : "scale-0 opacity-0"
-                                              }`}
-                                              strokeWidth={3}
-                                            />
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-base font-bold text-foreground">{selectedPlan.name} membership</span>
+                                        {selectedPlan.discountLabel && (
+                                          <span className="rounded-full bg-[#eb221c] px-2 py-0.5 text-[11px] font-semibold text-white">
+                                            {selectedPlan.discountLabel}
                                           </span>
-                                        </div>
-                                      </button>
-                                    )
-                                  })}
-                                  {stepErrors.plan && (
-                                    <p className="text-sm text-destructive">{stepErrors.plan}</p>
-                                  )}
-                                </motion.div>
-                              ) : (
-                                /* Single plan — one concise membership summary, no selectable
-                                   card, no checkmark, and no repeated price (price lives above). */
-                                selectedPlan && (
-                                  <motion.div
-                                    variants={stepItemVariants}
-                                    className="flex items-center justify-between gap-3 rounded-xl border border-[#e6d8c2] bg-white p-3.5"
-                                  >
-                                    <span className="text-sm font-semibold text-foreground">
-                                      {selectedPlan.name} membership
+                                        )}
+                                      </div>
+                                      <p className="text-sm font-semibold text-[#eb221c]">30 days free</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Then{" "}
+                                        {selectedPlan.originalPrice && (
+                                          <span className="line-through">{selectedPlan.originalPrice}</span>
+                                        )}{" "}
+                                        {selectedPlan.price}{selectedPlan.period}
+                                        {selectedPlan.perMonth ? ` (just ${selectedPlan.perMonth})` : ""}. Cancel anytime.
+                                      </p>
+                                    </div>
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eb221c]">
+                                      <Check className="h-4 w-4 text-white" strokeWidth={3} />
                                     </span>
-                                    <span className="text-xs text-muted-foreground">Billed after your 30 days</span>
-                                  </motion.div>
-                                )
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setStepErrors({}); setDirection(-1); setStep('main') }}
+                                    className="mt-3 rounded text-sm font-semibold text-[#eb221c] underline underline-offset-2 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c]"
+                                  >
+                                    Change plan
+                                  </button>
+                                </motion.div>
                               )}
 
                               {/* Terms — whole row taps toggle the checkbox; links never toggle it */}
@@ -1214,7 +1145,46 @@ function SignUpPageContent() {
                           </p>
                         </div>
 
-                        {/* Membership card (plan is chosen later, on wizard Step 3) */}
+                        {/* Plan selector — choose between all available plans (Monthly / 6 Months / Annual).
+                            Only rendered when more than one plan has an existing Stripe price ID; the full
+                            details for the chosen plan appear in the membership card below. */}
+                        {availablePlans.length > 1 && (
+                          <div
+                            role="radiogroup"
+                            aria-label="Choose your membership plan"
+                            className={`grid gap-2 ${
+                              availablePlans.length >= 3 ? "grid-cols-3" : "grid-cols-2"
+                            }`}
+                          >
+                            {availablePlans.map((plan) => {
+                              const isSelected = selectedPlan?.priceId === plan.priceId
+                              return (
+                                <button
+                                  key={plan.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={isSelected}
+                                  aria-label={`${plan.name}${plan.discountLabel ? `, ${plan.discountLabel}` : ""}`}
+                                  onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                                  className={`flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8102E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFF3E2] ${
+                                    isSelected
+                                      ? "border-2 border-[#C8102E] bg-white shadow-sm"
+                                      : "border-2 border-[#F1DEC5] bg-white/50 hover:border-[#e0c9a8]"
+                                  }`}
+                                >
+                                  <span className={`text-sm font-bold leading-tight ${isSelected ? "text-[#C8102E]" : "text-foreground"}`}>
+                                    {plan.name}
+                                  </span>
+                                  <span className={`text-[11px] font-medium leading-tight ${isSelected ? "text-[#C8102E]/80" : "text-muted-foreground"}`}>
+                                    {plan.discountLabel ?? "Flexible"}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Selected membership card — the free trial leads; billing is secondary text */}
                         <div className="rounded-2xl overflow-hidden shadow-md bg-white">
                           {/* Header bar */}
                           <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#C8102E" }}>
@@ -1226,9 +1196,24 @@ function SignUpPageContent() {
                             )}
                           </div>
 
-                          {/* Body */}
+                          {/* Body — free trial dominant, then smaller secondary billing line */}
                           <div className="px-5 py-5 space-y-4">
-                            <p className="text-[15px] font-medium text-[#111111]">{content.body}</p>
+                            <div className="space-y-1">
+                              <p className="text-xl font-bold leading-tight text-[#111111]">Your first 30 days are free</p>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedPlan?.originalPrice ? (
+                                  <>
+                                    Then <span className="line-through">{selectedPlan.originalPrice}</span> {content.bottom}
+                                    {selectedPlan?.perMonth ? ` (just ${selectedPlan.perMonth})` : ""}. Cancel anytime.
+                                  </>
+                                ) : (
+                                  <>Then {content.bottom}. Cancel anytime.</>
+                                )}
+                              </p>
+                            </div>
+
+                            <div className="h-px bg-[#F1DEC5]" />
+
                             <div className="space-y-3">
                               {benefits.map((benefit) => (
                                 <div key={benefit} className="flex items-center gap-3">
@@ -1239,34 +1224,13 @@ function SignUpPageContent() {
                             </div>
                           </div>
 
-                          {/* Price bar */}
-                          <div className="px-5 py-4 text-center" style={{ backgroundColor: "#C8102E" }}>
-                            {selectedPlan?.originalPrice ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="flex items-baseline justify-center gap-2">
-                                  <span className="text-white/70 text-base font-medium line-through">
-                                    {selectedPlan.originalPrice}
-                                  </span>
-                                  <span className="text-white text-xl font-bold">{content.bottom}</span>
-                                </div>
-                                {selectedPlan?.perMonth && (
-                                  <span className="text-white/90 text-sm font-medium">
-                                    Just {selectedPlan.perMonth}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-white text-xl font-bold">{content.bottom}</span>
-                            )}
-                          </div>
-
                           {/* CTA */}
-                          <div className="px-5 py-5">
+                          <div className="px-5 pb-5">
                             <Button
                               onClick={() => { setDirection(1); setCurrentStep(1); setStep('register') }}
                               className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
                             >
-                              Start my 30-day free trial
+                              Start my free 30 days
                             </Button>
                           </div>
                         </div>
