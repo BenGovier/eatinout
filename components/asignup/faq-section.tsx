@@ -36,10 +36,10 @@ const faqs = [
 
 export function FAQSection() {
     return (
-        <section id="faq" className="py-12 md:py-20 bg-secondary/30">
+        <section id="faq" className="py-10 md:py-14 bg-secondary/30">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-10 md:mb-14">
+                <div className="text-center mb-8 md:mb-10">
                     <h2 className="text-2xl md:text-4xl font-bold text-foreground">
                         Frequently asked questions
                     </h2>

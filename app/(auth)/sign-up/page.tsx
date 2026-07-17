@@ -4,7 +4,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,13 @@ function SignUpPageContent() {
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
+  // Wizard sub-step inside the existing `register` state (details -> account -> plan)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
+  // Local refs for scroll-to-top and focusing the first field of each wizard step
+  const contentRef = useRef<HTMLDivElement>(null)
+  const step1FirstRef = useRef<HTMLInputElement>(null)
+  const step2FirstRef = useRef<HTMLInputElement>(null)
   const { data: session, status }: any = useSession()
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
@@ -408,10 +415,76 @@ function SignUpPageContent() {
     })
   }
 
+  // Validate only the current wizard step, reusing the existing validation rules
+  const validateStep = (s: 1 | 2 | 3): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    if (s === 1) {
+      if (!formData.firstName.trim()) errors.firstName = "Please enter your first name"
+      if (!formData.lastName.trim()) errors.lastName = "Please enter your last name"
+      if (!formData.email.trim()) {
+        errors.email = "Please enter your email"
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = "Please enter a valid email address"
+      }
+    }
+    if (s === 2) {
+      if (!formData.zipCode.trim()) errors.zipCode = "Please enter your postcode"
+      if (!formData.password) {
+        errors.password = "Please enter a password"
+      } else if (!passwordValidation.isValid) {
+        errors.password = "Must be at least 8 characters with a number and special character"
+      }
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = "Please confirm your password"
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = "Passwords do not match"
+      }
+    }
+    if (s === 3) {
+      if (!selectedPriceId) errors.plan = "Please select a plan"
+      if (!formData.agreeToTerms) errors.terms = "Please accept the terms to continue"
+    }
+    return errors
+  }
+
+  // Advance from steps 1 and 2 only (never submits the registration form)
+  const handleContinue = () => {
+    const errors = validateStep(currentStep)
+    setStepErrors(errors)
+    if (currentStep === 2) setShowValidationErrors(true)
+    if (Object.keys(errors).length > 0) return
+    setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev))
+  }
+
+  // Single Back control for the wizard: step 1 -> main (without wiping the form),
+  // steps 2 and 3 -> previous step (preserving entered values)
+  const handleWizardBack = () => {
+    setStepErrors({})
+    if (currentStep === 1) {
+      setStep('main')
+    } else {
+      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3)
+    }
+  }
+
+  // Enter runs the current step's Continue action (steps 1-2); step 3 submits normally.
+  // Guarded against IME composition so Enter doesn't advance mid-composition.
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== "Enter") return
+    if (e.nativeEvent.isComposing || (e as unknown as { keyCode: number }).keyCode === 229) return
+    if (currentStep !== 3) {
+      e.preventDefault()
+      handleContinue()
+    }
+  }
+
   // Save form data to sessionStorage before navigating
   const handlePolicyNavigation = (url: string) => {
     sessionStorage.setItem('signupFormData', JSON.stringify(formData))
     sessionStorage.setItem('signupStep', step)
+    // Extra wizard context (new keys; existing keys untouched)
+    sessionStorage.setItem('signupCurrentStep', String(currentStep))
+    if (selectedPriceId) sessionStorage.setItem('signupSelectedPriceId', selectedPriceId)
     window.location.href = url
   }
 
@@ -419,6 +492,8 @@ function SignUpPageContent() {
   useEffect(() => {
     const savedFormData = sessionStorage.getItem('signupFormData')
     const savedStep = sessionStorage.getItem('signupStep')
+    const savedCurrentStep = sessionStorage.getItem('signupCurrentStep')
+    const savedSelectedPriceId = sessionStorage.getItem('signupSelectedPriceId')
 
     if (savedFormData) {
       try {
@@ -434,7 +509,37 @@ function SignUpPageContent() {
       setStep(savedStep as 'main' | 'register' | 'login')
       sessionStorage.removeItem('signupStep')
     }
+
+    if (savedCurrentStep) {
+      const n = Number(savedCurrentStep)
+      if (n === 1 || n === 2 || n === 3) {
+        setCurrentStep(n as 1 | 2 | 3)
+      }
+      sessionStorage.removeItem('signupCurrentStep')
+    }
+
+    if (savedSelectedPriceId) {
+      setSelectedPriceId(savedSelectedPriceId)
+      sessionStorage.removeItem('signupSelectedPriceId')
+    }
   }, [])
+
+  // On wizard step change, scroll the content area to top and focus the first field
+  useEffect(() => {
+    if (step !== 'register') return
+    contentRef.current?.scrollTo?.({ top: 0 })
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0 })
+    }
+    const timer = setTimeout(() => {
+      if (currentStep === 1) {
+        step1FirstRef.current?.focus()
+      } else if (currentStep === 2) {
+        step2FirstRef.current?.focus()
+      }
+    }, 60)
+    return () => clearTimeout(timer)
+  }, [currentStep, step])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -452,8 +557,8 @@ function SignUpPageContent() {
         </div>
 
         {/* Content Section */}
-        <div className="flex-1 lg:w-1/2 flex flex-col bg-[#fdfaf5] overflow-y-auto">
-          <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10">
+        <div ref={contentRef} className="flex-1 lg:w-1/2 flex flex-col bg-[#fdfaf5] overflow-y-auto">
+          <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             <div className="max-w-md mx-auto w-full">
               {/* Header with Logo and Back */}
               <div className="flex items-center justify-between mb-6 lg:mb-8">
@@ -471,9 +576,9 @@ function SignUpPageContent() {
                   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
-                  <span>Back</span>
+                  <span>Home</span>
                 </Link>
               </div>
 
@@ -535,40 +640,7 @@ function SignUpPageContent() {
                           </p>
                         </div>
 
-                        {/* Plan tabs / pills */}
-                        <div
-                          className="grid gap-2"
-                          style={{ gridTemplateColumns: `repeat(${availablePlans.length}, minmax(0, 1fr))` }}
-                        >
-                          {availablePlans.map((plan) => {
-                            const isSelected = selectedPlan?.priceId === plan.priceId
-                            return (
-                              <button
-                                key={plan.id}
-                                type="button"
-                                onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                                className={`relative flex flex-col items-center rounded-xl py-2.5 px-2 text-sm font-semibold border transition-colors ${
-                                  isSelected
-                                    ? "bg-[#111111] text-white border-[#111111]"
-                                    : "bg-transparent text-[#111111] border-[#111111]/30 hover:border-[#111111]"
-                                }`}
-                              >
-                                <span>{plan.name}</span>
-                                {plan.discountLabel && (
-                                  <span
-                                    className={`mt-0.5 text-[11px] font-bold leading-none ${
-                                      isSelected ? "text-white" : "text-[#C8102E]"
-                                    }`}
-                                  >
-                                    {plan.discountLabel}
-                                  </span>
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
-
-                        {/* Selected plan card */}
+                        {/* Membership card (plan is chosen later, on wizard Step 3) */}
                         <div className="rounded-2xl overflow-hidden shadow-md bg-white">
                           {/* Header bar */}
                           <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#C8102E" }}>
@@ -617,7 +689,7 @@ function SignUpPageContent() {
                           {/* CTA */}
                           <div className="px-5 py-5">
                             <Button
-                              onClick={() => setStep('register')}
+                              onClick={() => { setCurrentStep(1); setStep('register') }}
                               className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
                             >
                               Start my 30-day free trial
@@ -691,235 +763,328 @@ function SignUpPageContent() {
                   </Button>
                 </div>
               ) : (
-                /* Register Form */
+                /* Register Wizard */
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
-                    <p className="text-sm text-muted-foreground">30 days free, then £4.99/month. Cancel anytime.</p>
+                  {/* Progress indicator */}
+                  <div className="space-y-2" role="group" aria-label={`Step ${currentStep} of 3`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Step {currentStep} of 3
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5" aria-hidden="true">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={n}
+                          className={`h-1.5 flex-1 rounded-full transition-colors ${
+                            n <= currentStep ? "bg-primary" : "bg-[#ece3d6]"
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        id="firstName"
-                        type="text"
-                        placeholder="First Name"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                      <Input
-                        id="lastName"
-                        type="text"
-                        placeholder="Last Name"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="Email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="zipCode"
-                        type="text"
-                        placeholder="Postcode"
-                        value={formData.zipCode}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={isPasswordVisible ? "text" : "password"}
-                        placeholder="Password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border pr-12"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                      >
-                        {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                    <p className={`text-xs ${formData.password && !passwordValidation.isValid ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      Must be at least 8 characters with a number and special character
+
+                  {/* Step heading */}
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                      {currentStep === 1
+                        ? "Create your account"
+                        : currentStep === 2
+                          ? "Secure your account"
+                          : "Choose your plan"}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {currentStep === 1
+                        ? "It only takes a minute."
+                        : currentStep === 2
+                          ? "Choose a strong password to protect your account."
+                          : "Start with 30 days free. Cancel anytime."}
                     </p>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={isConfirmPasswordVisible ? "text" : "password"}
-                        placeholder="Confirm Password"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border pr-12"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                      >
-                        {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                    {showValidationErrors && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                      <p className="text-destructive text-sm -mt-2">
-                        Passwords do not match
-                      </p>
+                  </div>
+
+                  <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-4">
+                    {/* STEP 1 — Your details */}
+                    {currentStep === 1 && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Input
+                              ref={step1FirstRef}
+                              id="firstName"
+                              type="text"
+                              placeholder="First Name"
+                              autoComplete="given-name"
+                              value={formData.firstName}
+                              onChange={handleChange}
+                              className="w-full h-14 text-base rounded-xl border-border"
+                            />
+                            {stepErrors.firstName && (
+                              <p className="mt-1 text-destructive text-sm">{stepErrors.firstName}</p>
+                            )}
+                          </div>
+                          <div>
+                            <Input
+                              id="lastName"
+                              type="text"
+                              placeholder="Last Name"
+                              autoComplete="family-name"
+                              value={formData.lastName}
+                              onChange={handleChange}
+                              className="w-full h-14 text-base rounded-xl border-border"
+                            />
+                            {stepErrors.lastName && (
+                              <p className="mt-1 text-destructive text-sm">{stepErrors.lastName}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="Email"
+                            autoComplete="email"
+                            inputMode="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className="w-full h-14 text-base rounded-xl border-border"
+                          />
+                          {stepErrors.email && (
+                            <p className="mt-1 text-destructive text-sm">{stepErrors.email}</p>
+                          )}
+                        </div>
+                      </>
                     )}
 
+                    {/* STEP 2 — Secure your account */}
+                    {currentStep === 2 && (
+                      <>
+                        <div>
+                          <Input
+                            ref={step2FirstRef}
+                            id="zipCode"
+                            type="text"
+                            placeholder="Postcode"
+                            autoComplete="postal-code"
+                            value={formData.zipCode}
+                            onChange={handleChange}
+                            className="w-full h-14 text-base rounded-xl border-border"
+                          />
+                          {stepErrors.zipCode && (
+                            <p className="mt-1 text-destructive text-sm">{stepErrors.zipCode}</p>
+                          )}
+                        </div>
+                        <div>
+                          <div className="relative">
+                            <Input
+                              id="password"
+                              type={isPasswordVisible ? "text" : "password"}
+                              placeholder="Password"
+                              autoComplete="new-password"
+                              value={formData.password}
+                              onChange={handleChange}
+                              className="w-full h-14 text-base rounded-xl border-border pr-12"
+                            />
+                            <button
+                              type="button"
+                              aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                            >
+                              {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
+                          <p className={`mt-1 text-xs ${formData.password && !passwordValidation.isValid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            Must be at least 8 characters with a number and special character
+                          </p>
+                          {stepErrors.password && formData.password.length === 0 && (
+                            <p className="mt-1 text-destructive text-sm">{stepErrors.password}</p>
+                          )}
+                        </div>
+                        <div>
+                          <div className="relative">
+                            <Input
+                              id="confirmPassword"
+                              type={isConfirmPasswordVisible ? "text" : "password"}
+                              placeholder="Confirm Password"
+                              autoComplete="new-password"
+                              value={formData.confirmPassword}
+                              onChange={handleChange}
+                              className="w-full h-14 text-base rounded-xl border-border pr-12"
+                            />
+                            <button
+                              type="button"
+                              aria-label={isConfirmPasswordVisible ? "Hide password" : "Show password"}
+                              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                            >
+                              {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
+                          {stepErrors.confirmPassword && (
+                            <p className="mt-1 text-destructive text-sm">{stepErrors.confirmPassword}</p>
+                          )}
+                        </div>
+                      </>
+                    )}
 
-                    <div className="space-y-3">
-                      <label className="text-foreground text-sm font-medium block">
-                        Your plan
-                      </label>
+                    {/* STEP 3 — Choose your plan */}
+                    {currentStep === 3 && (
+                      <>
+                        <div className="space-y-3">
+                          <label className="text-foreground text-sm font-medium block">
+                            Your plan
+                          </label>
 
-                      {/* Tab-style plan selector */}
-                      {(() => {
-                        const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
-                        const selectedPlan =
-                          availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
+                          {/* Tab-style plan selector */}
+                          {(() => {
+                            const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
+                            const selectedPlan =
+                              availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
 
-                        const planLabels: Record<string, { title: string; then: string }> = {
-                          monthly: { title: "Monthly membership", then: "Then £4.99/month" },
-                          six: { title: "6 month membership", then: "Then £25.45 / 6 months (£4.24/month) — save 15%" },
-                          annual: { title: "Annual membership", then: "Then £47.90 / year (£3.99/month) — save 20%" },
-                        }
+                            const planLabels: Record<string, { title: string; then: string }> = {
+                              monthly: { title: "Monthly membership", then: "Then £4.99/month" },
+                              six: { title: "6 month membership", then: "Then £25.45 / 6 months (£4.24/month) — save 15%" },
+                              annual: { title: "Annual membership", then: "Then £47.90 / year (£3.99/month) — save 20%" },
+                            }
 
-                        return (
-                          <>
-                            <div className="grid grid-cols-3 gap-2 rounded-full bg-[#f3ece1] p-1">
-                              {availablePlans.map((plan) => {
-                                const isSelected = selectedPlan?.priceId === plan.priceId
-                                return (
-                                  <button
-                                    key={plan.id}
-                                    type="button"
-                                    onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                                    className={`rounded-full py-2 text-sm font-semibold transition-colors ${
-                                      isSelected
-                                        ? "bg-foreground text-background shadow-sm"
-                                        : "bg-transparent text-foreground/70 hover:text-foreground"
-                                    }`}
-                                  >
-                                    {plan.name}
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            {/* Selected plan summary card */}
-                            {selectedPlan && (
-                              <div className="rounded-2xl border border-[#f0e6d8] bg-primary/[0.04] p-4">
-                                <div className="flex items-start gap-3">
-                                  <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary shrink-0">
-                                    <Check className="h-3 w-3 text-white" />
-                                  </span>
-                                  <div>
-                                    <p className="text-foreground font-semibold text-sm">
-                                      {planLabels[selectedPlan.id]?.title ?? selectedPlan.name}
-                                    </p>
-                                    <p className="text-sm font-medium text-primary">30 days free</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {planLabels[selectedPlan.id]?.then ?? `Then ${selectedPlan.price}${selectedPlan.period}`}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">Cancel anytime</p>
-                                  </div>
+                            return (
+                              <>
+                                <div className="grid grid-cols-3 gap-2 rounded-full bg-[#f3ece1] p-1">
+                                  {availablePlans.map((plan) => {
+                                    const isSelected = selectedPlan?.priceId === plan.priceId
+                                    return (
+                                      <button
+                                        key={plan.id}
+                                        type="button"
+                                        onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                                        className={`rounded-full py-2 text-sm font-semibold transition-colors ${
+                                          isSelected
+                                            ? "bg-foreground text-background shadow-sm"
+                                            : "bg-transparent text-foreground/70 hover:text-foreground"
+                                        }`}
+                                      >
+                                        {plan.name}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
-                              </div>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </div>
 
-                    <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
-                      <Checkbox
-                        id="terms"
-                        checked={formData.agreeToTerms}
-                        onCheckedChange={handleCheckboxChange}
-                        required
-                        className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                      />
-                      <label htmlFor="terms" className="text-muted-foreground text-xs leading-relaxed">
-                        I agree to the{" "}
-                        <button
-                          type="button"
-                          onClick={() => handlePolicyNavigation('/terms')}
-                          className="text-primary hover:text-primary/80 underline cursor-pointer"
-                        >
-                          Terms of Service
-                        </button>{" "}
-                        and{" "}
-                        <button
-                          type="button"
-                          onClick={() => handlePolicyNavigation('/privacy')}
-                          className="text-primary hover:text-primary/80 underline cursor-pointer"
-                        >
-                          Privacy Policy
-                        </button>
-                      </label>
-                    </div>
+                                {/* Selected plan summary card */}
+                                {selectedPlan && (
+                                  <div className="rounded-2xl border border-[#f0e6d8] bg-primary/[0.04] p-4">
+                                    <div className="flex items-start gap-3">
+                                      <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary shrink-0">
+                                        <Check className="h-3 w-3 text-white" />
+                                      </span>
+                                      <div>
+                                        <p className="text-foreground font-semibold text-sm">
+                                          {planLabels[selectedPlan.id]?.title ?? selectedPlan.name}
+                                        </p>
+                                        <p className="text-sm font-medium text-primary">30 days free</p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {planLabels[selectedPlan.id]?.then ?? `Then ${selectedPlan.price}${selectedPlan.period}`}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })()}
+                          {stepErrors.plan && (
+                            <p className="text-destructive text-sm">{stepErrors.plan}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
+                          <Checkbox
+                            id="terms"
+                            checked={formData.agreeToTerms}
+                            onCheckedChange={handleCheckboxChange}
+                            className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <label htmlFor="terms" className="text-muted-foreground text-sm leading-relaxed">
+                            I agree to the{" "}
+                            <button
+                              type="button"
+                              onClick={() => handlePolicyNavigation('/terms')}
+                              className="text-primary hover:text-primary/80 underline cursor-pointer"
+                            >
+                              Terms of Service
+                            </button>{" "}
+                            and{" "}
+                            <button
+                              type="button"
+                              onClick={() => handlePolicyNavigation('/privacy')}
+                              className="text-primary hover:text-primary/80 underline cursor-pointer"
+                            >
+                              Privacy Policy
+                            </button>
+                          </label>
+                        </div>
+                        {stepErrors.terms && (
+                          <p className="text-destructive text-sm">{stepErrors.terms}</p>
+                        )}
+                      </>
+                    )}
+
+                    {/* Navigation */}
+                    {currentStep < 3 ? (
+                      <Button
+                        type="button"
+                        onClick={handleContinue}
+                        className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: "#eb221c" }}
+                      >
+                        Continue
+                      </Button>
+                    ) : (
+                      <Button
+                        type="submit"
+                        disabled={!formData.agreeToTerms || isLoading}
+                        className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                        style={{ backgroundColor: "#eb221c" }}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center justify-center">
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Creating Account...
+                          </div>
+                        ) : (
+                          "Start my 30-day free trial"
+                        )}
+                      </Button>
+                    )}
 
                     <Button
-                      type="submit"
-                      disabled={!formData.agreeToTerms || isLoading}
-                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: "#eb221c" }}
+                      type="button"
+                      onClick={handleWizardBack}
+                      variant="outline"
+                      className="w-full h-14 text-base font-medium rounded-full border-border hover:bg-muted transition-colors"
                     >
-                      {isLoading ? (
-                        <div className="flex items-center justify-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Creating Account...
-                        </div>
-                      ) : (
-                        "Create account"
-                      )}
+                      Back
                     </Button>
                   </form>
-                  <Button
-                    onClick={handleBack}
-                    variant="outline"
-                    className="w-full h-14 text-base font-medium rounded-full border-border hover:bg-muted transition-colors"
-                  >
-                    Back
-                  </Button>
                 </div>
               )}
             </div>
@@ -953,6 +1118,7 @@ function SignUpPageContent() {
                 <Button
                   onClick={() => {
                     setShowDealsModal(false)
+                    setCurrentStep(1)
                     setStep('register')
                   }}
                   className="w-full h-14 text-base font-bold rounded-xl text-white border-0 hover:opacity-90 transition-opacity shadow-lg"
