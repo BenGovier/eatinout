@@ -486,6 +486,21 @@ function SignUpPageContent() {
       return
     }
     setDirection(1)
+    
+    // Capture lead in the background when advancing past Step 1
+    if (currentStep === 1) {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          mobile: formData.mobile,
+        }),
+      }).catch((e) => console.error("Failed to capture lead:", e));
+    }
+
     setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev))
   }
 

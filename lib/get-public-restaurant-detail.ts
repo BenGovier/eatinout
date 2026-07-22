@@ -108,7 +108,7 @@ export async function getPublicRestaurantDetailByRouteParam(
       restaurantId: restaurant._id,
     })
       .select(
-        "title description validDays validHours startDate expiryDate status deactivated restaurantId isPinned pinnedAt createdAt terms associatedId bookingRequirement",
+        "title description validDays validHours startDate expiryDate status deactivated restaurantId isPinned pinnedAt createdAt terms associatedId bookingRequirement isUnlimited maxRedemptionLimit redeemCount",
       )
       .lean();
 
@@ -177,7 +177,17 @@ export async function getPublicRestaurantDetailByRouteParam(
       await Offer.bulkWrite(bulkUpdates);
     }
 
-    const activeOffers = offers.filter((offer) => offer.status === "active");
+    const activeOffers = offers.filter((offer) => {
+      if (offer.status !== "active") return false;
+
+      // Hide offers that have reached their redemption limit
+      if (!offer.isUnlimited && offer.maxRedemptionLimit) {
+        const remaining = offer.maxRedemptionLimit - (offer.redeemCount || 0);
+        if (remaining <= 0) return false;
+      }
+
+      return true;
+    });
 
     const sortedActiveOffers = activeOffers.sort((a: any, b: any) => {
       if (a.isPinned && b.isPinned) {
@@ -254,13 +264,13 @@ export async function getPublicRestaurantDetailByRouteParam(
         offerTitle: offer.title,
         validDays: offer.validDays
           ? offer.validDays
-              .split(",")
-              .map((day: string) => day.trim())
-              .sort(
-                (a: string, b: string) =>
-                  weekOrder.indexOf(a) - weekOrder.indexOf(b),
-              )
-              .join(", ")
+            .split(",")
+            .map((day: string) => day.trim())
+            .sort(
+              (a: string, b: string) =>
+                weekOrder.indexOf(a) - weekOrder.indexOf(b),
+            )
+            .join(", ")
           : "",
         validHours: offer.validHours,
         expiryDate: offer.expiryDate,

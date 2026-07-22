@@ -75,9 +75,19 @@ export async function PUT(request: NextRequest) {
 
     if (!firstName || !lastName || !email) {
       return NextResponse.json(
-        { error: 'First name, last name, email, and mobile are required.' },
+        { error: 'First name, last name, and email are required.' },
         { status: 400 }
       );
+    }
+
+    if (mobile) {
+      const existingMobile = await User.findOne({ mobile, _id: { $ne: userId } });
+      if (existingMobile) {
+        return NextResponse.json(
+          { error: 'Mobile number already in use by another account.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Dynamically update only provided fields, including adding 'mobile' if missing
