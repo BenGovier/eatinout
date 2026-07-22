@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Tag, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRef } from "react"
+import { trackAsignupEvent } from "@/components/asignup/track"
 
 const featuredRestaurants = [
     {
@@ -85,7 +86,7 @@ export function WhereCanISave() {
 
     const scroll = (direction: "left" | "right") => {
         if (scrollContainerRef.current) {
-            const scrollAmount = 280
+            const scrollAmount = 320
             scrollContainerRef.current.scrollBy({
                 left: direction === "left" ? -scrollAmount : scrollAmount,
                 behavior: "smooth",
@@ -94,20 +95,20 @@ export function WhereCanISave() {
     }
 
     return (
-        <section className="py-12 md:py-20 bg-background">
+        <section className="py-10 md:py-14 bg-background">
             <div className="mx-auto max-w-7xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-8 md:mb-12">
-                    <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-3">
+                <div className="text-center mb-6 md:mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
                         Find dining out deals near you
                     </h2>
                     <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-                        Browse real EatinOut offers across Lancashire, Bolton and Liverpool — then start your 30-day free trial to unlock them.
+                        Real EatinOut offers across Lancashire, Bolton and Liverpool. Browse before you join.
                     </p>
                 </div>
 
                 {/* Restaurant Carousel */}
-                <div className="relative mb-10">
+                <div className="relative mb-8">
                     {/* Scroll buttons - hidden on mobile */}
                     <button
                         onClick={() => scroll("left")}
@@ -132,10 +133,10 @@ export function WhereCanISave() {
                         {featuredRestaurants.map((restaurant, index) => (
                             <div
                                 key={index}
-                                className="flex-shrink-0 w-[200px] md:w-[240px] snap-start bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                                className="flex-shrink-0 w-[260px] md:w-[300px] snap-start bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
                             >
                                 {/* Image with offer badge */}
-                                <div className="relative h-[120px] md:h-[140px] w-full overflow-hidden bg-gray-100">
+                                <div className="relative h-[170px] md:h-[190px] w-full overflow-hidden bg-gray-100">
                                     <Image
                                         src={restaurant.image}
                                         alt={restaurant.name}
@@ -143,24 +144,24 @@ export function WhereCanISave() {
                                         className="object-cover"
                                     />
                                     {/* Offer badge */}
-                                    <div className="absolute top-2 left-0">
-                                        <div className="bg-[#DC3545] text-white font-semibold text-xs px-2 py-1">
+                                    <div className="absolute top-3 left-3">
+                                        <div className="rounded-full bg-[#DC3545] text-white font-bold text-sm px-3 py-1.5 shadow-md">
                                             {restaurant.offer}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Card content */}
-                                <div className="p-3">
-                                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">
+                                <div className="p-4">
+                                    <h3 className="font-bold text-gray-900 text-base line-clamp-1">
                                         {restaurant.name}
                                     </h3>
-                                    <p className="text-gray-500 text-xs mt-0.5">
+                                    <p className="text-gray-500 text-sm mt-0.5 line-clamp-1">
                                         {restaurant.location}
                                     </p>
-                                    <div className="flex items-center gap-1 mt-2">
-                                        <Tag className="h-3 w-3 text-[#DC3545]" />
-                                        <span className="text-xs font-medium text-gray-600">
+                                    <div className="flex items-center gap-1.5 mt-3">
+                                        <Tag className="h-4 w-4 text-[#DC3545]" />
+                                        <span className="text-sm font-semibold text-gray-700">
                                             {restaurant.offer}
                                         </span>
                                     </div>
@@ -172,8 +173,13 @@ export function WhereCanISave() {
 
                 {/* CTA */}
                 <div className="text-center">
-                    <Button asChild variant="outline" className="rounded-full px-8 py-6 text-base font-medium border-border hover:bg-secondary">
-                        <a href="/restaurants">See where I can save</a>
+                    <Button asChild className="rounded-full bg-primary px-8 py-6 text-base font-semibold text-primary-foreground hover:bg-primary/90">
+                        <a
+                            href="/restaurants"
+                            onClick={() => trackAsignupEvent("asignup_browse_restaurants_click")}
+                        >
+                            Browse all restaurants
+                        </a>
                     </Button>
                 </div>
             </div>

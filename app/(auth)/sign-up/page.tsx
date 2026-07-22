@@ -4,14 +4,15 @@
 
 import type React from "react"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Image from "next/image"
-import { Eye, EyeOff, Check } from "lucide-react"
+import { Eye, EyeOff, Check, ChevronLeft } from "lucide-react"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { toast } from "react-toastify"
 import { useSession } from "next-auth/react"
 import axios from "axios"
@@ -24,6 +25,18 @@ function SignUpPageContent() {
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
+  // Wizard sub-step inside the existing `register` state (details -> account -> plan)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
+  // Local refs for scroll-to-top and focusing the first field of each wizard step
+  const contentRef = useRef<HTMLDivElement>(null)
+  const wizardScrollRef = useRef<HTMLDivElement>(null)
+  const step1FirstRef = useRef<HTMLInputElement>(null)
+  const step2FirstRef = useRef<HTMLInputElement>(null)
+  const step3FirstRef = useRef<HTMLButtonElement>(null)
+  // Directional step transition (1 = forward, -1 = back) + reduced-motion preference
+  const [direction, setDirection] = useState<1 | -1>(1)
+  const shouldReduceMotion = useReducedMotion()
   const { data: session, status }: any = useSession()
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
@@ -264,6 +277,13 @@ function SignUpPageContent() {
     } else {
       setFormData((prev) => ({ ...prev, [id]: value }));
     }
+    // Clear this field's inline error as the user corrects it
+    setStepErrors((prev) => {
+      if (!prev[id]) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
   }
 
   const handleCheckboxChange = (checked: boolean) => {
@@ -408,10 +428,155 @@ function SignUpPageContent() {
     })
   }
 
+  // Validate only the current wizard step, reusing the existing validation rules
+  const validateStep = (s: 1 | 2 | 3): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    if (s === 1) {
+      if (!formData.firstName.trim()) errors.firstName = "Please enter your first name"
+      if (!formData.lastName.trim()) errors.lastName = "Please enter your last name"
+      if (!formData.email.trim()) {
+        errors.email = "Please enter your email"
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = "Please enter a valid email address"
+      }
+      // Mobile: accept normal UK formatting incl. spaces and +44. Require a
+      // reasonable count of digits once formatting characters are stripped.
+      const mobileDigits = formData.mobile.replace(/[^\d]/g, "")
+      if (!formData.mobile.trim() || mobileDigits.length < 10 || mobileDigits.length > 15) {
+        errors.mobile = "Enter a valid mobile number"
+      }
+    }
+    if (s === 2) {
+      if (!formData.zipCode.trim()) errors.zipCode = "Please enter your postcode"
+      if (!formData.password) {
+        errors.password = "Please enter a password"
+      } else if (!passwordValidation.isValid) {
+        errors.password = "Must be at least 8 characters with a number and special character"
+      }
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = "Please confirm your password"
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = "Passwords do not match"
+      }
+    }
+    if (s === 3) {
+      if (!selectedPriceId) errors.plan = "Please select a plan"
+      if (!formData.agreeToTerms) errors.terms = "Please accept the terms to continue"
+    }
+    return errors
+  }
+
+  // Advance from steps 1 and 2 only (never submits the registration form)
+  const handleContinue = () => {
+    const errors = validateStep(currentStep)
+    setStepErrors(errors)
+    if (currentStep === 2) setShowValidationErrors(true)
+    if (Object.keys(errors).length > 0) {
+      // Focus the first invalid field so the user can correct it
+      if (currentStep === 1) {
+        if (errors.firstName) step1FirstRef.current?.focus()
+        else if (errors.lastName) document.getElementById("lastName")?.focus()
+        else if (errors.email) document.getElementById("email")?.focus()
+        else if (errors.mobile) document.getElementById("mobile")?.focus()
+      } else if (currentStep === 2) {
+        if (errors.zipCode) step2FirstRef.current?.focus()
+        else if (errors.password) document.getElementById("password")?.focus()
+        else if (errors.confirmPassword) document.getElementById("confirmPassword")?.focus()
+      }
+      return
+    }
+    setDirection(1)
+    
+    // Capture lead in the background when advancing past Step 1
+    if (currentStep === 1) {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          mobile: formData.mobile,
+        }),
+      }).catch((e) => console.error("Failed to capture lead:", e));
+    }
+
+    setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev))
+  }
+
+  // Single Back control for the wizard: step 1 -> main (without wiping the form),
+  // steps 2 and 3 -> previous step (preserving entered values)
+  const handleWizardBack = () => {
+    setStepErrors({})
+    if (currentStep === 1) {
+      setStep('main')
+    } else {
+      setDirection(-1)
+      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3)
+    }
+  }
+
+  // Focus the first interactive element of the active step (after the transition)
+  const focusCurrentStep = () => {
+    if (currentStep === 1) step1FirstRef.current?.focus()
+    else if (currentStep === 2) step2FirstRef.current?.focus()
+    else if (currentStep === 3) step3FirstRef.current?.focus()
+  }
+
+  // Directional container variants: the incoming step begins offset in the travel
+  // direction and slides to zero while fading in; the outgoing step slides the
+  // opposite way and fades out. Children (heading -> copy -> fields/plan) stagger
+  // in underneath. All movement is removed under prefers-reduced-motion.
+  const stepContainerVariants = {
+    // Forward (dir 1): incoming starts ~28px to the right. Back (dir -1): from the left.
+    enter: (dir: number) => ({ opacity: 0, x: shouldReduceMotion ? 0 : dir * 28 }),
+    center: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: shouldReduceMotion ? 0.12 : 0.26,
+        ease: [0.16, 1, 0.3, 1] as const,
+        when: "beforeChildren" as const,
+        delayChildren: shouldReduceMotion ? 0 : 0.05,
+        staggerChildren: shouldReduceMotion ? 0 : 0.055,
+      },
+    },
+    // Outgoing slides ~18px opposite the incoming direction and fades out.
+    exit: (dir: number) => ({
+      opacity: 0,
+      x: shouldReduceMotion ? 0 : dir * -18,
+      transition: { duration: shouldReduceMotion ? 0.1 : 0.2, ease: [0.4, 0, 1, 1] as const },
+    }),
+  }
+
+  // Per-item entrance (rise + fade). Used for heading, supporting copy and fields.
+  const stepItemVariants = {
+    enter: { opacity: 0, y: shouldReduceMotion ? 0 : 12 },
+    center: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: shouldReduceMotion ? 0.12 : 0.24, ease: [0.16, 1, 0.3, 1] as const },
+    },
+  }
+
+  // Enter runs the current step's Continue action (steps 1-2); step 3 submits normally.
+  // Guarded against IME composition so Enter doesn't advance mid-composition.
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== "Enter") return
+    if (e.nativeEvent.isComposing || (e as unknown as { keyCode: number }).keyCode === 229) return
+    if (currentStep !== 3) {
+      e.preventDefault()
+      handleContinue()
+    }
+  }
+
   // Save form data to sessionStorage before navigating
   const handlePolicyNavigation = (url: string) => {
     sessionStorage.setItem('signupFormData', JSON.stringify(formData))
     sessionStorage.setItem('signupStep', step)
+    // Extra wizard context (new keys; existing keys untouched)
+    sessionStorage.setItem('signupCurrentStep', String(currentStep))
+    if (selectedPriceId) sessionStorage.setItem('signupSelectedPriceId', selectedPriceId)
     window.location.href = url
   }
 
@@ -419,6 +584,8 @@ function SignUpPageContent() {
   useEffect(() => {
     const savedFormData = sessionStorage.getItem('signupFormData')
     const savedStep = sessionStorage.getItem('signupStep')
+    const savedCurrentStep = sessionStorage.getItem('signupCurrentStep')
+    const savedSelectedPriceId = sessionStorage.getItem('signupSelectedPriceId')
 
     if (savedFormData) {
       try {
@@ -434,7 +601,28 @@ function SignUpPageContent() {
       setStep(savedStep as 'main' | 'register' | 'login')
       sessionStorage.removeItem('signupStep')
     }
+
+    if (savedCurrentStep) {
+      const n = Number(savedCurrentStep)
+      if (n === 1 || n === 2 || n === 3) {
+        setCurrentStep(n as 1 | 2 | 3)
+      }
+      sessionStorage.removeItem('signupCurrentStep')
+    }
+
+    if (savedSelectedPriceId) {
+      setSelectedPriceId(savedSelectedPriceId)
+      sessionStorage.removeItem('signupSelectedPriceId')
+    }
   }, [])
+
+  // On wizard step change, scroll the wizard content back to the top.
+  // Focus is moved to the first field once the step transition completes
+  // (see onAnimationComplete on the animated step wrapper).
+  useEffect(() => {
+    if (step !== 'register') return
+    wizardScrollRef.current?.scrollTo?.({ top: 0 })
+  }, [currentStep, step])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -452,8 +640,445 @@ function SignUpPageContent() {
         </div>
 
         {/* Content Section */}
-        <div className="flex-1 lg:w-1/2 flex flex-col bg-[#fdfaf5] overflow-y-auto">
-          <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10">
+        <div className="flex-1 lg:w-1/2 flex flex-col bg-[#fdfaf5]">
+          {step === 'register' ? (() => {
+            /* ---------- Mobile-first, app-style signup wizard ---------- */
+            const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
+            const selectedPlan =
+              availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
+
+            const passwordRequirements = [
+              { met: passwordValidation.hasMinLength, label: "8 or more characters" },
+              { met: passwordValidation.hasNumber, label: "One number" },
+              { met: passwordValidation.hasSpecialChar, label: "One special character" },
+            ]
+
+            const headings: Record<1 | 2 | 3, { title: string; copy: string; tag: string }> = {
+              1: { title: "Create your account", copy: "It only takes a minute.", tag: "Your details" },
+              2: { title: "Secure your account", copy: "Create a password to protect your membership.", tag: "Security" },
+              3: { title: "Your first 30 days are free", copy: "Enjoy full membership for 30 days. Cancel anytime.", tag: "Your plan" },
+            }
+
+            return (
+              <div className="flex flex-1 flex-col">
+                {/* Compact wizard header (stays stable across steps) */}
+                <header className="shrink-0 flex items-center h-14 px-2 border-b border-[#F1DEC5]/70">
+                  <button
+                    type="button"
+                    onClick={handleWizardBack}
+                    aria-label={currentStep === 1 ? "Back to membership options" : "Back to the previous step"}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c]"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <div className="flex flex-1 justify-center">
+                    <Image
+                      src="/eatinout-logo.webp"
+                      alt="Eatinout"
+                      width={120}
+                      height={32}
+                      className="h-7 w-auto"
+                      priority
+                    />
+                  </div>
+                  <div className="h-10 w-10 shrink-0" aria-hidden="true" />
+                </header>
+
+                <form
+                  onSubmit={handleSubmit}
+                  onKeyDown={handleFormKeyDown}
+                  className="flex flex-1 flex-col min-h-0"
+                >
+                  {/* Scrollable step area — content flows from the top, no forced centering */}
+                  <div ref={wizardScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+                    <div className="mx-auto w-full max-w-md px-5 pt-6">
+                      {/* Progress (stable position; only the fill animates) */}
+                      <div className="mb-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Step {currentStep} of 3
+                          </span>
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {headings[currentStep].tag}
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 w-full overflow-hidden rounded-full bg-[#ece3d6]"
+                          role="progressbar"
+                          aria-valuemin={1}
+                          aria-valuemax={3}
+                          aria-valuenow={currentStep}
+                          aria-label={`Sign up progress: step ${currentStep} of 3`}
+                        >
+                          <div
+                            className="h-full rounded-full bg-[#eb221c] transition-[width] duration-300 ease-out motion-reduce:transition-none"
+                            style={{ width: `${(currentStep / 3) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Animated step content (heading, supporting text and fields stagger in) */}
+                      <AnimatePresence mode="wait" custom={direction}>
+                        <motion.div
+                          key={currentStep}
+                          custom={direction}
+                          variants={stepContainerVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          onAnimationComplete={(def) => {
+                            if (def === "center") focusCurrentStep()
+                          }}
+                        >
+                          {/* Heading + supporting text */}
+                          <motion.h1
+                            variants={stepItemVariants}
+                            className="mb-1.5 text-2xl font-bold tracking-tight text-foreground text-balance"
+                          >
+                            {headings[currentStep].title}
+                          </motion.h1>
+                          <motion.p
+                            variants={stepItemVariants}
+                            className="mb-5 text-sm text-muted-foreground text-pretty"
+                          >
+                            {headings[currentStep].copy}
+                          </motion.p>
+
+                          {/* STEP 1 — Your details */}
+                          {currentStep === 1 && (
+                            <div className="space-y-4">
+                              <motion.div variants={stepItemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label htmlFor="firstName" className="sr-only">First name</label>
+                                  <Input
+                                    ref={step1FirstRef}
+                                    id="firstName"
+                                    type="text"
+                                    placeholder="First name"
+                                    autoComplete="given-name"
+                                    value={formData.firstName}
+                                    onChange={handleChange}
+                                    aria-invalid={!!stepErrors.firstName}
+                                    aria-describedby={stepErrors.firstName ? "firstName-error" : undefined}
+                                    className="w-full h-14 text-base rounded-xl border-border"
+                                  />
+                                  {stepErrors.firstName && (
+                                    <p id="firstName-error" className="mt-1.5 text-sm text-destructive">{stepErrors.firstName}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  <label htmlFor="lastName" className="sr-only">Last name</label>
+                                  <Input
+                                    id="lastName"
+                                    type="text"
+                                    placeholder="Last name"
+                                    autoComplete="family-name"
+                                    value={formData.lastName}
+                                    onChange={handleChange}
+                                    aria-invalid={!!stepErrors.lastName}
+                                    aria-describedby={stepErrors.lastName ? "lastName-error" : undefined}
+                                    className="w-full h-14 text-base rounded-xl border-border"
+                                  />
+                                  {stepErrors.lastName && (
+                                    <p id="lastName-error" className="mt-1.5 text-sm text-destructive">{stepErrors.lastName}</p>
+                                  )}
+                                </div>
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
+                                <label htmlFor="email" className="sr-only">Email</label>
+                                <Input
+                                  id="email"
+                                  type="email"
+                                  placeholder="Email"
+                                  autoComplete="email"
+                                  inputMode="email"
+                                  value={formData.email}
+                                  onChange={handleChange}
+                                  aria-invalid={!!stepErrors.email}
+                                  aria-describedby={stepErrors.email ? "email-error" : undefined}
+                                  className="w-full h-14 text-base rounded-xl border-border"
+                                />
+                                {stepErrors.email && (
+                                  <p id="email-error" className="mt-1.5 text-sm text-destructive">{stepErrors.email}</p>
+                                )}
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
+                                <label htmlFor="mobile" className="sr-only">Mobile number</label>
+                                <Input
+                                  id="mobile"
+                                  type="tel"
+                                  placeholder="Mobile number"
+                                  autoComplete="tel"
+                                  inputMode="tel"
+                                  value={formData.mobile}
+                                  onChange={handleChange}
+                                  aria-invalid={!!stepErrors.mobile}
+                                  aria-describedby={stepErrors.mobile ? "mobile-error" : undefined}
+                                  className="w-full h-14 text-base rounded-xl border-border"
+                                />
+                                {stepErrors.mobile && (
+                                  <p id="mobile-error" className="mt-1.5 text-sm text-destructive">{stepErrors.mobile}</p>
+                                )}
+                              </motion.div>
+                            </div>
+                          )}
+
+                          {/* STEP 2 — Secure your account */}
+                          {currentStep === 2 && (
+                            <div className="space-y-4">
+                              <motion.div variants={stepItemVariants}>
+                                <label htmlFor="zipCode" className="sr-only">Postcode</label>
+                                <Input
+                                  ref={step2FirstRef}
+                                  id="zipCode"
+                                  type="text"
+                                  placeholder="Postcode"
+                                  autoComplete="postal-code"
+                                  autoCapitalize="characters"
+                                  value={formData.zipCode}
+                                  onChange={handleChange}
+                                  aria-invalid={!!stepErrors.zipCode}
+                                  aria-describedby={stepErrors.zipCode ? "zipCode-error" : undefined}
+                                  className="w-full h-14 text-base rounded-xl border-border"
+                                />
+                                {stepErrors.zipCode && (
+                                  <p id="zipCode-error" className="mt-1.5 text-sm text-destructive">{stepErrors.zipCode}</p>
+                                )}
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
+                                <label htmlFor="password" className="sr-only">Password</label>
+                                <div className="relative">
+                                  <Input
+                                    id="password"
+                                    type={isPasswordVisible ? "text" : "password"}
+                                    placeholder="Password"
+                                    autoComplete="new-password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    aria-describedby="password-requirements"
+                                    className="w-full h-14 text-base rounded-xl border-border pr-12"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                                    className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c]"
+                                    onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                                  >
+                                    {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                  </button>
+                                </div>
+                                {/* Live password requirements — neutral circle morphs to a check, no layout shift */}
+                                <ul id="password-requirements" className="mt-2.5 space-y-1.5" aria-live="polite">
+                                  {passwordRequirements.map((req) => (
+                                    <li key={req.label} className="flex items-center gap-2 text-xs">
+                                      <span
+                                        className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-300 ease-out ${
+                                          req.met ? "border-emerald-500 bg-emerald-500" : "border-[#cfc2ad] bg-transparent"
+                                        }`}
+                                      >
+                                        <Check
+                                          className={`h-2.5 w-2.5 text-white transition-all duration-300 ease-out ${
+                                            req.met ? "scale-100 opacity-100" : "scale-0 opacity-0"
+                                          }`}
+                                          strokeWidth={3.5}
+                                        />
+                                      </span>
+                                      <span
+                                        className={`transition-colors duration-300 ${
+                                          req.met ? "font-medium text-emerald-700" : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        {req.label}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                                {stepErrors.password && formData.password.length === 0 && (
+                                  <p className="mt-1.5 text-sm text-destructive">{stepErrors.password}</p>
+                                )}
+                              </motion.div>
+                              <motion.div variants={stepItemVariants}>
+                                <label htmlFor="confirmPassword" className="sr-only">Confirm password</label>
+                                <div className="relative">
+                                  <Input
+                                    id="confirmPassword"
+                                    type={isConfirmPasswordVisible ? "text" : "password"}
+                                    placeholder="Confirm password"
+                                    autoComplete="new-password"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                    aria-invalid={!!stepErrors.confirmPassword}
+                                    aria-describedby={stepErrors.confirmPassword ? "confirmPassword-error" : undefined}
+                                    className="w-full h-14 text-base rounded-xl border-border pr-12"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label={isConfirmPasswordVisible ? "Hide password" : "Show password"}
+                                    className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c]"
+                                    onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                                  >
+                                    {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                  </button>
+                                </div>
+                                {stepErrors.confirmPassword && (
+                                  <p id="confirmPassword-error" className="mt-1.5 text-sm text-destructive">{stepErrors.confirmPassword}</p>
+                                )}
+                              </motion.div>
+                            </div>
+                          )}
+
+                          {/* STEP 3 — Choose your plan */}
+                          {currentStep === 3 && (
+                            <div className="space-y-4">
+                              {/* Concise summary of the plan chosen on the membership screen.
+                                  The plan is NOT re-selected here — use "Change plan" to go back. */}
+                              {selectedPlan && (
+                                <motion.div
+                                  variants={stepItemVariants}
+                                  className="rounded-2xl border-2 border-[#eb221c]/25 bg-[#fdecec] p-4"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-base font-bold text-foreground">{selectedPlan.name} membership</span>
+                                        {selectedPlan.discountLabel && (
+                                          <span className="rounded-full bg-[#eb221c] px-2 py-0.5 text-[11px] font-semibold text-white">
+                                            {selectedPlan.discountLabel}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-sm font-semibold text-[#eb221c]">30 days free</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Then{" "}
+                                        {selectedPlan.originalPrice && (
+                                          <span className="line-through">{selectedPlan.originalPrice}</span>
+                                        )}{" "}
+                                        {selectedPlan.price}{selectedPlan.period}
+                                        {selectedPlan.perMonth ? ` (just ${selectedPlan.perMonth})` : ""}. Cancel anytime.
+                                      </p>
+                                    </div>
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eb221c]">
+                                      <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setStepErrors({}); setDirection(-1); setStep('main') }}
+                                    className="mt-3 rounded text-sm font-semibold text-[#eb221c] underline underline-offset-2 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c]"
+                                  >
+                                    Change plan
+                                  </button>
+                                </motion.div>
+                              )}
+
+                              {/* Terms — whole row taps toggle the checkbox; links never toggle it */}
+                              <motion.div variants={stepItemVariants} className="rounded-xl border border-border bg-card p-3">
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id="terms"
+                                    aria-label="I agree to the Terms of Service and Privacy Policy"
+                                    checked={formData.agreeToTerms}
+                                    onCheckedChange={(checked) => {
+                                      handleCheckboxChange(checked as boolean)
+                                      if (checked) {
+                                        setStepErrors((prev) => {
+                                          if (!prev.terms) return prev
+                                          const next = { ...prev }
+                                          delete next.terms
+                                          return next
+                                        })
+                                      }
+                                    }}
+                                    className="mt-0.5 shrink-0 border-border data-[state=checked]:bg-[#eb221c] data-[state=checked]:border-[#eb221c]"
+                                  />
+                                  <p
+                                    className="cursor-pointer text-sm leading-relaxed text-muted-foreground"
+                                    onClick={() => {
+                                      const next = !formData.agreeToTerms
+                                      handleCheckboxChange(next)
+                                      if (next) {
+                                        setStepErrors((prev) => {
+                                          if (!prev.terms) return prev
+                                          const n = { ...prev }
+                                          delete n.terms
+                                          return n
+                                        })
+                                      }
+                                    }}
+                                  >
+                                    I agree to the{" "}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handlePolicyNavigation('/terms') }}
+                                      className="text-[#eb221c] underline underline-offset-2 hover:opacity-80"
+                                    >
+                                      Terms of Service
+                                    </button>{" "}
+                                    and{" "}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handlePolicyNavigation('/privacy') }}
+                                      className="text-[#eb221c] underline underline-offset-2 hover:opacity-80"
+                                    >
+                                      Privacy Policy
+                                    </button>
+                                  </p>
+                                </div>
+                              </motion.div>
+                              {stepErrors.terms && (
+                                <p className="text-sm text-destructive">{stepErrors.terms}</p>
+                              )}
+                            </div>
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
+
+                      {/* Primary CTA — sits directly under the step content (~28px), never pinned to
+                          the viewport bottom. Sticks to the bottom only while the step overflows/scrolls
+                          (e.g. keyboard open) so it never overlays the keyboard or the focused field. */}
+                      <motion.div
+                        key={`cta-${currentStep}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: shouldReduceMotion ? 0.12 : 0.25, delay: shouldReduceMotion ? 0 : 0.16, ease: "easeOut" }}
+                        className="sticky bottom-0 z-10 -mx-5 mt-7 bg-gradient-to-t from-[#fdfaf5] via-[#fdfaf5] to-transparent px-5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-3"
+                      >
+                        {currentStep < 3 ? (
+                          <Button
+                            type="button"
+                            onClick={handleContinue}
+                            className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-all duration-150 ease-out hover:bg-[#d41f19] active:scale-[0.98] active:bg-[#bd1b16]"
+                          >
+                            Continue
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            disabled={!formData.agreeToTerms || isLoading}
+                            className="h-14 w-full rounded-2xl bg-[#eb221c] text-base font-semibold text-white shadow-sm transition-all duration-150 ease-out hover:bg-[#d41f19] active:scale-[0.98] active:bg-[#bd1b16] disabled:cursor-not-allowed disabled:bg-[#d8cfc0] disabled:text-[#7c7263] disabled:shadow-none disabled:active:scale-100"
+                          >
+                            {isLoading ? (
+                              <div className="flex items-center justify-center">
+                                <svg className="-ml-1 mr-2 h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Creating account...
+                              </div>
+                            ) : (
+                              "Start my free 30 days"
+                            )}
+                          </Button>
+                        )}
+                      </motion.div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )
+          })() : (
+          <div ref={contentRef} className="flex-1 overflow-y-auto">
+          <div className="px-5 py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             <div className="max-w-md mx-auto w-full">
               {/* Header with Logo and Back */}
               <div className="flex items-center justify-between mb-6 lg:mb-8">
@@ -471,9 +1096,9 @@ function SignUpPageContent() {
                   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
-                  <span>Back</span>
+                  <span>Home</span>
                 </Link>
               </div>
 
@@ -535,40 +1160,46 @@ function SignUpPageContent() {
                           </p>
                         </div>
 
-                        {/* Plan tabs / pills */}
-                        <div
-                          className="grid gap-2"
-                          style={{ gridTemplateColumns: `repeat(${availablePlans.length}, minmax(0, 1fr))` }}
-                        >
-                          {availablePlans.map((plan) => {
-                            const isSelected = selectedPlan?.priceId === plan.priceId
-                            return (
-                              <button
-                                key={plan.id}
-                                type="button"
-                                onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                                className={`relative flex flex-col items-center rounded-xl py-2.5 px-2 text-sm font-semibold border transition-colors ${
-                                  isSelected
-                                    ? "bg-[#111111] text-white border-[#111111]"
-                                    : "bg-transparent text-[#111111] border-[#111111]/30 hover:border-[#111111]"
-                                }`}
-                              >
-                                <span>{plan.name}</span>
-                                {plan.discountLabel && (
-                                  <span
-                                    className={`mt-0.5 text-[11px] font-bold leading-none ${
-                                      isSelected ? "text-white" : "text-[#C8102E]"
-                                    }`}
-                                  >
-                                    {plan.discountLabel}
+                        {/* Plan selector — choose between all available plans (Monthly / 6 Months / Annual).
+                            Only rendered when more than one plan has an existing Stripe price ID; the full
+                            details for the chosen plan appear in the membership card below. */}
+                        {availablePlans.length > 1 && (
+                          <div
+                            role="radiogroup"
+                            aria-label="Choose your membership plan"
+                            className={`grid gap-2 ${
+                              availablePlans.length >= 3 ? "grid-cols-3" : "grid-cols-2"
+                            }`}
+                          >
+                            {availablePlans.map((plan) => {
+                              const isSelected = selectedPlan?.priceId === plan.priceId
+                              return (
+                                <button
+                                  key={plan.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={isSelected}
+                                  aria-label={`${plan.name}${plan.discountLabel ? `, ${plan.discountLabel}` : ""}`}
+                                  onClick={() => setSelectedPriceId(plan.priceId ?? null)}
+                                  className={`flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8102E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFF3E2] ${
+                                    isSelected
+                                      ? "border-2 border-[#C8102E] bg-white shadow-sm"
+                                      : "border-2 border-[#F1DEC5] bg-white/50 hover:border-[#e0c9a8]"
+                                  }`}
+                                >
+                                  <span className={`text-sm font-bold leading-tight ${isSelected ? "text-[#C8102E]" : "text-foreground"}`}>
+                                    {plan.name}
                                   </span>
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
+                                  <span className={`text-[11px] font-medium leading-tight ${isSelected ? "text-[#C8102E]/80" : "text-muted-foreground"}`}>
+                                    {plan.discountLabel ?? "Flexible"}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
 
-                        {/* Selected plan card */}
+                        {/* Selected membership card — the free trial leads; billing is secondary text */}
                         <div className="rounded-2xl overflow-hidden shadow-md bg-white">
                           {/* Header bar */}
                           <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#C8102E" }}>
@@ -580,9 +1211,24 @@ function SignUpPageContent() {
                             )}
                           </div>
 
-                          {/* Body */}
+                          {/* Body — free trial dominant, then smaller secondary billing line */}
                           <div className="px-5 py-5 space-y-4">
-                            <p className="text-[15px] font-medium text-[#111111]">{content.body}</p>
+                            <div className="space-y-1">
+                              <p className="text-xl font-bold leading-tight text-[#111111]">Your first 30 days are free</p>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedPlan?.originalPrice ? (
+                                  <>
+                                    Then <span className="line-through">{selectedPlan.originalPrice}</span> {content.bottom}
+                                    {selectedPlan?.perMonth ? ` (just ${selectedPlan.perMonth})` : ""}. Cancel anytime.
+                                  </>
+                                ) : (
+                                  <>Then {content.bottom}. Cancel anytime.</>
+                                )}
+                              </p>
+                            </div>
+
+                            <div className="h-px bg-[#F1DEC5]" />
+
                             <div className="space-y-3">
                               {benefits.map((benefit) => (
                                 <div key={benefit} className="flex items-center gap-3">
@@ -593,34 +1239,13 @@ function SignUpPageContent() {
                             </div>
                           </div>
 
-                          {/* Price bar */}
-                          <div className="px-5 py-4 text-center" style={{ backgroundColor: "#C8102E" }}>
-                            {selectedPlan?.originalPrice ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="flex items-baseline justify-center gap-2">
-                                  <span className="text-white/70 text-base font-medium line-through">
-                                    {selectedPlan.originalPrice}
-                                  </span>
-                                  <span className="text-white text-xl font-bold">{content.bottom}</span>
-                                </div>
-                                {selectedPlan?.perMonth && (
-                                  <span className="text-white/90 text-sm font-medium">
-                                    Just {selectedPlan.perMonth}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-white text-xl font-bold">{content.bottom}</span>
-                            )}
-                          </div>
-
                           {/* CTA */}
-                          <div className="px-5 py-5">
+                          <div className="px-5 pb-5">
                             <Button
-                              onClick={() => setStep('register')}
+                              onClick={() => { setDirection(1); setCurrentStep(1); setStep('register') }}
                               className="w-full h-14 text-lg font-semibold rounded-xl bg-[#111111] text-white hover:bg-[#111111]/90 transition-colors"
                             >
-                              Start my 30-day free trial
+                              Start my free 30 days
                             </Button>
                           </div>
                         </div>
@@ -644,7 +1269,7 @@ function SignUpPageContent() {
                     )
                   })()}
                 </div>
-              ) : step === 'login' ? (
+              ) : (
                 /* Login Form */
                 <div className="space-y-6">
                   <div className="space-y-2">
@@ -690,240 +1315,11 @@ function SignUpPageContent() {
                     Back
                   </Button>
                 </div>
-              ) : (
-                /* Register Form */
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
-                    <p className="text-sm text-muted-foreground">30 days free, then £4.99/month. Cancel anytime.</p>
-                  </div>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        id="firstName"
-                        type="text"
-                        placeholder="First Name"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                      <Input
-                        id="lastName"
-                        type="text"
-                        placeholder="Last Name"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="Email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="zipCode"
-                        type="text"
-                        placeholder="Postcode"
-                        value={formData.zipCode}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border"
-                        required
-                      />
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={isPasswordVisible ? "text" : "password"}
-                        placeholder="Password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border pr-12"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                      >
-                        {isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                    <p className={`text-xs ${formData.password && !passwordValidation.isValid ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      Must be at least 8 characters with a number and special character
-                    </p>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={isConfirmPasswordVisible ? "text" : "password"}
-                        placeholder="Confirm Password"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        className="w-full h-14 text-base rounded-xl border-border pr-12"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                      >
-                        {isConfirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                    {showValidationErrors && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                      <p className="text-destructive text-sm -mt-2">
-                        Passwords do not match
-                      </p>
-                    )}
-
-
-                    <div className="space-y-3">
-                      <label className="text-foreground text-sm font-medium block">
-                        Your plan
-                      </label>
-
-                      {/* Tab-style plan selector */}
-                      {(() => {
-                        const availablePlans = PLANS.filter((plan) => Boolean(plan.priceId))
-                        const selectedPlan =
-                          availablePlans.find((plan) => plan.priceId === selectedPriceId) ?? availablePlans[0]
-
-                        const planLabels: Record<string, { title: string; then: string }> = {
-                          monthly: { title: "Monthly membership", then: "Then £4.99/month" },
-                          six: { title: "6 month membership", then: "Then £25.45 / 6 months (£4.24/month) — save 15%" },
-                          annual: { title: "Annual membership", then: "Then £47.90 / year (£3.99/month) — save 20%" },
-                        }
-
-                        return (
-                          <>
-                            <div className="grid grid-cols-3 gap-2 rounded-full bg-[#f3ece1] p-1">
-                              {availablePlans.map((plan) => {
-                                const isSelected = selectedPlan?.priceId === plan.priceId
-                                return (
-                                  <button
-                                    key={plan.id}
-                                    type="button"
-                                    onClick={() => setSelectedPriceId(plan.priceId ?? null)}
-                                    className={`rounded-full py-2 text-sm font-semibold transition-colors ${
-                                      isSelected
-                                        ? "bg-foreground text-background shadow-sm"
-                                        : "bg-transparent text-foreground/70 hover:text-foreground"
-                                    }`}
-                                  >
-                                    {plan.name}
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            {/* Selected plan summary card */}
-                            {selectedPlan && (
-                              <div className="rounded-2xl border border-[#f0e6d8] bg-primary/[0.04] p-4">
-                                <div className="flex items-start gap-3">
-                                  <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary shrink-0">
-                                    <Check className="h-3 w-3 text-white" />
-                                  </span>
-                                  <div>
-                                    <p className="text-foreground font-semibold text-sm">
-                                      {planLabels[selectedPlan.id]?.title ?? selectedPlan.name}
-                                    </p>
-                                    <p className="text-sm font-medium text-primary">30 days free</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {planLabels[selectedPlan.id]?.then ?? `Then ${selectedPlan.price}${selectedPlan.period}`}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">Cancel anytime</p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </div>
-
-                    <div className="flex items-start space-x-3 p-3 bg-card rounded-xl border border-border">
-                      <Checkbox
-                        id="terms"
-                        checked={formData.agreeToTerms}
-                        onCheckedChange={handleCheckboxChange}
-                        required
-                        className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                      />
-                      <label htmlFor="terms" className="text-muted-foreground text-xs leading-relaxed">
-                        I agree to the{" "}
-                        <button
-                          type="button"
-                          onClick={() => handlePolicyNavigation('/terms')}
-                          className="text-primary hover:text-primary/80 underline cursor-pointer"
-                        >
-                          Terms of Service
-                        </button>{" "}
-                        and{" "}
-                        <button
-                          type="button"
-                          onClick={() => handlePolicyNavigation('/privacy')}
-                          className="text-primary hover:text-primary/80 underline cursor-pointer"
-                        >
-                          Privacy Policy
-                        </button>
-                      </label>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={!formData.agreeToTerms || isLoading}
-                      className="w-full h-14 text-lg font-semibold rounded-full text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: "#eb221c" }}
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center justify-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Creating Account...
-                        </div>
-                      ) : (
-                        "Create account"
-                      )}
-                    </Button>
-                  </form>
-                  <Button
-                    onClick={handleBack}
-                    variant="outline"
-                    className="w-full h-14 text-base font-medium rounded-full border-border hover:bg-muted transition-colors"
-                  >
-                    Back
-                  </Button>
-                </div>
               )}
             </div>
           </div>
+          </div>
+          )}
         </div>
       </div>
 
@@ -953,6 +1349,8 @@ function SignUpPageContent() {
                 <Button
                   onClick={() => {
                     setShowDealsModal(false)
+                    setDirection(1)
+                    setCurrentStep(1)
                     setStep('register')
                   }}
                   className="w-full h-14 text-base font-bold rounded-xl text-white border-0 hover:opacity-90 transition-opacity shadow-lg"

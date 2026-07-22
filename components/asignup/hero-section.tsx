@@ -1,65 +1,93 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { trackAsignupEvent } from "@/components/asignup/track"
 
 export function HeroSection() {
     return (
-        <section className="relative flex min-h-[65vh] w-full items-end justify-center overflow-hidden">
+        <section className="relative flex min-h-[78vh] w-full items-end justify-center overflow-hidden">
             {/* Dine-in background image */}
             <Image
-                src="/images/asignup-hero-friends.png"
-                alt="Friends laughing together over a table full of food at a restaurant"
+                src="/images/asignup-hero-steak.jpg"
+                alt="Grilled steak topped with herb butter and rosemary, served with fries on a wooden board"
                 fill
                 priority
                 sizes="100vw"
                 className="object-cover"
             />
 
-            {/* Bottom-only gradient: top stays bright, lower portion darkens into a dedicated content area */}
+            {/* Soft gradient overlay - keeps text readable without crushing the image to black */}
             <div
                 className="absolute inset-0"
                 style={{
                     background:
-                        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.75) 80%, rgba(0,0,0,0.92) 100%)",
+                        "linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.20) 40%, rgba(0,0,0,0.45) 65%, rgba(0,0,0,0.70) 85%, rgba(0,0,0,0.82) 100%)",
                 }}
                 aria-hidden="true"
             />
 
             {/* Hero content - sits low over the darker table-edge area */}
-            <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-6 pb-10 text-center">
+            <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center px-6 pb-12 text-center sm:max-w-2xl">
                 <h1
-                    className="text-balance text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl"
-                    style={{ textShadow: "0 3px 12px rgba(0,0,0,0.6)" }}
+                    className="text-balance text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl"
+                    style={{ textShadow: "0 2px 14px rgba(0,0,0,0.55)" }}
                 >
-                    Up to 50% off the total bill in restaurants
+                    <span className="sm:block">Eat out for less</span>{" "}
+                    <span className="sm:block">at restaurants near you</span>
                 </h1>
 
                 <p
-                    className="mt-4 text-pretty text-lg font-medium leading-snug text-white sm:text-2xl"
-                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
+                    className="mt-4 text-pretty text-base font-normal leading-relaxed text-white/95 sm:text-lg"
+                    style={{ textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}
                 >
-                    Save an average of £24 when you eat out
+                    Save up to 50% off your total bill with local dining offers.
                 </p>
 
-                <div className="mt-8 flex w-full flex-col gap-3 sm:max-w-md">
-                    {/* Primary - EatinOut red */}
+                {/* Value line - subtle, not a loud badge */}
+                <p
+                    className="mt-3 text-sm font-medium text-white/90"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}
+                >
+                    30 days free, then £4.99/month. Cancel anytime.
+                </p>
+
+                <div className="mt-6 flex w-full flex-col gap-3 sm:max-w-sm">
+                    {/* Primary - the only red element, premium height */}
                     <Button
                         asChild
-                        size="lg"
-                        className="w-full rounded-full bg-[#EB221C] py-5 text-base font-semibold text-white hover:bg-[#cf1d18]"
+                        className="h-14 w-full rounded-full bg-[#EB221C] text-base font-semibold text-white shadow-md hover:bg-[#cf1d18]"
                     >
-                        <Link href="/restaurants">See restaurants</Link>
+                        <Link
+                            href="/sign-up"
+                            onClick={() => trackAsignupEvent("asignup_start_trial_click")}
+                        >
+                            Start my 30-day free trial
+                        </Link>
                     </Button>
 
-                    {/* Secondary - black */}
+                    {/* Secondary - quiet ghost/outline that doesn't compete */}
                     <Button
                         asChild
-                        size="lg"
-                        className="w-full rounded-full bg-black py-5 text-base font-semibold text-white hover:bg-black/85"
+                        variant="outline"
+                        className="h-14 w-full rounded-full border border-white/50 bg-transparent text-base font-medium text-white hover:bg-white/10 hover:text-white"
                     >
-                        <Link href="/start">Learn more</Link>
+                        <Link
+                            href="/restaurants"
+                            onClick={() => trackAsignupEvent("asignup_view_restaurants_click")}
+                        >
+                            See restaurants near me
+                        </Link>
                     </Button>
                 </div>
+
+                <p
+                    className="mt-4 text-xs font-medium text-white/75"
+                    style={{ textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}
+                >
+                    Browse local offers before you join.
+                </p>
             </div>
         </section>
     )

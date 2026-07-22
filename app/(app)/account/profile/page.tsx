@@ -61,10 +61,10 @@ export default function Profile() {
         e.preventDefault();
         setShowValidationError(true);
 
-        // Validate mobile number
-        // if (formData.mobile.length < 10) {
-        //     return;
-        // }
+        // Validate mobile number if provided
+        if (formData.mobile && formData.mobile.length < 10) {
+            return;
+        }
 
         try {
             const response = await axios.put('/api/profile', formData);
@@ -72,8 +72,8 @@ export default function Profile() {
             setIsEditing(false);
             setShowValidationError(false);
             toast.success('Profile updated successfully');
-        } catch (error) {
-            toast.error('Error updating profile');
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || error.response?.data?.message || 'Error updating profile');
         }
     };
 
@@ -100,8 +100,8 @@ export default function Profile() {
                         { label: 'First Name', value: user.firstName },
                         { label: 'Last Name', value: user.lastName },
                         { label: 'Email', value: user.email },
-                        // { label: 'Mobile', value: user.mobile },
-                         { label: 'Zipcode', value: user.zipCode || '-' }, // added
+                        { label: 'Mobile', value: user.mobile || '-' },
+                        { label: 'Zipcode', value: user.zipCode || '-' }, // added
                         { label: 'Role', value: user.role },
                         { label: 'Subscription Status', value: user.subscriptionStatus }
                     ].map((item, idx) => (
@@ -149,7 +149,7 @@ export default function Profile() {
                                 required
                             />
                         </div>
-                         <div>
+                        <div>
                             <label className="block font-semibold mb-1">Zipcode:</label>
                             <input
                                 type="text"
@@ -174,31 +174,29 @@ export default function Profile() {
                             disabled
                         />
                     </div>
-                    {/* <div className="mt-4">
+                    <div className="mt-4">
                         <label className="block font-semibold mb-1">Mobile:</label>
                         <input
                             type="tel"
                             name="mobile"
-                            value={formData.mobile}
+                            value={formData.mobile || ''}
                             onChange={(e) => {
                                 const value = e.target.value;
-                                // Allow only numeric values
-                                if (/^\d*$/.test(value)) {
+                                // Allow only numeric values or plus sign for international codes
+                                if (/^[0-9+]*$/.test(value)) {
                                     handleInputChange(e);
                                 }
                             }}
                             className="w-full p-2 border rounded"
-                            required
                             placeholder="Enter your mobile number"
                             title="Please enter a valid mobile number"
-                            maxLength={11}
-                            pattern="[0-9]*"
+                            maxLength={15}
                         />
-                        {showValidationError && formData.mobile.length < 10 && (
+                        {showValidationError && formData.mobile && formData.mobile.length < 10 && (
                             <span className="text-red-500 text-xs mt-1 block">Mobile number must be at least 10 digits</span>
                         )}
                         <span className="text-xs text-gray-500 ">Preferred contact number for enquiries and bookings</span>
-                    </div> */}
+                    </div>
                     <div className="flex justify-end gap-4 mt-6">
                         <button
                             type="submit"

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/models/User";
+import Lead from "@/models/Lead";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
@@ -71,9 +72,20 @@ export async function POST(req: NextRequest) {
       if (existingUser) {
         console.log("User already exists:", email);
         return NextResponse.json(
-          { success: false, message: "User already exists" },
+          { success: false, message: "User already exists with this email" },
           { status: 400 }
         );
+      }
+      
+      if (mobile) {
+        const existingMobile = await User.findOne({ mobile });
+        if (existingMobile) {
+          console.log("Mobile number already in use:", mobile);
+          return NextResponse.json(
+            { success: false, message: "Mobile number already in use" },
+            { status: 400 }
+          );
+        }
       }
     } catch (findError: any) {
       console.error("Error checking for existing user:", findError);
@@ -106,6 +118,16 @@ export async function POST(req: NextRequest) {
 
       await user.save();
       console.log("User created successfully:", user._id);
+      
+      // Mark lead as converted if it exists
+      try {
+        await Lead.findOneAndUpdate(
+          { email },
+          { $set: { converted: true } }
+        );
+      } catch (leadError) {
+        console.error("Error updating lead conversion status:", leadError);
+      }
     } catch (saveError: any) {
       console.error("Error saving user:", saveError);
       return NextResponse.json(
