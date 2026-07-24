@@ -1125,7 +1125,7 @@ export default function RestaurantListingPage() {
 
               <div className="bg-primary/5 border-2 border-primary/20 rounded-xl p-4">
                 <p className="text-center text-foreground font-semibold mb-2">
-                  Get this deal and 1,000s more with your 7-day FREE trial
+                  Get this deal and 1,000s more with your 30-day FREE trial
                 </p>
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Store className="h-4 w-4" />
@@ -1145,7 +1145,7 @@ export default function RestaurantListingPage() {
                 </Button>
               </Link>
 
-              <p className="text-xs text-center text-muted-foreground">7 days free • Cancel anytime</p>
+              <p className="text-xs text-center text-muted-foreground">30 days free • Cancel anytime</p>
             </div>
           </div>
         )}
