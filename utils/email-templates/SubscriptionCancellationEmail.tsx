@@ -5,19 +5,25 @@ import { EmailLayout } from "./components/layout"
 // dates or optional text — the route decides which cancellation happened.
 export type SubscriptionCancellationMode = "trial_immediate" | "paid_scheduled"
 
-interface SubscriptionCancellationEmailProps {
-    firstName: string
-    mode: SubscriptionCancellationMode
-    // Required for paid_scheduled: the exact paid-through date (already formatted
-    // or an ISO string). Not used for trial_immediate.
-    currentPeriodEnd?: string
-}
+// Discriminated union on `mode`:
+//   - trial_immediate: no `currentPeriodEnd` (it isn't accepted here).
+//   - paid_scheduled: `currentPeriodEnd` is REQUIRED and cannot compile without it.
+// This removes the need for any non-null assertion in the component body.
+type SubscriptionCancellationEmailProps =
+    | {
+          firstName: string
+          mode: "trial_immediate"
+      }
+    | {
+          firstName: string
+          mode: "paid_scheduled"
+          currentPeriodEnd: string
+      }
 
-export const SubscriptionCancellationEmail = ({
-    firstName,
-    mode,
-    currentPeriodEnd,
-}: SubscriptionCancellationEmailProps) => {
+export const SubscriptionCancellationEmail = (
+    props: SubscriptionCancellationEmailProps
+) => {
+    const { firstName, mode } = props
     const baseUrl = process.env.NEXTAUTH_URL || "https://eatinout.com"
 
     if (mode === "trial_immediate") {
@@ -96,7 +102,7 @@ export const SubscriptionCancellationEmail = ({
                     <Text style={styles.message}>
                         You can keep using EatinOut until:
                         <br />
-                        <strong style={{ display: 'block', marginTop: '10px' }}>{currentPeriodEnd}</strong>
+                        <strong style={{ display: 'block', marginTop: '10px' }}>{props.currentPeriodEnd}</strong>
                     </Text>
                 </div>
 

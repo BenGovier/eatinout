@@ -28,9 +28,16 @@ import {
 } from "@/lib/subscription";
 import { trackSubscriptionEvent } from "@/lib/subscription-analytics";
 
-type Step = "reason" | "offer" | "confirm";
+type Step = "reason" | "offer" | "confirm" | "success";
 
 type OfferType = "extend_trial" | "discount" | "support" | "keep";
+
+// The successful DELETE result, captured from the API response (never inferred
+// from the pre-request subscription prop).
+interface CancelOutcome {
+  trialCancelledImmediately: boolean;
+  accessEndDate: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -63,6 +70,7 @@ export function CancellationWizard({
   const [reasonDetail, setReasonDetail] = useState<string>("");
   const [busy, setBusy] = useState<null | "offer" | "cancel">(null);
   const [error, setError] = useState<string>("");
+  const [outcome, setOutcome] = useState<CancelOutcome | null>(null);
 
   // Reset each time the dialog is opened.
   useEffect(() => {
@@ -72,6 +80,7 @@ export function CancellationWizard({
       setReasonDetail("");
       setBusy(null);
       setError("");
+      setOutcome(null);
       trackSubscriptionEvent("cancellation_started", {
         subscription_segment: segment,
         billing_interval: subscription.billingInterval,
@@ -221,8 +230,8 @@ export function CancellationWizard({
     setError("");
     setBusy("cancel");
     try {
-      // The cancellation reason is analytics-only (GTM/dataLayer) and is never
-      // sent to the server, so no body is included in this request.
+      // The cancellation reason (and any free-text detail) is analytics-only
+      // (GTM/dataLayer) and is never sent to the server, so no body is included.
       const res = await fetch("/api/subscriptions", {
         method: "DELETE",
       });
@@ -232,15 +241,33 @@ export function CancellationWizard({
         setBusy(null);
         return;
       }
+
+      // Distinguish the completed result from the API response, not from the
+      // pre-request subscription prop. Trial-immediate cancellations report
+      // `trialCancelledImmediately: true` / `effectiveStatus: "cancelled"` /
+      // `cancelAtPeriodEnd: false`; paid-scheduled report `cancelAtPeriodEnd:
+      // true` / `effectiveStatus: "scheduled_cancellation"`.
+      const trialCancelledImmediately =
+        data?.trialCancelledImmediately === true ||
+        (data?.effectiveStatus === "cancelled" && data?.cancelAtPeriodEnd === false);
+
       trackSubscriptionEvent("cancellation_confirmed", {
         subscription_segment: segment,
         cancellation_reason: reason || "not_specified",
-        cancel_at_period_end: true,
-        days_remaining: daysUntil(accessEnd),
+        is_trialing: trialCancelledImmediately,
+        // A trial ends immediately (not at period end); a paid plan is scheduled.
+        cancel_at_period_end: !trialCancelledImmediately,
+        days_remaining: trialCancelledImmediately ? 0 : daysUntil(accessEnd),
+      });
+
+      setOutcome({
+        trialCancelledImmediately,
+        accessEndDate: data?.accessEndDate ?? accessEnd ?? null,
       });
       setBusy(null);
-      onOpenChange(false);
+      // Refresh parent data now; keep the dialog open to show the success state.
       onChanged();
+      setStep("success");
     } catch {
       setError("We couldn't reach the server. Please try again.");
       setBusy(null);
@@ -249,7 +276,7 @@ export function CancellationWizard({
 
   return (
     <Dialog open={open} onOpenChange={busy ? undefined : onOpenChange}>
-      <DialogContent className="max-w-md gap-0 p-0 overflow-hidden">
+      <DialogContent className="max-w-md gap-0 p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* ---------------- Step 1: Reason ---------------- */}
         {step === "reason" && (
           <div className="p-6">
@@ -363,32 +390,20 @@ export function CancellationWizard({
         )}
 
         {/* ---------------- Step 3: Final confirmation ---------------- */}
-        {step === "confirm" && (
+        {step === "confirm" && subscription.isTrialing && (
           <div className="p-6">
             <DialogHeader>
               <DialogTitle className="text-xl text-balance">
-                Confirm your cancellation
+                End your free trial?
               </DialogTitle>
               <DialogDescription className="leading-relaxed">
-                {accessEnd ? (
-                  <>
-                    Your membership will stay active until{" "}
-                    <strong className="text-foreground">{formatUKDate(accessEnd)}</strong>. You
-                    won't be charged again, and you can reactivate any time before then.
-                  </>
-                ) : (
-                  <>
-                    Your membership will remain active until the end of your current period. You
-                    won't be charged again, and you can reactivate any time before then.
-                  </>
-                )}
+                Your free trial and membership access will end immediately.
               </DialogDescription>
             </DialogHeader>
 
-            <ul className="mt-4 space-y-2 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
-              <li>You keep full access until your access end date.</li>
-              <li>No further payments will be taken.</li>
-              <li>You can reactivate with one click before then.</li>
+            <ul className="mt-4 space-y-2 rounded-xl bg-destructive/10 p-4 text-sm text-foreground">
+              <li>Your free trial and membership access will end immediately.</li>
+              <li>You will not be charged.</li>
             </ul>
 
             {error && (
@@ -404,7 +419,68 @@ export function CancellationWizard({
                 disabled={busy === "cancel"}
                 className="sm:w-auto"
               >
-                Go back
+                Keep my free trial
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmCancel}
+                disabled={busy === "cancel"}
+                className="sm:w-auto"
+              >
+                {busy === "cancel" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Ending trial
+                  </>
+                ) : (
+                  "End trial now"
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "confirm" && !subscription.isTrialing && (
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-balance">
+                Confirm cancellation
+              </DialogTitle>
+              <DialogDescription className="leading-relaxed">
+                {accessEnd ? (
+                  <>
+                    Your membership will remain active until{" "}
+                    <strong className="text-foreground">{formatUKDate(accessEnd)}</strong>.
+                  </>
+                ) : (
+                  <>Your membership will remain active until the end of your current period.</>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <ul className="mt-4 space-y-2 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
+              <li>
+                Your membership will remain active until{" "}
+                {accessEnd ? formatUKDate(accessEnd) : "the end of your current period"}.
+              </li>
+              <li>You will not be charged again after this date.</li>
+              <li>You can reactivate before then.</li>
+            </ul>
+
+            {error && (
+              <p role="alert" className="mt-4 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => setStep("offer")}
+                disabled={busy === "cancel"}
+                className="sm:w-auto"
+              >
+                Keep my membership
               </Button>
               <Button
                 variant="destructive"
@@ -422,6 +498,61 @@ export function CancellationWizard({
                 )}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* ---------------- Step 4: Success ---------------- */}
+        {step === "success" && outcome && (
+          <div className="p-6">
+            {outcome.trialCancelledImmediately ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl text-balance">
+                    Your free trial has ended
+                  </DialogTitle>
+                  <DialogDescription className="leading-relaxed">
+                    Your membership access has ended and you have not been charged.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-6">
+                  <Button onClick={() => onOpenChange(false)} className="w-full">
+                    Done
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl text-balance">
+                    Cancellation scheduled
+                  </DialogTitle>
+                  <DialogDescription className="leading-relaxed">
+                    {outcome.accessEndDate ? (
+                      <>
+                        You still have full access until{" "}
+                        <strong className="text-foreground">
+                          {formatUKDate(outcome.accessEndDate)}
+                        </strong>
+                        .
+                      </>
+                    ) : (
+                      <>You still have full access until the end of your current period.</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-6 flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </DialogContent>
