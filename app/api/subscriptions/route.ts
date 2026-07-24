@@ -209,6 +209,18 @@ function normalizeSubscription(
   };
 }
 
+// Customer-safe response used when Stripe can't be reached. Kept as a helper so
+// the four inline retrieval failures return an identical status code and body.
+function stripeUnavailable() {
+  return NextResponse.json(
+    {
+      error:
+        "We're having trouble reaching our payment provider. Please try again shortly.",
+    },
+    { status: 502 }
+  );
+}
+
 // Create subscription
 export async function POST(req: Request) {
   try {
@@ -267,7 +279,6 @@ export async function POST(req: Request) {
         .client_secret,
     });
   } catch (error) {
-    console.error("[subscriptions] Error creating subscription:", error);
     return NextResponse.json(
       { error: "Error creating subscription" },
       { status: 500 }
@@ -316,13 +327,7 @@ export async function DELETE(req: Request) {
       });
     } catch (e) {
       console.error("[subscriptions] Stripe retrieve failed (DELETE):", e);
-      return NextResponse.json(
-        {
-          error:
-            "We're having trouble reaching our payment provider. Please try again shortly.",
-        },
-        { status: 502 }
-      );
+      return stripeUnavailable();
     }
 
     const paymentMethods = await stripe.paymentMethods
@@ -342,9 +347,13 @@ export async function DELETE(req: Request) {
       const accessEnd = normalized.accessEndDate
         ? new Date(normalized.accessEndDate)
         : null;
-      user.subscriptionStatus =
+      const canceledStatus =
         accessEnd && accessEnd > now ? "cancelled_with_access" : "cancelled";
-      await user.save();
+      // Idempotent: skip the DB write when the status already matches.
+      if (user.subscriptionStatus !== canceledStatus) {
+        user.subscriptionStatus = canceledStatus;
+        await user.save();
+      }
 
       return NextResponse.json({
         success: true,
@@ -372,13 +381,14 @@ export async function DELETE(req: Request) {
     const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
     const accessEndDate = trialEnd || currentPeriodEnd;
 
-    if (accessEndDate > now) {
-      user.subscriptionStatus = "cancelled_with_access";
-    } else {
-      user.subscriptionStatus = "cancelled";
-    }
+    const newStatus =
+      accessEndDate > now ? "cancelled_with_access" : "cancelled";
 
-    await user.save();
+    // Idempotent re-cancel: only write when the status actually changes.
+    if (user.subscriptionStatus !== newStatus) {
+      user.subscriptionStatus = newStatus;
+      await user.save();
+    }
 
     const normalized = normalizeSubscription(
       subscription,
@@ -564,6 +574,7 @@ export async function GET(req: Request) {
         currentPeriodEnd: subscription.current_period_end,
         currentPeriodEndDate: new Date(subscription.current_period_end * 1000).toISOString(),
         canceledAt: subscription.canceled_at,
+        isTrialing: user.isTrialing,
         card: defaultPaymentMethod
           ? {
             brand: defaultPaymentMethod.card?.brand,
@@ -573,33 +584,22 @@ export async function GET(req: Request) {
           }
           : null,
 
-        // --- Normalized additions (new consumers) ---
+        // The legacy top-level fields above are retained because existing
+        // consumers depend on them: app layout + sign-in read `status` /
+        // `hasAccess` / `accessReason` / `subscriptionDetails` / `email` /
+        // `isTrialing`, and the account + payment pages read `subscriptionDetails`
+        // / `card`. New subscription-management components (subscription summary
+        // card, cancellation wizard) must read everything from the nested
+        // `subscription` object below — not from top-level mirror fields.
         subscription: normalized,
-        effectiveStatus: normalized.effectiveStatus,
-        isTrialing: normalized.isTrialing,
-        trialStart: normalized.trialStart,
-        currentPeriodStart: normalized.currentPeriodStart,
-        cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
-        accessEndDate: normalized.accessEndDate,
-        planName: normalized.planName,
-        billingInterval: normalized.billingInterval,
-        billingIntervalCount: normalized.billingIntervalCount,
-        recurringAmount: normalized.recurringAmount,
-        currency: normalized.currency,
-        formattedRecurringAmount: normalized.formattedRecurringAmount,
-        paymentMethod: normalized.paymentMethod,
-        canReactivate: normalized.canReactivate,
-        canExtendTrial: normalized.canExtendTrial,
-        canApplyRetentionDiscount: normalized.canApplyRetentionDiscount,
       });
     } else {
       return NextResponse.json({
         status: user.subscriptionStatus,
         email: user.email,
         card: null,
-        hasAccess: false,
-        effectiveStatus:
-          user.subscriptionStatus === "active" ? "active" : "inactive",
+        // Nested object is null when there is no Stripe subscription; new
+        // consumers read `data.subscription` and handle the null case.
         subscription: null,
       });
     }
@@ -658,13 +658,7 @@ export async function PATCH(req: Request) {
         });
       } catch (e) {
         console.error("[subscriptions] Stripe retrieve failed (reactivate):", e);
-        return NextResponse.json(
-          {
-            error:
-              "We're having trouble reaching our payment provider. Please try again shortly.",
-          },
-          { status: 502 }
-        );
+        return stripeUnavailable();
       }
 
       // A fully-ended subscription cannot be reactivated.
@@ -745,13 +739,7 @@ export async function PATCH(req: Request) {
         });
       } catch (e) {
         console.error("[subscriptions] Stripe retrieve failed (extend_trial):", e);
-        return NextResponse.json(
-          {
-            error:
-              "We're having trouble reaching our payment provider. Please try again shortly.",
-          },
-          { status: 502 }
-        );
+        return stripeUnavailable();
       }
 
       if (subscription.status !== "trialing" || !subscription.trial_end) {
@@ -793,13 +781,38 @@ export async function PATCH(req: Request) {
         proration_behavior: "none",
       });
 
-      // Persist the one-time flag only after Stripe confirms the update.
+      // The one-time flag MUST be persisted for the incentive to be safe.
+      // Only after Stripe confirms the flag do we return success. If the flag
+      // write fails, roll the trial back so the customer can't repeat it.
       try {
         await stripe.customers.update(user.stripeCustomerId, {
           metadata: { [TRIAL_EXTENSION_METADATA_KEY]: "true" },
         });
-      } catch (e) {
-        console.error("[subscriptions] Failed to write trial-extension metadata:", e);
+      } catch (metaError) {
+        console.error(
+          "[subscriptions] Failed to write trial-extension flag; rolling back trial_end:",
+          metaError
+        );
+        try {
+          await stripe.subscriptions.update(user.subscriptionId, {
+            trial_end: previousTrialEnd,
+            proration_behavior: "none",
+          });
+          console.error(
+            "[subscriptions] Trial extension rolled back to previous trial_end after flag-write failure."
+          );
+        } catch (rollbackError) {
+          console.error(
+            "[subscriptions] CRITICAL: trial-extension rollback FAILED — Stripe subscription " +
+              `${user.subscriptionId} may have an extended trial WITHOUT the one-time flag set. Manual reconciliation required.`,
+            rollbackError
+          );
+        }
+        // Never fire or return success when the eligibility flag isn't confirmed.
+        return NextResponse.json(
+          { error: "We couldn't complete your trial extension. Please try again." },
+          { status: 502 }
+        );
       }
 
       const paymentMethods = await stripe.paymentMethods
@@ -839,13 +852,7 @@ export async function PATCH(req: Request) {
         });
       } catch (e) {
         console.error("[subscriptions] Stripe retrieve failed (discount):", e);
-        return NextResponse.json(
-          {
-            error:
-              "We're having trouble reaching our payment provider. Please try again shortly.",
-          },
-          { status: 502 }
-        );
+        return stripeUnavailable();
       }
 
       const paymentMethods = await stripe.paymentMethods
@@ -884,6 +891,18 @@ export async function PATCH(req: Request) {
         );
       }
 
+      // Never overwrite an existing discount on the subscription.
+      const hasExistingDiscount =
+        (Array.isArray(subscription.discounts) &&
+          subscription.discounts.length > 0) ||
+        Boolean((subscription as any).discount);
+      if (hasExistingDiscount) {
+        return NextResponse.json(
+          { error: "A discount is already applied to your membership." },
+          { status: 409 }
+        );
+      }
+
       // Confirm the coupon exists and is valid before applying.
       try {
         const coupon = await stripe.coupons.retrieve(couponId);
@@ -916,13 +935,36 @@ export async function PATCH(req: Request) {
         );
       }
 
-      // Mark used only after Stripe confirms the discount was applied.
+      // The one-time flag MUST be persisted. Only after Stripe confirms it do
+      // we return success. If the flag write fails, remove the discount we just
+      // applied so the customer can't repeat the incentive.
       try {
         await stripe.customers.update(user.stripeCustomerId, {
           metadata: { [RETENTION_DISCOUNT_METADATA_KEY]: "true" },
         });
-      } catch (e) {
-        console.error("[subscriptions] Failed to write retention-discount metadata:", e);
+      } catch (metaError) {
+        console.error(
+          "[subscriptions] Failed to write retention-discount flag; removing discount:",
+          metaError
+        );
+        try {
+          // 18.5.0 removes the applied subscription discount via deleteDiscount.
+          await stripe.subscriptions.deleteDiscount(user.subscriptionId);
+          console.error(
+            "[subscriptions] Retention discount removed after flag-write failure."
+          );
+        } catch (rollbackError) {
+          console.error(
+            "[subscriptions] CRITICAL: retention-discount rollback FAILED — Stripe subscription " +
+              `${user.subscriptionId} may have a discount WITHOUT the one-time flag set. Manual reconciliation required.`,
+            rollbackError
+          );
+        }
+        // Never fire or return success when the eligibility flag isn't confirmed.
+        return NextResponse.json(
+          { error: "We couldn't apply your discount. Please try again." },
+          { status: 502 }
+        );
       }
 
       const normalized = normalizeSubscription(subscription, defaultPaymentMethod, {
