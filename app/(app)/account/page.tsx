@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "react-toastify";
 import {
@@ -11,15 +12,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   ChevronRight,
   CreditCard,
   User,
-  Phone
+  Phone,
+  AlertCircle,
 } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { SubscriptionSummaryCard } from "@/components/account/subscription-summary-card";
+import type { NormalizedSubscription } from "@/lib/subscription";
+import { trackSubscriptionEvent } from "@/lib/subscription-analytics";
 
-interface User {
+interface Profile {
   firstName: string;
   lastName: string;
   email: string;
@@ -28,13 +34,19 @@ interface User {
   isTrialing?: boolean;
 }
 
-interface Subscription {
-  status: "active" | "canceled" | "inactive";
-  currentPeriodEnd?: number;
+// Unusual compatibility case (section 5): the /api/subscriptions response has no
+// nested `subscription` object but still carries legacy access signals.
+interface LegacyInfo {
+  hasAccess?: boolean;
+  status?: string;
+  subscriptionDetails?: { status?: string; current_period_end?: number } | null;
+  isTrialing?: boolean;
 }
 
 export default function AccountPage() {
-  const [user, setUser] = useState<User>({
+  const router = useRouter();
+
+  const [profile, setProfile] = useState<Profile>({
     firstName: "",
     lastName: "",
     email: "",
@@ -43,72 +55,188 @@ export default function AccountPage() {
     isTrialing: false,
   });
 
-  const [subscription, setSubscription] = useState<Subscription>({
-    status: "inactive",
-  });
+  const [subscription, setSubscription] = useState<NormalizedSubscription | null>(null);
+  const [legacy, setLegacy] = useState<LegacyInfo | null>(null);
+  const [subLoading, setSubLoading] = useState(true);
+  const [subError, setSubError] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
 
   useEffect(() => {
     document.title = "Account";
   }, []);
 
-  useEffect(() => {
-    const fetchProfileAndSubscription = async () => {
-      try {
-        const profileRes = await axios.get("/api/profile");
-        setUser(profileRes.data);
+  const fetchData = useCallback(async () => {
+    setSubLoading(true);
+    setSubError(false);
 
-        const subRes = await axios.get("/api/subscriptions");
-        const sub = subRes?.data?.subscriptionDetails;
+    const [profileResult, subResult] = await Promise.allSettled([
+      axios.get("/api/profile"),
+      axios.get("/api/subscriptions"),
+    ]);
 
-        if (sub?.status) {
-          setSubscription({
-            status: sub.status,
-            currentPeriodEnd: sub?.current_period_end,
-          });
-        } else {
-          setSubscription({ status: "inactive" });
-        }
-      } catch (error) {
-        toast.error("Error fetching account details");
+    // Profile: keep whatever we can get; never block the identity card on the
+    // subscription request.
+    if (profileResult.status === "fulfilled") {
+      setProfile(profileResult.value.data);
+    }
+
+    if (subResult.status === "fulfilled") {
+      const data = subResult.value.data ?? {};
+      if (data && "subscription" in data) {
+        // Preferred normal path: nested normalized object, or explicit null
+        // (a genuine inactive membership per section 4).
+        setSubscription((data.subscription as NormalizedSubscription | null) ?? null);
+        setLegacy(null);
+      } else if (
+        data &&
+        (data.hasAccess !== undefined ||
+          data.status !== undefined ||
+          data.subscriptionDetails !== undefined)
+      ) {
+        // Compatibility case (section 5): no nested object but legacy signals
+        // are present — do not falsely present the customer as inactive.
+        setSubscription(null);
+        setLegacy(data as LegacyInfo);
+      } else {
+        setSubscription(null);
+        setLegacy(null);
       }
-    };
+    } else {
+      // Section 4: a failed subscription request must NOT be shown as inactive.
+      setSubError(true);
+      toast.error("Error fetching account details");
+    }
 
-    fetchProfileAndSubscription();
+    if (profileResult.status === "rejected" && subResult.status === "rejected") {
+      // Both failed — the subscription error state above already covers the UI.
+    }
+
+    setSubLoading(false);
   }, []);
 
-  const renderSubscriptionStatus = () => {
-    if (user.isTrialing) {
-      return <span>Free Trial Active</span>;
-    }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    if (user.subscriptionStatus === "active") {
-      return <span>Active Subscription</span>;
+  const handleReactivate = useCallback(async () => {
+    if (reactivating) return; // prevent a second request while one is running
+    setReactivating(true);
+    try {
+      const res = await axios.patch("/api/subscriptions", { action: "reactivate" });
+      // Fire once, only after the PATCH succeeds. No PII.
+      trackSubscriptionEvent("cancellation_reversed", {
+        subscription_segment: subscription?.effectiveStatus,
+        billing_interval: subscription?.billingInterval ?? null,
+        is_trialing: subscription?.isTrialing,
+        cancel_at_period_end: subscription?.cancelAtPeriodEnd,
+      });
+      toast.success(res?.data?.message || "Your membership has been reactivated.");
+      await fetchData();
+    } catch (err: unknown) {
+      const message =
+        (axios.isAxiosError(err) && err.response?.data?.error) ||
+        "We couldn't reactivate your membership. Please try again.";
+      toast.error(message);
+      // Current subscription display is preserved (state untouched on failure).
+    } finally {
+      setReactivating(false);
     }
+  }, [reactivating, subscription, fetchData]);
 
-    if ((user.subscriptionStatus === "cancelled" || user.subscriptionStatus === "cancelled_with_access") && subscription.currentPeriodEnd) {
-      const formattedDate = new Date(
-        subscription.currentPeriodEnd * 1000
-      ).toLocaleDateString("en-US", {
+  const renderLegacyStatus = () => {
+    const status = legacy?.subscriptionDetails?.status ?? legacy?.status;
+    const periodEnd = legacy?.subscriptionDetails?.current_period_end;
+
+    let label = "Inactive Subscription";
+    let indicator: "ok" | "warn" = "warn";
+
+    if (legacy?.isTrialing || profile.isTrialing) {
+      label = "Free Trial Active";
+      indicator = "ok";
+    } else if (status === "active" || profile.subscriptionStatus === "active" || legacy?.hasAccess) {
+      label = "Active Subscription";
+      indicator = "ok";
+    } else if (
+      (status === "cancelled" ||
+        status === "cancelled_with_access" ||
+        profile.subscriptionStatus === "cancelled" ||
+        profile.subscriptionStatus === "cancelled_with_access") &&
+      periodEnd
+    ) {
+      const formattedDate = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
-      return <span>Valid until {formattedDate}</span>;
+      label = `Valid until ${formattedDate}`;
+      indicator = "ok";
     }
 
-    return <span>Inactive Subscription</span>;
+    return (
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-center">
+          <div
+            className={`h-6 w-6 mr-2 rounded-full flex items-center justify-center text-xs ${
+              indicator === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}
+          >
+            {indicator === "ok" ? "✓" : "!"}
+          </div>
+          <span>{label}</span>
+        </div>
+      </Card>
+    );
   };
 
-  const getStatusColor = () => {
-    if (user.isTrialing) return "bg-blue-100 text-blue-700";
-    switch (subscription.status) {
-      case "active":
-        return "bg-green-100 text-green-700";
-      case "canceled":
-        return "bg-yellow-100 text-yellow-700";
-      default:
-        return "bg-red-100 text-red-700";
+  const renderSubscriptionSection = () => {
+    if (subLoading) {
+      return (
+        <Card className="p-5 sm:p-6" aria-busy="true">
+          <div className="animate-pulse space-y-3">
+            <div className="h-4 w-32 rounded bg-muted" />
+            <div className="h-6 w-48 rounded bg-muted" />
+            <div className="h-4 w-full max-w-sm rounded bg-muted" />
+            <div className="h-9 w-40 rounded bg-muted mt-2" />
+          </div>
+        </Card>
+      );
     }
+
+    if (subError) {
+      return (
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <AlertCircle className="h-4 w-4" />
+            </span>
+            <div className="flex-1">
+              <p className="text-sm text-foreground font-medium">
+                We couldn&apos;t load your membership details.
+              </p>
+              <Button variant="outline" className="mt-3" onClick={fetchData}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    if (legacy) {
+      return renderLegacyStatus();
+    }
+
+    return (
+      <SubscriptionSummaryCard
+        subscription={subscription}
+        showManage
+        onExplore={() => router.push("/restaurants")}
+        onManage={() => router.push("/account/payment")}
+        onKeepMembership={handleReactivate}
+        onRestart={() => router.push("/account/payment")}
+        reactivating={reactivating}
+      />
+    );
   };
 
   return (
@@ -117,25 +245,15 @@ export default function AccountPage() {
 
       <div className="space-y-4">
         <Card>
-          <CardHeader >
+          <CardHeader>
             <CardTitle>
-              {user.firstName} {user.lastName}
+              {profile.firstName} {profile.lastName}
             </CardTitle>
-            <CardDescription>{user.email}</CardDescription>
+            <CardDescription>{profile.email}</CardDescription>
           </CardHeader>
-          <CardContent >
-            <div className="flex items-center justify-between ">
-              <div className="flex items-center">
-                <div
-                  className={`h-6 w-6 mr-2 rounded-full flex items-center justify-center text-xs ${getStatusColor()}`}
-                >
-                  {user.subscriptionStatus === "active" ? "✓" : "!"}
-                </div>
-                {renderSubscriptionStatus()}
-              </div>
-            </div>
-          </CardContent>
         </Card>
+
+        {renderSubscriptionSection()}
 
         <div className="space-y-3">
           <Link href="/account/profile">
