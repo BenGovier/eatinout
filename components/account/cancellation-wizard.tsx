@@ -221,10 +221,10 @@ export function CancellationWizard({
     setError("");
     setBusy("cancel");
     try {
+      // The cancellation reason is analytics-only (GTM/dataLayer) and is never
+      // sent to the server, so no body is included in this request.
       const res = await fetch("/api/subscriptions", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason, reasonDetail }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -24,9 +24,6 @@ export interface IUser extends Document {
   zipCode: string;
   deleted: boolean;
   deletedAt?: Date;
-  cancellationReason?: string;
-  cancellationReasonDetail?: string;
-  cancellationRequestedAt?: Date;
 }
 
 const UserSchema: Schema = new Schema(
@@ -73,10 +70,6 @@ const UserSchema: Schema = new Schema(
 
     deleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
-
-    cancellationReason: { type: String, default: null },
-    cancellationReasonDetail: { type: String, default: null },
-    cancellationRequestedAt: { type: Date, default: null },
 
     favorites: [
       {
