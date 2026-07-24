@@ -13,12 +13,12 @@ export const SubscriptionCancellationEmail = ({
     const baseUrl = process.env.NEXTAUTH_URL || "https://eatinout.com"
 
     return (
-        <EmailLayout preview="Your subscription is cancelled">
+        <EmailLayout preview="Your membership cancellation is scheduled">
             {/* Hero Section */}
             <Section style={styles.heroSection}>
-                <Text style={styles.heroTitle}>Subscription Cancelled</Text>
+                <Text style={styles.heroTitle}>Cancellation Scheduled</Text>
                 <Text style={styles.heroSubtitle}>
-                    We're sorry to see you go!
+                    You still have full access for now.
                 </Text>
             </Section>
 
@@ -27,25 +27,27 @@ export const SubscriptionCancellationEmail = ({
                 <Text style={styles.greeting}>Hi {firstName},</Text>
 
                 <Text style={styles.message}>
-                    Your cancellation request has been processed successfully. Your Eatinout Premium subscription is now set to cancel.
+                    We&apos;ve scheduled your EatinOut membership to end. You keep full access to all
+                    member benefits right up until the date below — nothing changes before then.
                 </Text>
 
                 <div style={styles.subscriptionBox}>
-                    <Text style={styles.subscriptionTitle}>Cancellation Details</Text>
+                    <Text style={styles.subscriptionTitle}>Your access ends on</Text>
 
                     <Text style={styles.message}>
-                        You will continue to have full access to your premium benefits until the end of your current billing period on:
+                        You can keep using EatinOut until:
                         <br />
                         <strong style={{ display: 'block', marginTop: '10px' }}>{currentPeriodEnd}</strong>
                     </Text>
                 </div>
 
                 <Text style={styles.message}>
-                    After this date, your subscription will not renew, and you won't be charged again.
+                    You will not be charged again, and no further renewal will occur after this date.
                 </Text>
 
                 <Text style={styles.message}>
-                    If you change your mind, you can easily reactivate your subscription at any time by logging into your account.
+                    Changed your mind? You can reactivate your membership any time before this date
+                    from your account — you won&apos;t lose access or need to start over.
                 </Text>
             </Section>
 
