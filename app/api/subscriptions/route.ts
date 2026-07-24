@@ -9,6 +9,13 @@ import Stripe from "stripe";
 import User from "@/models/User";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  // The installed stripe@18.5.0 types only permit the latest API version literal
+  // ('2025-08-27.basil'), but this route intentionally pins the account's
+  // "2023-10-16" behaviour because it reads the top-level `current_period_end`
+  // field, which the newer "basil" API moved onto subscription items. Per
+  // Stripe's own StripeConfig type guidance, pin the version and suppress the
+  // literal-type mismatch with @ts-expect-error.
+  // @ts-expect-error - intentionally pinning a non-latest API version at runtime
   apiVersion: "2023-10-16",
 });
 
