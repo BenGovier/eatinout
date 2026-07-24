@@ -370,6 +370,13 @@ export async function DELETE(req: Request) {
     let { subscription } = ctx;
     const { paymentMethod, customerMetadata } = ctx;
 
+    // Optional cancellation reason (captured for analytics/retention insight).
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const rawReason = typeof body.reason === "string" ? body.reason : "";
+    const rawReasonDetail = typeof body.reasonDetail === "string" ? body.reasonDetail : "";
+    const reason = rawReason.slice(0, 60);
+    const reasonDetail = rawReasonDetail.slice(0, 500);
+
     // Already fully cancelled in Stripe — nothing to schedule.
     if (subscription.status === "canceled") {
       const normalized = normalizeSubscription(subscription, paymentMethod, customerMetadata);
@@ -388,7 +395,29 @@ export async function DELETE(req: Request) {
     if (!wasAlreadyScheduled) {
       subscription = await stripe.subscriptions.update(user.subscriptionId, {
         cancel_at_period_end: true,
+        ...(reason
+          ? {
+              metadata: {
+                ...(subscription.metadata || {}),
+                cancellation_reason: reason,
+                cancellation_reason_detail: reasonDetail,
+                cancellation_requested_at: new Date().toISOString(),
+              },
+            }
+          : {}),
       });
+    }
+
+    // Persist the reason on the user record too (best-effort, non-blocking).
+    if (reason) {
+      try {
+        (user as any).cancellationReason = reason;
+        (user as any).cancellationReasonDetail = reasonDetail;
+        (user as any).cancellationRequestedAt = new Date();
+        await user.save();
+      } catch (saveError) {
+        console.error("[subscriptions] Failed to persist cancellation reason:", saveError);
+      }
     }
 
     const normalized = normalizeSubscription(subscription, paymentMethod, customerMetadata);
