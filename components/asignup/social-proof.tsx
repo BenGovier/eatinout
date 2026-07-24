@@ -19,11 +19,11 @@ export function SocialProof() {
                             <Star key={i} className="h-5 w-5 fill-[#F5A623] text-[#F5A623]" />
                         ))}
                     </div>
-                    <p className="text-3xl md:text-4xl font-bold text-foreground leading-none">
-                        4.8
+                    <p className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance">
+                        Rated 4.8 by EatinOut members
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                        average rating from hundreds of verified members
+                        Real savings at local restaurants
                     </p>
                 </div>
 

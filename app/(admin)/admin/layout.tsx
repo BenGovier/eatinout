@@ -109,6 +109,13 @@ export default function AdminLayout({
                     Users
                   </Link>
                   <Link
+                    href="/admin/leads"
+                    className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Leads
+                  </Link>
+                  <Link
                     href="/admin/restaurants"
                     className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -177,6 +184,9 @@ export default function AdminLayout({
               </Link>
               <Link href="/admin/users" className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
                 Users
+              </Link>
+              <Link href="/admin/leads" className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
+                Leads
               </Link>
               <Link
                 href="/admin/restaurants"

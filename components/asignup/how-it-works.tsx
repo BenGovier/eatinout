@@ -22,17 +22,17 @@ const steps = [
 
 export function HowItWorks() {
     return (
-        <section id="how-it-works" className="py-12 md:py-20 bg-background">
+        <section id="how-it-works" className="py-10 md:py-14 bg-background">
             <div className="mx-auto max-w-5xl px-4 lg:px-8">
                 {/* Header */}
-                <div className="text-center mb-12 md:mb-20">
+                <div className="text-center mb-8 md:mb-12">
                     <h2 className="text-2xl md:text-4xl font-bold text-foreground text-balance">
                         How EatinOut works
                     </h2>
                 </div>
 
                 {/* Steps */}
-                <div className="flex flex-col gap-16 md:gap-24">
+                <div className="flex flex-col gap-12 md:gap-16">
                     {steps.map((step, index) => (
                         <div
                             key={step.number}
@@ -65,7 +65,7 @@ export function HowItWorks() {
                 </div>
 
                 {/* CTA */}
-                <div className="text-center mt-16 md:mt-24">
+                <div className="text-center mt-10 md:mt-14">
                     <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8 py-6 text-base font-semibold">
                         <Link href="/sign-up">Start saving today</Link>
                     </Button>

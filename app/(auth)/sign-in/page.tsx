@@ -218,6 +218,7 @@ export default function SignInPage() {
         lastName: data.lastName || "",
         restaurantId: data.restaurantId || null,
         subscriptionStatus: data.subscriptionStatus || "inactive",
+        isTrialing: data.isTrialing || false,
       };
 
       setAuthState(userData, true);

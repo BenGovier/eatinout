@@ -24,6 +24,7 @@ export interface IUser extends Document {
   zipCode: string;
   deleted: boolean;
   deletedAt?: Date;
+  isTrialing?: boolean;
 }
 
 const UserSchema: Schema = new Schema(
@@ -77,6 +78,8 @@ const UserSchema: Schema = new Schema(
         ref: "Restaurant",
       },
     ],
+
+    isTrialing: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
