@@ -112,10 +112,21 @@ function normalizeSubscription(
   const trialEndUnix: number | null = subscription.trial_end ?? null;
   const currentPeriodEndUnix: number | null =
     subscription.current_period_end ?? null;
+  const endedAtUnix: number | null = subscription.ended_at ?? null;
 
-  // Access ends at trial_end while trialing, otherwise at the end of the period.
+  // Access-end selection:
+  // - canceled: use Stripe's actual end (`ended_at`). This is critical for an
+  //   immediately-cancelled trial, whose `trial_end`/`current_period_end` are
+  //   still in the future but whose access ended NOW. Never use those future
+  //   dates to grant lingering access to a fully-cancelled subscription.
+  // - trialing: access runs to trial_end.
+  // - otherwise: access runs to the end of the current paid period.
   const accessEndUnix =
-    isTrialing && trialEndUnix ? trialEndUnix : currentPeriodEndUnix;
+    stripeStatus === "canceled"
+      ? endedAtUnix ?? subscription.canceled_at ?? currentPeriodEndUnix
+      : isTrialing && trialEndUnix
+        ? trialEndUnix
+        : currentPeriodEndUnix;
   const accessEndDate = toIso(accessEndUnix);
   const accessEndMs = accessEndUnix ? accessEndUnix * 1000 : 0;
 
@@ -286,9 +297,13 @@ export async function POST(req: Request) {
   }
 }
 
-// Cancel subscription — schedules cancellation at period/trial end (idempotent).
-// No immediate Stripe cancellation is performed, so access is retained until the
-// end of the paid period. The DELETE verb is kept for existing consumers.
+// Cancel subscription (idempotent). Two distinct business rules:
+//   - FREE TRIAL (Stripe status "trialing"): cancel IMMEDIATELY. The Stripe
+//     subscription is ended now, access is revoked now, and the customer is
+//     never charged. We do NOT use cancel_at_period_end and do NOT grant any
+//     lingering access until trial_end.
+//   - PAYING MEMBER (active, not trialing): schedule cancellation with
+//     cancel_at_period_end: true, retaining access until current_period_end.
 export async function DELETE(req: Request) {
   try {
     const cookieStore: any = await cookies();
@@ -365,6 +380,49 @@ export async function DELETE(req: Request) {
       });
     }
 
+    // ----------------------------------------------------------------------
+    // FREE TRIAL: cancel immediately, revoke access now, never charge.
+    // ----------------------------------------------------------------------
+    if (subscription.status === "trialing") {
+      // Immediate, end-now cancellation (NOT cancel_at_period_end). This ends
+      // the trial, so no invoice is generated and the customer isn't charged.
+      subscription = await stripe.subscriptions.cancel(user.subscriptionId);
+
+      // Revoke application access using existing fields only: "cancelled" is a
+      // no-access status app-wide, and isTrialing must be false.
+      if (user.subscriptionStatus !== "cancelled" || user.isTrialing !== false) {
+        user.subscriptionStatus = "cancelled";
+        user.isTrialing = false;
+        await user.save();
+      }
+
+      const normalized = normalizeSubscription(
+        subscription,
+        defaultPaymentMethod,
+        customerMetadata
+      );
+
+      // NOTE: no cancellation email is sent on this path yet. The existing
+      // SubscriptionCancellationEmail template only carries paid/scheduled
+      // wording ("access continues until <date>"), which is incorrect for an
+      // immediate trial cancellation. A trial-immediate template mode is
+      // required before emailing here (reported, intentionally not sent).
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Your free trial has been cancelled and your membership access has ended. You have not been charged.",
+        trialCancelledImmediately: true,
+        cancelAtPeriodEnd: false,
+        accessEndDate: normalized.accessEndDate,
+        effectiveStatus: normalized.effectiveStatus,
+        subscription: normalized,
+      });
+    }
+
+    // ----------------------------------------------------------------------
+    // PAYING MEMBER: schedule cancellation at the end of the paid period.
+    // ----------------------------------------------------------------------
     const wasAlreadyScheduled = subscription.cancel_at_period_end === true;
 
     if (!wasAlreadyScheduled) {
@@ -514,22 +572,26 @@ export async function GET(req: Request) {
         }
         user.isTrialing = true;
       } else if (subscription.status === 'canceled') {
-        // For cancelled subscriptions, check trial_end or current_period_end
-        const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
-        const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+        // Access for a cancelled subscription ends when Stripe actually ended it
+        // (`ended_at`). This is essential for an immediately-cancelled trial:
+        // its trial_end/current_period_end may still be in the future, but access
+        // has ended NOW, so we must NOT grant lingering `cancelled_with_access`.
+        const endedAt = subscription.ended_at
+          ? new Date(subscription.ended_at * 1000)
+          : subscription.canceled_at
+            ? new Date(subscription.canceled_at * 1000)
+            : new Date(subscription.current_period_end * 1000);
 
-        // Use trial_end if it exists, otherwise use current_period_end
-        const accessEndDate = trialEnd || currentPeriodEnd;
-
-        if (accessEndDate > now) {
+        if (endedAt > now) {
           hasAccess = true;
-          accessReason = `Subscription cancelled but access valid until ${accessEndDate.toISOString()}`;
+          accessReason = `Subscription cancelled but access valid until ${endedAt.toISOString()}`;
           effectiveStatus = 'cancelled_with_access';
         } else {
           hasAccess = false;
-          accessReason = `Subscription cancelled and access expired on ${accessEndDate.toISOString()}`;
+          accessReason = `Subscription cancelled and access expired on ${endedAt.toISOString()}`;
           effectiveStatus = 'cancelled';
         }
+        user.isTrialing = false;
       } else if (subscription.status === 'past_due') {
         // For past due, check if still within period
         const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
