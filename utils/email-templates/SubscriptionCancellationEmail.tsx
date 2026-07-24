@@ -1,17 +1,76 @@
 import { Section, Text, Button } from "@react-email/components"
 import { EmailLayout } from "./components/layout"
 
+// Explicit, caller-provided mode. The template never infers the mode from
+// dates or optional text — the route decides which cancellation happened.
+export type SubscriptionCancellationMode = "trial_immediate" | "paid_scheduled"
+
 interface SubscriptionCancellationEmailProps {
     firstName: string
-    currentPeriodEnd: string // ISO date string or formatted date
+    mode: SubscriptionCancellationMode
+    // Required for paid_scheduled: the exact paid-through date (already formatted
+    // or an ISO string). Not used for trial_immediate.
+    currentPeriodEnd?: string
 }
 
 export const SubscriptionCancellationEmail = ({
     firstName,
+    mode,
     currentPeriodEnd,
 }: SubscriptionCancellationEmailProps) => {
     const baseUrl = process.env.NEXTAUTH_URL || "https://eatinout.com"
 
+    if (mode === "trial_immediate") {
+        return (
+            <EmailLayout preview="Your free trial has been cancelled">
+                {/* Hero Section */}
+                <Section style={styles.heroSection}>
+                    <Text style={styles.heroTitle}>Your free trial has been cancelled</Text>
+                    <Text style={styles.heroSubtitle}>
+                        Your membership access has now ended.
+                    </Text>
+                </Section>
+
+                {/* Main Content */}
+                <Section style={styles.contentSection}>
+                    <Text style={styles.greeting}>Hi {firstName},</Text>
+
+                    <Text style={styles.message}>
+                        Your EatinOut free trial has been cancelled and ended immediately, so
+                        your membership access has now ended.
+                    </Text>
+
+                    <Text style={styles.message}>
+                        You have not been charged, and no future payment will be taken for that
+                        cancelled trial.
+                    </Text>
+
+                    <Text style={styles.message}>
+                        If you&apos;d like to become a member in the future, you&apos;re welcome to
+                        start a new membership from your account at any time.
+                    </Text>
+                </Section>
+
+                {/* CTA */}
+                <Section style={styles.ctaSection}>
+                    <Button style={styles.ctaButton} href={`${baseUrl}/account/payment`}>
+                        Manage Account
+                    </Button>
+                </Section>
+
+                {/* Help */}
+                <Section style={styles.helpSection}>
+                    <Text style={styles.helpTitle}>Have feedback for us?</Text>
+                    <Text style={styles.helpText}>
+                        We&apos;re always looking to improve. If you have a moment, we&apos;d love to know
+                        what made you cancel. Reply to this email and let us know!
+                    </Text>
+                </Section>
+            </EmailLayout>
+        )
+    }
+
+    // paid_scheduled — preserves the approved existing behaviour and design.
     return (
         <EmailLayout preview="Your membership cancellation is scheduled">
             {/* Hero Section */}

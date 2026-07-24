@@ -389,8 +389,11 @@ export async function DELETE(req: Request) {
       subscription = await stripe.subscriptions.cancel(user.subscriptionId);
 
       // Revoke application access using existing fields only: "cancelled" is a
-      // no-access status app-wide, and isTrialing must be false.
-      if (user.subscriptionStatus !== "cancelled" || user.isTrialing !== false) {
+      // no-access status app-wide, and isTrialing must be false. This also
+      // gates the email so a repeated DELETE (already "cancelled") won't re-send.
+      const isGenuineTrialTransition =
+        user.subscriptionStatus !== "cancelled" || user.isTrialing !== false;
+      if (isGenuineTrialTransition) {
         user.subscriptionStatus = "cancelled";
         user.isTrialing = false;
         await user.save();
@@ -402,11 +405,30 @@ export async function DELETE(req: Request) {
         customerMetadata
       );
 
-      // NOTE: no cancellation email is sent on this path yet. The existing
-      // SubscriptionCancellationEmail template only carries paid/scheduled
-      // wording ("access continues until <date>"), which is incorrect for an
-      // immediate trial cancellation. A trial-immediate template mode is
-      // required before emailing here (reported, intentionally not sent).
+      // Email only on a genuine trialing -> cancelled transition. Failure to
+      // deliver must NOT reverse the cancellation or surface as a cancel error.
+      if (isGenuineTrialTransition) {
+        try {
+          const emailHtml = await render(
+            SubscriptionCancellationEmail({
+              firstName: user.firstName,
+              mode: "trial_immediate",
+            })
+          );
+
+          await sendEmail(
+            user.email,
+            "Your Eatinout free trial has been cancelled",
+            emailHtml
+          );
+        } catch (emailError) {
+          console.error(
+            "[subscriptions] Failed to send trial-immediate cancellation email:",
+            emailError
+          );
+          // Cancellation already succeeded in Stripe; never fail the request.
+        }
+      }
 
       return NextResponse.json({
         success: true,
@@ -467,6 +489,7 @@ export async function DELETE(req: Request) {
         const emailHtml = await render(
           SubscriptionCancellationEmail({
             firstName: user.firstName,
+            mode: "paid_scheduled",
             currentPeriodEnd: formattedDate,
           })
         );
