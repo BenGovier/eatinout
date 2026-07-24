@@ -1,24 +1,89 @@
 import { Section, Text, Button } from "@react-email/components"
 import { EmailLayout } from "./components/layout"
 
-interface SubscriptionCancellationEmailProps {
-    firstName: string
-    currentPeriodEnd: string // ISO date string or formatted date
-}
+// Explicit, caller-provided mode. The template never infers the mode from
+// dates or optional text — the route decides which cancellation happened.
+export type SubscriptionCancellationMode = "trial_immediate" | "paid_scheduled"
 
-export const SubscriptionCancellationEmail = ({
-    firstName,
-    currentPeriodEnd,
-}: SubscriptionCancellationEmailProps) => {
+// Discriminated union on `mode`:
+//   - trial_immediate: no `currentPeriodEnd` (it isn't accepted here).
+//   - paid_scheduled: `currentPeriodEnd` is REQUIRED and cannot compile without it.
+// This removes the need for any non-null assertion in the component body.
+type SubscriptionCancellationEmailProps =
+    | {
+          firstName: string
+          mode: "trial_immediate"
+      }
+    | {
+          firstName: string
+          mode: "paid_scheduled"
+          currentPeriodEnd: string
+      }
+
+export const SubscriptionCancellationEmail = (
+    props: SubscriptionCancellationEmailProps
+) => {
+    const { firstName, mode } = props
     const baseUrl = process.env.NEXTAUTH_URL || "https://eatinout.com"
 
+    if (mode === "trial_immediate") {
+        return (
+            <EmailLayout preview="Your free trial has been cancelled">
+                {/* Hero Section */}
+                <Section style={styles.heroSection}>
+                    <Text style={styles.heroTitle}>Your free trial has been cancelled</Text>
+                    <Text style={styles.heroSubtitle}>
+                        Your membership access has now ended.
+                    </Text>
+                </Section>
+
+                {/* Main Content */}
+                <Section style={styles.contentSection}>
+                    <Text style={styles.greeting}>Hi {firstName},</Text>
+
+                    <Text style={styles.message}>
+                        Your EatinOut free trial has been cancelled and ended immediately, so
+                        your membership access has now ended.
+                    </Text>
+
+                    <Text style={styles.message}>
+                        You have not been charged, and no future payment will be taken for that
+                        cancelled trial.
+                    </Text>
+
+                    <Text style={styles.message}>
+                        If you&apos;d like to become a member in the future, you&apos;re welcome to
+                        start a new membership from your account at any time.
+                    </Text>
+                </Section>
+
+                {/* CTA */}
+                <Section style={styles.ctaSection}>
+                    <Button style={styles.ctaButton} href={`${baseUrl}/account/payment`}>
+                        Manage Account
+                    </Button>
+                </Section>
+
+                {/* Help */}
+                <Section style={styles.helpSection}>
+                    <Text style={styles.helpTitle}>Have feedback for us?</Text>
+                    <Text style={styles.helpText}>
+                        We&apos;re always looking to improve. If you have a moment, we&apos;d love to know
+                        what made you cancel. Reply to this email and let us know!
+                    </Text>
+                </Section>
+            </EmailLayout>
+        )
+    }
+
+    // paid_scheduled — preserves the approved existing behaviour and design.
     return (
-        <EmailLayout preview="Your subscription is cancelled">
+        <EmailLayout preview="Your membership cancellation is scheduled">
             {/* Hero Section */}
             <Section style={styles.heroSection}>
-                <Text style={styles.heroTitle}>Subscription Cancelled</Text>
+                <Text style={styles.heroTitle}>Cancellation Scheduled</Text>
                 <Text style={styles.heroSubtitle}>
-                    We're sorry to see you go!
+                    You still have full access for now.
                 </Text>
             </Section>
 
@@ -27,25 +92,27 @@ export const SubscriptionCancellationEmail = ({
                 <Text style={styles.greeting}>Hi {firstName},</Text>
 
                 <Text style={styles.message}>
-                    Your cancellation request has been processed successfully. Your Eatinout Premium subscription is now set to cancel.
+                    We&apos;ve scheduled your EatinOut membership to end. You keep full access to all
+                    member benefits right up until the date below — nothing changes before then.
                 </Text>
 
                 <div style={styles.subscriptionBox}>
-                    <Text style={styles.subscriptionTitle}>Cancellation Details</Text>
+                    <Text style={styles.subscriptionTitle}>Your access ends on</Text>
 
                     <Text style={styles.message}>
-                        You will continue to have full access to your premium benefits until the end of your current billing period on:
+                        You can keep using EatinOut until:
                         <br />
-                        <strong style={{ display: 'block', marginTop: '10px' }}>{currentPeriodEnd}</strong>
+                        <strong style={{ display: 'block', marginTop: '10px' }}>{props.currentPeriodEnd}</strong>
                     </Text>
                 </div>
 
                 <Text style={styles.message}>
-                    After this date, your subscription will not renew, and you won't be charged again.
+                    You will not be charged again, and no further renewal will occur after this date.
                 </Text>
 
                 <Text style={styles.message}>
-                    If you change your mind, you can easily reactivate your subscription at any time by logging into your account.
+                    Changed your mind? You can reactivate your membership any time before this date
+                    from your account — you won&apos;t lose access or need to start over.
                 </Text>
             </Section>
 
