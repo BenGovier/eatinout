@@ -1,6 +1,5 @@
 import Image from "next/image"
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 /**
  * Emotional "create desire" band. Overlapping lifestyle imagery, minimal copy.
@@ -14,8 +13,8 @@ export function PrestonDesire() {
         <Reveal className="relative">
           <div className="relative aspect-[4/5] w-4/5 overflow-hidden rounded-3xl shadow-xl shadow-black/15">
             <Image
-              src="/images/prestonblog/restaurant-cocktails.png"
-              alt="Cocktails at a stylish Preston bar"
+              src="/images/prestonblog/moment-datenight.png"
+              alt="A couple on a date night at a candlelit Preston restaurant"
               fill
               sizes="(max-width: 1024px) 80vw, 40vw"
               className="object-cover"
@@ -23,8 +22,8 @@ export function PrestonDesire() {
           </div>
           <div className="absolute -bottom-6 right-0 aspect-square w-1/2 overflow-hidden rounded-3xl shadow-2xl shadow-black/25 ring-4 ring-white">
             <Image
-              src="/images/prestonblog/food-brunch.png"
-              alt="Weekend brunch in Preston"
+              src="/images/prestonblog/moment-cocktails.png"
+              alt="Friends toasting cocktails after work in Preston"
               fill
               sizes="(max-width: 1024px) 40vw, 20vw"
               className="object-cover"
@@ -34,7 +33,7 @@ export function PrestonDesire() {
 
         <Reveal delay={0.1}>
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-red)]">Go out more</p>
-          <h2 className={`${displayFont.className} mt-4 text-balance text-4xl font-bold leading-tight text-[var(--eo-ink)] sm:text-5xl`}>
+          <h2 className="mt-4 text-balance text-4xl font-bold leading-tight tracking-tight text-[var(--eo-ink)] sm:text-5xl">
             Say yes to the table you&apos;d normally talk yourself out of
           </h2>
           <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">

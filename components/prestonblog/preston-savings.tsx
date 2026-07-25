@@ -3,7 +3,6 @@
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 const billItems = [
   { item: "Sharing starters", price: "12.00" },
@@ -21,7 +20,7 @@ export function PrestonSavings() {
     <section className="relative overflow-hidden bg-[var(--eo-ink)] py-20 sm:py-28">
       {/* Ambient lifestyle image, low opacity for warmth */}
       <Image
-        src="/images/prestonblog/lifestyle-friends.png"
+        src="/images/prestonblog/moment-pizza.png"
         alt=""
         fill
         aria-hidden="true"
@@ -33,7 +32,7 @@ export function PrestonSavings() {
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-teal)]">The maths is delicious</p>
-          <h2 className={`${displayFont.className} mt-4 text-balance text-4xl font-bold text-white sm:text-5xl`}>
+          <h2 className="mt-4 text-balance text-4xl font-bold tracking-tight text-white sm:text-5xl">
             Same night out. Half the bill.
           </h2>
           <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-white/75">
@@ -54,7 +53,7 @@ export function PrestonSavings() {
             className="mx-auto w-full max-w-sm rounded-2xl bg-[#fdfcf7] p-7 shadow-2xl shadow-black/40"
           >
             <div className="border-b border-dashed border-black/15 pb-4 text-center">
-              <p className={`${displayFont.className} text-xl font-bold text-[var(--eo-ink)]`}>The Winckley Table</p>
+              <p className="text-xl font-bold tracking-tight text-[var(--eo-ink)]">The Winckley Table</p>
               <p className="mt-0.5 text-xs uppercase tracking-widest text-black/40">Preston · Table for two</p>
             </div>
 

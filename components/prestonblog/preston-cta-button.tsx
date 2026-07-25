@@ -34,7 +34,7 @@ export function PrestonCtaButton({
       <Link
         href={href}
         className={cn(
-          "group flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-[var(--eo-red)] px-8 text-base font-semibold text-white shadow-lg shadow-[var(--eo-red)]/25 transition-colors hover:bg-[#c00323] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--eo-red)]/30",
+          "group flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-red-600 px-8 text-base font-semibold text-white shadow-lg shadow-red-600/25 transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-600/30",
           block ? "w-full" : "",
         )}
       >

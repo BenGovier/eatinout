@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     description:
       "Start your FREE 30-day trial and save at local Preston restaurants, cafés and bars. No charge today. Cancel anytime.",
     type: "website",
-    images: [{ url: "/images/prestonblog/hero-immersive.png" }],
+    images: [{ url: "/images/prestonblog/hero-people.png" }],
   },
 }
 

@@ -22,7 +22,7 @@ export interface PrestonOffer {
   dish: string
   /** Headline saving, e.g. "50% off food" */
   saving: string
-  /** Edge-to-edge food photography */
+  /** Edge-to-edge lifestyle photography — real people, real moments */
   image: string
   /** Optional: marks a limited / popular offer for the badge */
   tag?: "Popular" | "New" | "Weekends"
@@ -36,7 +36,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "Winckley Square",
     dish: "28-day aged sirloin, triple-cooked chips, peppercorn sauce",
     saving: "50% off food",
-    image: "/images/prestonblog/restaurant-steak.png",
+    image: "/images/prestonblog/moment-grill.png",
     tag: "Popular",
   },
   {
@@ -46,7 +46,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "Fishergate",
     dish: "Fresh pappardelle, slow-braised ragù, aged parmesan",
     saving: "2 for 1 mains",
-    image: "/images/prestonblog/restaurant-italian.png",
+    image: "/images/prestonblog/moment-pizza.png",
   },
   {
     id: "fishergate-social",
@@ -55,7 +55,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "City Centre",
     dish: "Signature cocktails and sharing boards after work",
     saving: "2 for 1 cocktails",
-    image: "/images/prestonblog/restaurant-cocktails.png",
+    image: "/images/prestonblog/moment-cocktails.png",
     tag: "Weekends",
   },
   {
@@ -65,7 +65,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "Fulwood",
     dish: "Dry-aged smash burger, house fries, craft ale",
     saving: "40% off food",
-    image: "/images/prestonblog/food-burger.png",
+    image: "/images/prestonblog/moment-burger.png",
   },
   {
     id: "guild-house",
@@ -74,7 +74,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "Avenham",
     dish: "Eggs benedict, avocado toast, weekend mimosas",
     saving: "30% off brunch",
-    image: "/images/prestonblog/food-brunch.png",
+    image: "/images/prestonblog/moment-brunch.png",
     tag: "New",
   },
   {
@@ -84,7 +84,7 @@ export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
     area: "Avenham Park",
     dish: "Candlelit three courses with a glass of house fizz",
     saving: "50% off food",
-    image: "/images/prestonblog/hero-dining.png",
+    image: "/images/prestonblog/moment-datenight.png",
     tag: "Popular",
   },
 ]

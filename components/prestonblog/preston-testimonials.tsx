@@ -1,6 +1,5 @@
 import { Star } from "lucide-react"
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 const testimonials = [
   {
@@ -41,7 +40,7 @@ export function PrestonTestimonials() {
     <section className="bg-[var(--eo-bg)] py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <h2 className={`${displayFont.className} text-balance text-4xl font-bold text-[var(--eo-ink)] sm:text-5xl`}>
+          <h2 className="text-balance text-4xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-5xl">
             Preston&apos;s already tucking in
           </h2>
           <p className="mt-4 text-lg text-[var(--eo-muted)]">Real members, real nights out, real savings.</p>

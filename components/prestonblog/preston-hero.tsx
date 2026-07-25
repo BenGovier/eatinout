@@ -4,7 +4,6 @@ import Image from "next/image"
 import { motion, type Variants } from "framer-motion"
 import { Star, ShieldCheck, CalendarCheck, Ban } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 const container: Variants = {
   hidden: {},
@@ -23,12 +22,12 @@ export function PrestonHero() {
   return (
     <section className="relative isolate flex min-h-[92vh] items-center overflow-hidden">
       <Image
-        src="/images/prestonblog/hero-immersive.png"
-        alt="A warm, candlelit Preston restaurant in the evening"
+        src="/images/prestonblog/hero-people.png"
+        alt="Friends laughing and toasting drinks together at a Preston restaurant"
         fill
         priority
         sizes="100vw"
-        className="object-cover"
+        className="object-cover object-center"
       />
       {/* Readability overlays */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/40" />
@@ -50,7 +49,7 @@ export function PrestonHero() {
 
         <motion.h1
           variants={item}
-          className={`${displayFont.className} max-w-3xl text-balance text-5xl font-bold leading-[1.02] text-white drop-shadow-sm sm:text-6xl md:text-7xl`}
+          className="max-w-3xl text-balance text-5xl font-extrabold leading-[1.02] tracking-tight text-white drop-shadow-sm sm:text-6xl md:text-7xl"
         >
           Save up to 50%
           <span className="mt-3 block text-2xl font-medium text-white/85 sm:text-3xl md:text-4xl">

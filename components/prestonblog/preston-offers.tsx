@@ -2,9 +2,8 @@
 
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { MapPin } from "lucide-react"
+import { MapPin, Check } from "lucide-react"
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 import { SAMPLE_PRESTON_OFFERS, type PrestonOffer } from "./offers-data"
 
 /**
@@ -24,7 +23,7 @@ export function PrestonOffers({ offers = SAMPLE_PRESTON_OFFERS }: { offers?: Pre
             </span>
             Live offers in Preston
           </span>
-          <h2 className={`${displayFont.className} mt-5 text-balance text-4xl font-bold text-[var(--eo-ink)] sm:text-5xl`}>
+          <h2 className="mt-5 text-balance text-4xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-5xl">
             Tonight&apos;s table, half the bill
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">
@@ -82,8 +81,12 @@ function OfferCard({ offer }: { offer: PrestonOffer }) {
           <MapPin className="h-3.5 w-3.5 text-[var(--eo-teal)]" />
           {offer.cuisine} · {offer.area}
         </p>
-        <h3 className={`${displayFont.className} mt-1 text-2xl font-bold text-white`}>{offer.name}</h3>
+        <h3 className="mt-1 text-2xl font-bold tracking-tight text-white">{offer.name}</h3>
         <p className="mt-1.5 text-pretty text-sm leading-snug text-white/85">{offer.dish}</p>
+        <p className="mt-3 flex items-center gap-1.5 border-t border-white/15 pt-3 text-xs font-medium text-white/70">
+          <Check className="h-3.5 w-3.5 text-[var(--eo-teal)]" />
+          Available with EatinOut
+        </p>
       </div>
     </motion.article>
   )
