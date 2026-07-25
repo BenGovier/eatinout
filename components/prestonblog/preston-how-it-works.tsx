@@ -1,5 +1,4 @@
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 const steps = [
   {
@@ -28,7 +27,7 @@ export function PrestonHowItWorks() {
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-red)]">Simple as that</p>
-          <h2 className={`${displayFont.className} mt-4 text-balance text-4xl font-bold text-[var(--eo-ink)] sm:text-5xl`}>
+          <h2 className="mt-4 text-balance text-4xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-5xl">
             Eating out for less, in three steps
           </h2>
         </Reveal>
@@ -37,7 +36,7 @@ export function PrestonHowItWorks() {
           {steps.map((step, i) => (
             <Reveal key={step.step} delay={i * 0.12}>
               <div className="relative">
-                <span className={`${displayFont.className} text-6xl font-bold text-[var(--eo-red)]/15`}>
+                <span className="text-6xl font-extrabold tracking-tight text-[var(--eo-red)]/15">
                   {step.step}
                 </span>
                 <div className="mt-3 h-px w-12 bg-[var(--eo-teal)]" />

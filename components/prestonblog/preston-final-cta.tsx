@@ -4,7 +4,6 @@ import Image from "next/image"
 import { Ban, CalendarCheck, Clock } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
 import { Reveal } from "./reveal"
-import { displayFont } from "@/app/prestonblog/fonts"
 
 /**
  * Emotional closing section — full-bleed lifestyle image, the value already
@@ -14,17 +13,17 @@ export function PrestonFinalCta() {
   return (
     <section className="relative isolate overflow-hidden">
       <Image
-        src="/images/prestonblog/lifestyle-friends.png"
-        alt="Friends toasting over dinner at a Preston restaurant"
+        src="/images/prestonblog/moment-family.png"
+        alt="A family enjoying Sunday lunch together at a Preston restaurant"
         fill
         sizes="100vw"
-        className="object-cover"
+        className="object-cover object-center"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/55" />
 
       <div className="relative mx-auto max-w-3xl px-5 py-24 text-center sm:py-32">
         <Reveal>
-          <h2 className={`${displayFont.className} text-balance text-4xl font-bold leading-tight text-white sm:text-5xl md:text-6xl`}>
+          <h2 className="text-balance text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
             Your next meal could cost half as much
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/85">
