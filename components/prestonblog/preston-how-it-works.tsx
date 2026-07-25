@@ -1,52 +1,48 @@
-import { UserPlus, Tag, UtensilsCrossed } from "lucide-react"
 import { Reveal } from "./reveal"
+import { displayFont } from "@/app/prestonblog/fonts"
 
 const steps = [
   {
-    icon: UserPlus,
-    step: "1",
-    title: "Join Free",
-    description: "Start your FREE 30-day trial.",
+    step: "01",
+    title: "Join in under a minute",
+    description: "Pop in your details and start your free month. No charge today.",
   },
   {
-    icon: Tag,
-    step: "2",
-    title: "Choose an Offer",
-    description: "Browse local restaurant discounts.",
+    step: "02",
+    title: "Find your table",
+    description: "Browse live offers at independent Preston restaurants, cafés and bars.",
   },
   {
-    icon: UtensilsCrossed,
-    step: "3",
-    title: "Enjoy Your Meal",
-    description: "Show your membership and save.",
+    step: "03",
+    title: "Show your membership & save",
+    description: "Flash it at the table and the discount comes straight off your bill.",
   },
 ]
 
+/**
+ * Editorial three-step section. Numbers lead; copy is short and human.
+ */
 export function PrestonHowItWorks() {
   return (
-    <section className="bg-[var(--eo-bg)] py-16 lg:py-24">
+    <section className="bg-white py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
-        <Reveal>
-          <h2 className="text-balance text-center text-3xl font-extrabold tracking-tight text-[var(--eo-ink)] sm:text-4xl">
-            How It Works
+        <Reveal className="max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-red)]">Simple as that</p>
+          <h2 className={`${displayFont.className} mt-4 text-balance text-4xl font-bold text-[var(--eo-ink)] sm:text-5xl`}>
+            Eating out for less, in three steps
           </h2>
-          <p className="mx-auto mt-3 max-w-lg text-pretty text-center text-base text-[var(--eo-muted)]">
-            Three simple steps to start saving on the meals you already love.
-          </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
           {steps.map((step, i) => (
             <Reveal key={step.step} delay={i * 0.12}>
-              <div className="group relative h-full rounded-3xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-black/10">
-                <span className="absolute right-6 top-6 text-5xl font-extrabold text-black/5">
+              <div className="relative">
+                <span className={`${displayFont.className} text-6xl font-bold text-[var(--eo-red)]/15`}>
                   {step.step}
                 </span>
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--eo-teal-100)] text-[var(--eo-teal)] transition-transform duration-300 group-hover:scale-110">
-                  <step.icon className="h-7 w-7" />
-                </div>
-                <h3 className="mt-6 text-xl font-bold text-[var(--eo-ink)]">{step.title}</h3>
-                <p className="mt-2 text-base leading-relaxed text-[var(--eo-muted)]">
+                <div className="mt-3 h-px w-12 bg-[var(--eo-teal)]" />
+                <h3 className="mt-5 text-xl font-bold text-[var(--eo-ink)]">{step.title}</h3>
+                <p className="mt-2 text-pretty text-base leading-relaxed text-[var(--eo-muted)]">
                   {step.description}
                 </p>
               </div>

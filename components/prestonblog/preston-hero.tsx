@@ -1,102 +1,98 @@
 "use client"
 
 import Image from "next/image"
-import { motion } from "framer-motion"
-import { Check } from "lucide-react"
+import { motion, type Variants } from "framer-motion"
+import { Star, ShieldCheck, CalendarCheck, Ban } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
+import { displayFont } from "@/app/prestonblog/fonts"
 
-const trustPoints = ["No charge today", "Cancel anytime", "Takes less than 60 seconds"]
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+}
+const item: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
+}
 
+/**
+ * Immersive, full-bleed hero for the /prestonblog landing page.
+ * The restaurant photograph does the emotional work; messaging is overlaid.
+ */
 export function PrestonHero() {
   return (
-    <section className="relative overflow-hidden bg-white">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-10 sm:pt-14 lg:grid-cols-2 lg:gap-12 lg:pb-24 lg:pt-20">
-        {/* Copy */}
-        <div className="flex flex-col items-start">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-5 inline-flex items-center gap-2 rounded-full bg-[var(--eo-teal-100)] px-4 py-1.5 text-sm font-semibold text-[var(--eo-teal)]"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--eo-teal)]" />
-            Exclusive for BlogPreston readers
-          </motion.span>
+    <section className="relative isolate flex min-h-[92vh] items-center overflow-hidden">
+      <Image
+        src="/images/prestonblog/hero-immersive.png"
+        alt="A warm, candlelit Preston restaurant in the evening"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      {/* Readability overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
 
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.05 }}
-            className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-[var(--eo-ink)] sm:text-5xl lg:text-6xl"
-          >
-            Save up to <span className="text-[var(--eo-red)]">50%</span> at Preston restaurants
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.12 }}
-            className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-[var(--eo-muted)]"
-          >
-            Discover exclusive dining offers at local restaurants, cafés and bars. Start your FREE
-            30-day trial today. No charge today. Cancel anytime.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="mt-8 w-full sm:w-auto"
-          >
-            <PrestonCtaButton block className="sm:inline-block sm:w-auto" />
-          </motion.div>
-
-          <motion.ul
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-x-6"
-          >
-            {trustPoints.map((point) => (
-              <li key={point} className="flex items-center gap-2 text-sm font-medium text-[var(--eo-ink)]">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--eo-teal-100)]">
-                  <Check className="h-3 w-3 text-[var(--eo-teal)]" />
-                </span>
-                {point}
-              </li>
-            ))}
-          </motion.ul>
-        </div>
-
-        {/* Image */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-28"
+      >
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="relative"
+          variants={item}
+          className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm"
         >
-          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-2xl shadow-black/10 sm:aspect-[5/4] lg:aspect-[4/5]">
-            <Image
-              src="/images/prestonblog/hero-dining.png"
-              alt="Friends enjoying dinner and wine together at an elegant Preston restaurant"
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
-          </div>
-          {/* Floating savings chip */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="absolute -bottom-4 left-4 rounded-2xl bg-white p-4 shadow-xl shadow-black/10 sm:left-6"
-          >
-            <p className="text-xs font-medium text-[var(--eo-muted)]">Members save on average</p>
-            <p className="text-2xl font-extrabold text-[var(--eo-red)]">£312 / year</p>
-          </motion.div>
+          <span className="inline-block h-2 w-2 rounded-full bg-[var(--eo-teal)]" />
+          Exclusive for BlogPreston readers
         </motion.div>
-      </div>
+
+        <motion.h1
+          variants={item}
+          className={`${displayFont.className} max-w-3xl text-balance text-5xl font-bold leading-[1.02] text-white drop-shadow-sm sm:text-6xl md:text-7xl`}
+        >
+          Save up to 50%
+          <span className="mt-3 block text-2xl font-medium text-white/85 sm:text-3xl md:text-4xl">
+            at Preston&apos;s best restaurants
+          </span>
+        </motion.h1>
+
+        <motion.div variants={item} className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="rounded-lg bg-[var(--eo-red)] px-3 py-1.5 text-lg font-bold text-white shadow-lg">
+            30 days free
+          </span>
+          <span className="flex items-center gap-1.5 text-white/90">
+            <span className="flex" aria-hidden="true">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+              ))}
+            </span>
+            <span className="text-sm font-medium">Loved by local diners</span>
+          </span>
+        </motion.div>
+
+        <motion.p variants={item} className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-white/85">
+          One membership. Real discounts at independent Preston restaurants, cafés and bars. Your first month is on us.
+        </motion.p>
+
+        <motion.div variants={item} className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <PrestonCtaButton label="Start my free month" />
+          <span className="text-sm font-medium text-white/70">No charge today · Cancel anytime</span>
+        </motion.div>
+
+        <motion.ul variants={item} className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/80">
+          <li className="flex items-center gap-2">
+            <Ban className="h-4 w-4 text-[var(--eo-teal)]" /> No charge today
+          </li>
+          <li className="flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-[var(--eo-teal)]" /> Cancel anytime
+          </li>
+          <li className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[var(--eo-teal)]" /> Secure checkout
+          </li>
+        </motion.ul>
+      </motion.div>
     </section>
   )
 }
