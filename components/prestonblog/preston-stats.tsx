@@ -13,9 +13,9 @@ interface Stat {
 }
 
 const stats: Stat[] = [
-  { value: 500, suffix: "+", label: "Restaurant Offers" },
-  { prefix: "Up to ", value: 50, suffix: "%", label: "Savings" },
-  { value: 30, suffix: " Days", label: "FREE Trial" },
+  { value: 100, suffix: "+", label: "Local venues to explore" },
+  { prefix: "Up to ", value: 50, suffix: "%", label: "Off your bill" },
+  { value: 30, suffix: " days", label: "Free, on us" },
 ]
 
 function Counter({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) {
@@ -45,9 +45,9 @@ function Counter({ value, prefix = "", suffix = "" }: { value: number; prefix?: 
 
 export function PrestonStats() {
   return (
-    <section className="bg-[var(--eo-bg)] py-16 lg:py-24">
+    <section className="bg-white pb-4 pt-0">
       <div className="mx-auto max-w-6xl px-5">
-        <div className="grid gap-8 rounded-3xl bg-white p-10 shadow-sm ring-1 ring-black/5 sm:grid-cols-3 sm:p-12">
+        <div className="grid gap-8 border-y border-black/10 py-12 sm:grid-cols-3">
           {stats.map((stat, i) => (
             <motion.div
               key={stat.label}
@@ -60,9 +60,7 @@ export function PrestonStats() {
               <p className="text-4xl font-extrabold tracking-tight text-[var(--eo-red)] sm:text-5xl">
                 <Counter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
               </p>
-              <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-[var(--eo-muted)]">
-                {stat.label}
-              </p>
+              <p className="mt-2 text-sm font-semibold text-[var(--eo-muted)]">{stat.label}</p>
             </motion.div>
           ))}
         </div>
