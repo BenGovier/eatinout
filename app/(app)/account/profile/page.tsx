@@ -61,11 +61,6 @@ export default function Profile() {
         e.preventDefault();
         setShowValidationError(true);
 
-        // Validate mobile number if provided
-        if (formData.mobile && formData.mobile.length < 10) {
-            return;
-        }
-
         try {
             const response = await axios.put('/api/profile', formData);
             setUser(response.data);
@@ -100,7 +95,6 @@ export default function Profile() {
                         { label: 'First Name', value: user.firstName },
                         { label: 'Last Name', value: user.lastName },
                         { label: 'Email', value: user.email },
-                        { label: 'Mobile', value: user.mobile || '-' },
                         { label: 'Zipcode', value: user.zipCode || '-' }, // added
                         { label: 'Role', value: user.role },
                         { label: 'Subscription Status', value: user.subscriptionStatus }
@@ -174,7 +168,7 @@ export default function Profile() {
                             disabled
                         />
                     </div>
-                    <div className="mt-4">
+                    {/* <div className="mt-4">
                         <label className="block font-semibold mb-1">Mobile:</label>
                         <input
                             type="tel"
@@ -196,7 +190,7 @@ export default function Profile() {
                             <span className="text-red-500 text-xs mt-1 block">Mobile number must be at least 10 digits</span>
                         )}
                         <span className="text-xs text-gray-500 ">Preferred contact number for enquiries and bookings</span>
-                    </div>
+                    </div> */}
                     <div className="flex justify-end gap-4 mt-6">
                         <button
                             type="submit"
