@@ -6,24 +6,32 @@ import { ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface PrestonCtaButtonProps {
-  /** Where the trial CTA points. Matches the existing marketing flow. */
+  /** Where the CTA points. Trial CTAs use the existing /sign-up flow. */
   href?: string
   label?: string
   className?: string
   /** Full-width on mobile */
   block?: boolean
+  /** Visual style. primary = brand red, secondary = outline for over-image use */
+  variant?: "primary" | "secondary"
+  /** Show the trailing arrow (primary only by default) */
+  showArrow?: boolean
 }
 
 /**
- * Premium, high-contrast trial CTA used across the /prestonblog page.
- * Links to the existing /sign-up route (no auth/checkout logic changed here).
+ * High-contrast CTA used across the EatinOut landing page.
+ * Primary links to the existing /sign-up route (no auth/checkout changed here).
  */
 export function PrestonCtaButton({
   href = "/sign-up",
-  label = "Start My FREE Trial",
+  label = "Start Your Free Trial",
   className,
   block = false,
+  variant = "primary",
+  showArrow,
 }: PrestonCtaButtonProps) {
+  const withArrow = showArrow ?? variant === "primary"
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -34,12 +42,17 @@ export function PrestonCtaButton({
       <Link
         href={href}
         className={cn(
-          "group flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-red-600 px-8 text-base font-semibold text-white shadow-lg shadow-red-600/25 transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-600/30",
+          "group flex min-h-[54px] items-center justify-center gap-2 rounded-full px-8 text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4",
+          variant === "primary"
+            ? "bg-red-600 text-white shadow-lg shadow-red-600/25 hover:bg-red-700 focus-visible:ring-red-600/30"
+            : "border-2 border-white/70 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 focus-visible:ring-white/40",
           block ? "w-full" : "",
         )}
       >
         {label}
-        <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+        {withArrow ? (
+          <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+        ) : null}
       </Link>
     </motion.div>
   )
