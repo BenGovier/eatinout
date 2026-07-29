@@ -1,90 +1,82 @@
 /**
- * Live-offer data contract for the /prestonblog landing page.
+ * Offer-type data for the EatinOut Lancashire landing page.
  *
- * This shape is intentionally simple so real, live Preston offers can be
- * injected later (from an API, CMS or the EatinOut offers table) WITHOUT
- * redesigning the page. Swap `SAMPLE_PRESTON_OFFERS` for live data that
- * satisfies `PrestonOffer[]` and the grid renders exactly the same.
+ * These are offer CATEGORIES (not specific restaurants) so the page can run
+ * for a Facebook ad campaign without naming venues that aren't approved
+ * partners. Swap in real approved partner offers later by satisfying the
+ * `OfferType[]` shape — the grid renders identically.
  *
- * Nothing here touches production data — it is local, presentational sample
- * content used only by this isolated landing page.
+ * Nothing here touches production data — it is local, presentational content
+ * used only by this isolated landing page.
  */
 
-export interface PrestonOffer {
+export interface OfferType {
   id: string
-  /** Restaurant / venue name */
-  name: string
-  /** Cuisine tag, e.g. "Modern British" */
-  cuisine: string
-  /** Preston area / neighbourhood for local flavour */
-  area: string
-  /** Short, appetising dish line — sets the scene, not a menu */
-  dish: string
-  /** Headline saving, e.g. "50% off food" */
+  /** Dominant saving headline, e.g. "50% off food" */
   saving: string
-  /** Edge-to-edge lifestyle photography — real people, real moments */
+  /** Short human title for the occasion */
+  title: string
+  /** One-line, benefit-led description */
+  blurb: string
+  /** Warm, dining-out (not takeaway) lifestyle photography */
   image: string
-  /** Optional: marks a limited / popular offer for the badge */
-  tag?: "Popular" | "New" | "Weekends"
+  /** Optional small tag */
+  tag?: string
 }
 
-export const SAMPLE_PRESTON_OFFERS: PrestonOffer[] = [
+export const OFFER_TYPES: OfferType[] = [
   {
-    id: "winckley-grill",
-    name: "The Winckley Table",
-    cuisine: "Modern British Grill",
-    area: "Winckley Square",
-    dish: "28-day aged sirloin, triple-cooked chips, peppercorn sauce",
+    id: "half-price-food",
     saving: "50% off food",
+    title: "Dinner for two",
+    blurb: "Half off the food bill at local restaurants across Lancashire.",
     image: "/images/prestonblog/moment-grill.png",
-    tag: "Popular",
+    tag: "Most popular",
   },
   {
-    id: "trattoria-bianca",
-    name: "Trattoria Bianca",
-    cuisine: "Italian",
-    area: "Fishergate",
-    dish: "Fresh pappardelle, slow-braised ragù, aged parmesan",
-    saving: "2 for 1 mains",
+    id: "quarter-off-bill",
+    saving: "25% off your bill",
+    title: "Catch-ups with friends",
+    blurb: "A quarter off the whole bill — food and drinks included.",
     image: "/images/prestonblog/moment-pizza.png",
   },
   {
-    id: "fishergate-social",
-    name: "Fishergate Social",
-    cuisine: "Cocktails & Small Plates",
-    area: "City Centre",
-    dish: "Signature cocktails and sharing boards after work",
-    saving: "2 for 1 cocktails",
-    image: "/images/prestonblog/moment-cocktails.png",
-    tag: "Weekends",
-  },
-  {
-    id: "plough-harrow",
-    name: "The Plough & Harrow",
-    cuisine: "Gastropub",
-    area: "Fulwood",
-    dish: "Dry-aged smash burger, house fries, craft ale",
-    saving: "40% off food",
+    id: "two-for-one-mains",
+    saving: "2-for-1 mains",
+    title: "Midweek treat",
+    blurb: "Buy one main, get one free at participating venues.",
     image: "/images/prestonblog/moment-burger.png",
   },
   {
-    id: "guild-house",
-    name: "Guild Coffee House",
-    cuisine: "Brunch & Coffee",
-    area: "Avenham",
-    dish: "Eggs benedict, avocado toast, weekend mimosas",
-    saving: "30% off brunch",
+    id: "lunch-offers",
+    saving: "Lunch offers",
+    title: "Lunch out for less",
+    blurb: "Discounted set lunches and daytime deals near work.",
     image: "/images/prestonblog/moment-brunch.png",
-    tag: "New",
   },
   {
-    id: "avenham-kitchen",
-    name: "The Avenham Kitchen",
-    cuisine: "Date Night",
-    area: "Avenham Park",
-    dish: "Candlelit three courses with a glass of house fizz",
-    saving: "50% off food",
+    id: "date-night",
+    saving: "Date night deals",
+    title: "Date night",
+    blurb: "Three courses and a drink for two, without the full price.",
     image: "/images/prestonblog/moment-datenight.png",
-    tag: "Popular",
+    tag: "Loved by couples",
   },
+  {
+    id: "family-meals",
+    saving: "Family offers",
+    title: "Family meals out",
+    blurb: "Bring everyone along and still spend less than staying in.",
+    image: "/images/prestonblog/moment-family.png",
+  },
+]
+
+/** Lancashire towns for local proof — friendly, real places. */
+export const LANCASHIRE_TOWNS = [
+  "Preston",
+  "Blackpool",
+  "Blackburn",
+  "Burnley",
+  "Lytham",
+  "Lancaster",
 ]

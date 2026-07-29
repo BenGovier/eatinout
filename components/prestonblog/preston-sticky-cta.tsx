@@ -26,9 +26,12 @@ export function PrestonStickyCta() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed inset-x-0 bottom-0 z-50 border-t border-black/5 bg-white/90 p-3 backdrop-blur-md sm:hidden"
+          className="fixed inset-x-0 bottom-0 z-50 border-t border-black/5 bg-white/95 px-3 pb-3 pt-2 backdrop-blur-md sm:hidden"
         >
-          <PrestonCtaButton block />
+          <p className="mb-1.5 text-center text-xs font-medium text-[var(--eo-muted)]">
+            30 days free, then £4.99/month · Cancel anytime
+          </p>
+          <PrestonCtaButton block label="Start Your Free Trial" />
         </motion.div>
       )}
     </AnimatePresence>

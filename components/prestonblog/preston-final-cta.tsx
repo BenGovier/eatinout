@@ -24,15 +24,15 @@ export function PrestonFinalCta() {
       <div className="relative mx-auto max-w-3xl px-5 py-24 text-center sm:py-32">
         <Reveal>
           <h2 className="text-balance text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
-            Your next meal could cost half as much
+            Start saving at local restaurants today
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/85">
-            Join today and enjoy your first 30 days completely free. Start saving at restaurants right across Preston.
+            Try EatinOut free for 30 days. Then only £4.99/month. Cancel anytime.
           </p>
 
           <div className="mt-9 flex justify-center">
             <PrestonCtaButton
-              label="Start my free month"
+              label="Start Your Free Trial"
               className="[&_a]:bg-white [&_a]:px-10 [&_a]:text-[var(--eo-red)] [&_a]:shadow-black/20 [&_a:hover]:bg-white/90"
             />
           </div>
@@ -49,7 +49,7 @@ export function PrestonFinalCta() {
             </li>
           </ul>
 
-          <p className="mt-6 text-sm text-white/65">Then just £4.99 a month. Works the moment you join.</p>
+          <p className="mt-6 text-sm text-white/65">450+ Lancashire offers. Use it as often as you like.</p>
         </Reveal>
       </div>
     </section>

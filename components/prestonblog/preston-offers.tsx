@@ -2,36 +2,43 @@
 
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { MapPin, Check } from "lucide-react"
 import { Reveal } from "./reveal"
-import { SAMPLE_PRESTON_OFFERS, type PrestonOffer } from "./offers-data"
+import { OFFER_TYPES, LANCASHIRE_TOWNS, type OfferType } from "./offers-data"
 
 /**
- * Live-offers showcase. Food photography dominates; the saving dominates.
- * Pass `offers` to inject real live Preston offers later — the layout is
- * unchanged. Defaults to local sample content.
+ * Local proof section. Shows the KINDS of offers available (not invented
+ * restaurant names) plus the Lancashire towns covered, so ad traffic sees
+ * this is genuinely local and varied.
  */
-export function PrestonOffers({ offers = SAMPLE_PRESTON_OFFERS }: { offers?: PrestonOffer[] }) {
+export function PrestonOffers({ offers = OFFER_TYPES }: { offers?: OfferType[] }) {
   return (
-    <section className="relative bg-[var(--eo-bg)] py-20 sm:py-28">
+    <section className="bg-white py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-[var(--eo-red)] shadow-sm ring-1 ring-black/5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--eo-red)] opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--eo-red)]" />
-            </span>
-            Live offers in Preston
-          </span>
-          <h2 className="mt-5 text-balance text-4xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-5xl">
-            Tonight&apos;s table, half the bill
+          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-red)]">Local to you</p>
+          <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-4xl md:text-5xl">
+            Deals at restaurants across Lancashire
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">
-            From candlelit date nights to lazy weekend brunches — here&apos;s a taste of what members are enjoying
-            across Preston right now.
+            Find offers across Preston, Blackpool, Blackburn, Burnley, Lytham, Lancaster and more.
           </p>
         </Reveal>
 
+        {/* Towns */}
+        <Reveal delay={0.05}>
+          <ul className="mt-7 flex flex-wrap justify-center gap-2.5">
+            {LANCASHIRE_TOWNS.map((town) => (
+              <li
+                key={town}
+                className="rounded-full bg-[var(--eo-bg)] px-4 py-1.5 text-sm font-semibold text-[var(--eo-ink)] ring-1 ring-black/5"
+              >
+                {town}
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        {/* Offer-type cards */}
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {offers.map((offer, i) => (
             <Reveal key={offer.id} delay={(i % 3) * 0.08}>
@@ -41,14 +48,14 @@ export function PrestonOffers({ offers = SAMPLE_PRESTON_OFFERS }: { offers?: Pre
         </div>
 
         <p className="mt-10 text-center text-sm font-medium text-[var(--eo-muted)]">
-          New independent venues added across Preston every week.
+          New local venues and offers added every week.
         </p>
       </div>
     </section>
   )
 }
 
-function OfferCard({ offer }: { offer: PrestonOffer }) {
+function OfferCard({ offer }: { offer: OfferType }) {
   return (
     <motion.article
       whileHover={{ y: -6 }}
@@ -57,12 +64,11 @@ function OfferCard({ offer }: { offer: PrestonOffer }) {
     >
       <Image
         src={offer.image || "/placeholder.svg"}
-        alt={`${offer.dish} at ${offer.name}, ${offer.area}, Preston`}
+        alt={`${offer.title} — ${offer.saving} with EatinOut`}
         fill
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
       />
-      {/* Bottom gradient for legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
       {/* Saving badge — dominant */}
@@ -75,18 +81,9 @@ function OfferCard({ offer }: { offer: PrestonOffer }) {
         </div>
       ) : null}
 
-      {/* Content */}
       <div className="absolute inset-x-0 bottom-0 p-5">
-        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-white/70">
-          <MapPin className="h-3.5 w-3.5 text-[var(--eo-teal)]" />
-          {offer.cuisine} · {offer.area}
-        </p>
-        <h3 className="mt-1 text-2xl font-bold tracking-tight text-white">{offer.name}</h3>
-        <p className="mt-1.5 text-pretty text-sm leading-snug text-white/85">{offer.dish}</p>
-        <p className="mt-3 flex items-center gap-1.5 border-t border-white/15 pt-3 text-xs font-medium text-white/70">
-          <Check className="h-3.5 w-3.5 text-[var(--eo-teal)]" />
-          Available with EatinOut
-        </p>
+        <h3 className="text-2xl font-bold tracking-tight text-white">{offer.title}</h3>
+        <p className="mt-1.5 text-pretty text-sm leading-snug text-white/85">{offer.blurb}</p>
       </div>
     </motion.article>
   )
