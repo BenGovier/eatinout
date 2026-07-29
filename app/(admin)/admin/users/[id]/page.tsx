@@ -41,6 +41,7 @@ interface User {
   email: string
   role: string
   subscriptionStatus: string
+  isTrialing?: boolean
   subscriptionId: string
   createdAt: string
   updatedAt: string
@@ -298,6 +299,7 @@ export default function UserDetailPage() {
                             }
                           >
                             {user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)}
+                            {user.subscriptionStatus === "inactive" && user.isTrialing && " (On Trial)"}
                           </Badge>
                         </p>
                         {user.subscriptionId && (
@@ -439,14 +441,14 @@ export default function UserDetailPage() {
                   {user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)}
                 </span>
               </div>
-          <Button
-            className="w-full mt-6"
-            variant=""
-            size="icon"
-            onClick={() => setDeleteUserId(user._id)}
-          >
-            <Trash2 className="h-4 w-4" /> Delete User Account
-          </Button>
+              <Button
+                className="w-full mt-6"
+                variant=""
+                size="icon"
+                onClick={() => setDeleteUserId(user._id)}
+              >
+                <Trash2 className="h-4 w-4" /> Delete User Account
+              </Button>
             </CardContent>
           </Card>
         </div>

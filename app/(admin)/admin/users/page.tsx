@@ -23,6 +23,7 @@ interface User {
   email: string
   role: string
   subscriptionStatus: string
+  isTrialing?: boolean
   createdAt: string
   restaurantName?: string
   zipCode?: string
@@ -482,6 +483,7 @@ export default function AdminUsersPage() {
                             }
                           >
                             {user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)}
+                            {user.subscriptionStatus === "inactive" && user.isTrialing && " (On Trial)"}
                           </Badge>
                         ) : (
                           <span className="text-gray-500 text-center pl-2">N/A</span>

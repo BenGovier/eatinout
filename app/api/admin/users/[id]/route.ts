@@ -65,6 +65,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       email: user.email,
       role: user.role,
       subscriptionStatus: user.subscriptionStatus || "inactive",
+      isTrialing: user.isTrialing,
       subscriptionId: user.subscriptionId,
       stripeCustomerId: user.stripeCustomerId,
       createdAt: user.createdAt,
