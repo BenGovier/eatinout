@@ -1,12 +1,9 @@
 import type { Metadata } from "next"
 import { PrestonHeader } from "@/components/prestonblog/preston-header"
 import { PrestonHero } from "@/components/prestonblog/preston-hero"
-import { PrestonValueStrip } from "@/components/prestonblog/preston-value-strip"
-import { PrestonWhyJoin } from "@/components/prestonblog/preston-why-join"
+import { PrestonSavings } from "@/components/prestonblog/preston-savings"
 import { PrestonOffers } from "@/components/prestonblog/preston-offers"
 import { PrestonHowItWorks } from "@/components/prestonblog/preston-how-it-works"
-import { PrestonSavings } from "@/components/prestonblog/preston-savings"
-import { PrestonCoverage } from "@/components/prestonblog/preston-coverage"
 import { PrestonTestimonials } from "@/components/prestonblog/preston-testimonials"
 import { PrestonMsBonus } from "@/components/prestonblog/preston-ms-bonus"
 import { PrestonFaq } from "@/components/prestonblog/preston-faq"
@@ -33,12 +30,9 @@ export default function EatinOutLandingPage() {
     <main className="min-h-screen bg-white">
       <PrestonHeader />
       <PrestonHero />
-      <PrestonValueStrip />
-      <PrestonWhyJoin />
+      <PrestonSavings />
       <PrestonOffers />
       <PrestonHowItWorks />
-      <PrestonSavings />
-      <PrestonCoverage />
       <PrestonTestimonials />
       <PrestonMsBonus />
       <PrestonFaq />
