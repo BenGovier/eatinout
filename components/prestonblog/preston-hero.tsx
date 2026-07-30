@@ -21,7 +21,7 @@ const item: Variants = {
  */
 export function PrestonHero() {
   return (
-    <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden">
+    <section className="relative isolate flex min-h-[78svh] items-end overflow-hidden sm:items-center">
       <Image
         src="/images/prestonblog/hero-people.png"
         alt="Friends enjoying a meal out together at a local Lancashire restaurant"
@@ -38,7 +38,7 @@ export function PrestonHero() {
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-14 pt-28 sm:pt-32"
+        className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-12 pt-24 sm:pb-16 sm:pt-28"
       >
         <motion.div
           variants={item}

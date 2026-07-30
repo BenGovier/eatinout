@@ -85,17 +85,3 @@ export const EXPERIENCES: Experience[] = [
     image: "/images/prestonblog/moment-curry.png",
   },
 ]
-
-/** Lancashire towns for the coverage section — real, reassuring places. */
-export const LANCASHIRE_TOWNS = [
-  "Preston",
-  "Blackburn",
-  "Burnley",
-  "Blackpool",
-  "Lancaster",
-  "Chorley",
-  "Bolton",
-  "Southport",
-  "Lytham",
-  "Fleetwood",
-]

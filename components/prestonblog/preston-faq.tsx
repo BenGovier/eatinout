@@ -8,31 +8,23 @@ import { Reveal } from "./reveal"
 const faqs = [
   {
     q: "Is it really free for 30 days?",
-    a: "Yes. Your first 30 days are completely free and there's no charge today. You only pay if you choose to continue after the trial.",
+    a: "Yes. Your first 30 days are completely free and there's no charge today. You only pay if you choose to continue.",
   },
   {
     q: "How much is it after the trial?",
-    a: "Just £4.99 a month after your free 30 days. Most members save that back with a single meal out.",
+    a: "Just £4.99 a month. Most members save that back with a single meal out.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Absolutely. There's no lock-in — cancel in a couple of taps whenever you like, including during your free trial.",
+    a: "Absolutely. No lock-in — cancel in a couple of taps whenever you like, including during your free trial.",
   },
   {
-    q: "How often can I use the offers?",
-    a: "As often as you like. EatinOut is a membership, not a one-off voucher — use your offers again and again across Lancashire.",
-  },
-  {
-    q: "Do I need to book through EatinOut?",
-    a: "No. Book directly with the restaurant as normal, then show your EatinOut offer at the table to get your discount.",
-  },
-  {
-    q: "How do I redeem an offer?",
-    a: "Open the app, pick your offer and show it to your server before you pay. The discount comes straight off your bill.",
+    q: "How do I use my offers?",
+    a: "Book directly with the restaurant as normal, then show your offer in the app at the table. The discount comes straight off your bill — use it as often as you like.",
   },
   {
     q: "Are there restaurants near me?",
-    a: "With 450+ offers across Preston, Blackpool, Blackburn, Burnley, Lytham, Lancaster and beyond, there's plenty to choose from close to home.",
+    a: "With 450+ offers across Preston, Blackpool, Blackburn, Burnley, Lytham, Lancaster and beyond, there's plenty close to home.",
   },
 ]
 

@@ -3,29 +3,14 @@ import { Reveal } from "./reveal"
 
 const reviews = [
   {
-    quote: "We've already used it three weekends in a row. One meal basically paid for months of membership.",
+    quote: "We've used it three weekends in a row. One meal basically paid for months of membership.",
     name: "Hannah M.",
     place: "Preston",
   },
   {
-    quote: "We've found loads of places we'd never have tried otherwise. Proper little gems on our doorstep.",
+    quote: "Found loads of places we'd never have tried otherwise. Proper little gems on our doorstep.",
     name: "Dave & Kel",
     place: "Blackburn",
-  },
-  {
-    quote: "Saved enough on our first meal to cover the membership several times over. Bit of a no-brainer really.",
-    name: "Priya S.",
-    place: "Burnley",
-  },
-  {
-    quote: "Cancelling was easy to find, so I felt fine trying it. Ended up keeping it — we eat out way more now.",
-    name: "Tom R.",
-    place: "Lancaster",
-  },
-  {
-    quote: "Used it for date night and a family lunch in the same week. Both times the discount just came off the bill.",
-    name: "Sophie H.",
-    place: "Lytham",
   },
   {
     quote: "Honestly thought there'd be a catch. There wasn't. Show the offer, money off, done.",
@@ -41,7 +26,7 @@ const reviews = [
  */
 export function PrestonTestimonials() {
   return (
-    <section className="bg-white py-20 sm:py-28">
+    <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal className="mx-auto max-w-2xl text-center">
           <div className="flex items-center justify-center gap-1" aria-hidden="true">
@@ -54,7 +39,7 @@ export function PrestonTestimonials() {
           </h2>
         </Reveal>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 sm:grid-cols-3">
           {reviews.map((review, i) => (
             <Reveal key={review.name} delay={(i % 3) * 0.08}>
               <figure className="flex h-full flex-col rounded-3xl bg-[var(--eo-bg)] p-6 ring-1 ring-black/5 sm:p-7">
