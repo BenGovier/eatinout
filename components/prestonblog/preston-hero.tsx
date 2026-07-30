@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { motion, type Variants } from "framer-motion"
-import { MapPin, Gift, Ban, CalendarCheck } from "lucide-react"
+import { MapPin, Ban, CalendarCheck } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
 
 const container: Variants = {
@@ -52,37 +52,27 @@ export function PrestonHero() {
           variants={item}
           className="max-w-3xl text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-sm sm:text-6xl md:text-7xl"
         >
-          Save up to 50% at restaurants near you
+          Eat out more often.
+          <span className="block text-[var(--eo-teal)]">Spend less every time.</span>
         </motion.h1>
 
         <motion.p
           variants={item}
           className="mt-5 max-w-xl text-pretty text-lg font-medium leading-relaxed text-white/90 sm:text-xl"
         >
-          450+ offers across Lancashire. Use EatinOut as often as you like.
+          Save up to 50% at hundreds of restaurants across Lancashire.
         </motion.p>
 
         <motion.p variants={item} className="mt-3 max-w-xl text-pretty text-base text-white/75">
-          Try EatinOut free for 30 days — then only £4.99/month. Cancel anytime.
+          30 days free. Cancel anytime. No charge today.
         </motion.p>
 
-        {/* Bonus incentive — clearly secondary to the core offer */}
-        <motion.div
-          variants={item}
-          className="mt-6 inline-flex items-center gap-2.5 rounded-xl border border-[var(--eo-teal)]/40 bg-[var(--eo-teal)]/15 px-4 py-2.5 backdrop-blur-sm"
-        >
-          <Gift className="h-5 w-5 shrink-0 text-[var(--eo-teal)]" />
-          <span className="text-sm font-semibold text-white sm:text-base">
-            Sign up today and also get a £50 M&amp;S gift card
-          </span>
-        </motion.div>
-
         <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <PrestonCtaButton label="Start Your Free Trial" block className="sm:w-auto" />
+          <PrestonCtaButton block className="sm:w-auto" />
           <PrestonCtaButton
             variant="secondary"
             href="#how-it-works"
-            label="See How It Works"
+            label="See how it works"
             block
             className="sm:w-auto"
           />

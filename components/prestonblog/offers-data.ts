@@ -1,82 +1,101 @@
 /**
- * Offer-type data for the EatinOut Lancashire landing page.
+ * Experience data for the EatinOut Lancashire landing page.
  *
- * These are offer CATEGORIES (not specific restaurants) so the page can run
- * for a Facebook ad campaign without naming venues that aren't approved
- * partners. Swap in real approved partner offers later by satisfying the
- * `OfferType[]` shape — the grid renders identically.
+ * These are EXPERIENCES (occasions), not specific restaurants or towns, so the
+ * page stays relevant to everyone across Lancashire — a visitor from Blackburn
+ * or Burnley sees a night out they recognise, never an unknown venue name.
  *
  * Nothing here touches production data — it is local, presentational content
  * used only by this isolated landing page.
  */
 
-export interface OfferType {
+export interface Experience {
   id: string
-  /** Dominant saving headline, e.g. "50% off food" */
-  saving: string
-  /** Short human title for the occasion */
+  /** Emotional occasion title, e.g. "Friday Pizza Night" */
   title: string
-  /** One-line, benefit-led description */
+  /** One-line, feeling-led description */
   blurb: string
-  /** Warm, dining-out (not takeaway) lifestyle photography */
+  /** Warm, authentic dining-out lifestyle photography (people-first) */
   image: string
   /** Optional small tag */
   tag?: string
 }
 
-export const OFFER_TYPES: OfferType[] = [
+/** Every experience carries the same headline saving. */
+export const EXPERIENCE_SAVING = "Up to 50% OFF"
+
+/** Shown once under the grid — keeps individual cards clean. */
+export const EXPERIENCE_FOOTNOTE = "Available at participating restaurants across Lancashire."
+
+export const EXPERIENCES: Experience[] = [
   {
-    id: "half-price-food",
-    saving: "50% off food",
-    title: "Dinner for two",
-    blurb: "Half off the food bill at local restaurants across Lancashire.",
-    image: "/images/prestonblog/moment-grill.png",
-    tag: "Most popular",
-  },
-  {
-    id: "quarter-off-bill",
-    saving: "25% off your bill",
-    title: "Catch-ups with friends",
-    blurb: "A quarter off the whole bill — food and drinks included.",
+    id: "pizza-night",
+    title: "Friday Pizza Night",
+    blurb: "Round off the week with a proper pizza — for a fraction of the price.",
     image: "/images/prestonblog/moment-pizza.png",
-  },
-  {
-    id: "two-for-one-mains",
-    saving: "2-for-1 mains",
-    title: "Midweek treat",
-    blurb: "Buy one main, get one free at participating venues.",
-    image: "/images/prestonblog/moment-burger.png",
-  },
-  {
-    id: "lunch-offers",
-    saving: "Lunch offers",
-    title: "Lunch out for less",
-    blurb: "Discounted set lunches and daytime deals near work.",
-    image: "/images/prestonblog/moment-brunch.png",
+    tag: "Most loved",
   },
   {
     id: "date-night",
-    saving: "Date night deals",
-    title: "Date night",
-    blurb: "Three courses and a drink for two, without the full price.",
+    title: "Date Night",
+    blurb: "Reconnect over a lovely dinner without watching the bill.",
     image: "/images/prestonblog/moment-datenight.png",
-    tag: "Loved by couples",
   },
   {
-    id: "family-meals",
-    saving: "Family offers",
-    title: "Family meals out",
-    blurb: "Bring everyone along and still spend less than staying in.",
+    id: "burger-night",
+    title: "Burger Night",
+    blurb: "Big burgers, crispy fries and a cold one — sorted for less.",
+    image: "/images/prestonblog/moment-burger.png",
+  },
+  {
+    id: "cocktails",
+    title: "Cocktails with Friends",
+    blurb: "Kick the weekend off with a round that doesn't hurt.",
+    image: "/images/prestonblog/moment-cocktails.png",
+  },
+  {
+    id: "weekend-brunch",
+    title: "Weekend Brunch",
+    blurb: "Lazy mornings, good coffee and brunch that costs less.",
+    image: "/images/prestonblog/moment-brunch.png",
+  },
+  {
+    id: "family-meal",
+    title: "Family Meal",
+    blurb: "Get everyone round the table and still spend less than staying in.",
     image: "/images/prestonblog/moment-family.png",
+    tag: "Great for families",
+  },
+  {
+    id: "steak-night",
+    title: "Steak Night",
+    blurb: "Treat yourselves to the good stuff and save on the bill.",
+    image: "/images/prestonblog/moment-grill.png",
+  },
+  {
+    id: "italian-night",
+    title: "Italian Night",
+    blurb: "Fresh pasta and a bottle of red — la dolce vita, for less.",
+    image: "/images/prestonblog/moment-italian.png",
+  },
+  {
+    id: "curry-night",
+    title: "Curry Night",
+    blurb: "Share a proper feast with the people you love — and pay less.",
+    image: "/images/prestonblog/moment-curry.png",
   },
 ]
 
-/** Lancashire towns for local proof — friendly, real places. */
+/** Lancashire towns for the coverage section — real, reassuring places. */
 export const LANCASHIRE_TOWNS = [
   "Preston",
-  "Blackpool",
   "Blackburn",
   "Burnley",
-  "Lytham",
+  "Blackpool",
   "Lancaster",
+  "Chorley",
+  "Bolton",
+  "Southport",
+  "Lytham",
+  "Fleetwood",
 ]
