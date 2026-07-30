@@ -24,7 +24,7 @@ interface PrestonCtaButtonProps {
  */
 export function PrestonCtaButton({
   href = "/sign-up",
-  label = "Start Your Free Trial",
+  label = "Start my 30-day free trial",
   className,
   block = false,
   variant = "primary",
@@ -42,9 +42,9 @@ export function PrestonCtaButton({
       <Link
         href={href}
         className={cn(
-          "group flex min-h-[54px] items-center justify-center gap-2 rounded-full px-8 text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4",
+          "group flex min-h-[56px] items-center justify-center gap-2 rounded-full px-8 text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4",
           variant === "primary"
-            ? "bg-red-600 text-white shadow-lg shadow-red-600/25 hover:bg-red-700 focus-visible:ring-red-600/30"
+            ? "bg-[var(--eo-red)] text-white shadow-lg shadow-[var(--eo-red)]/25 hover:bg-[#b8031f] focus-visible:ring-[var(--eo-red)]/30"
             : "border-2 border-white/70 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 focus-visible:ring-white/40",
           block ? "w-full" : "",
         )}

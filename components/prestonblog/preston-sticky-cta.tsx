@@ -31,7 +31,7 @@ export function PrestonStickyCta() {
           <p className="mb-1.5 text-center text-xs font-medium text-[var(--eo-muted)]">
             30 days free, then £4.99/month · Cancel anytime
           </p>
-          <PrestonCtaButton block label="Start Your Free Trial" />
+          <PrestonCtaButton block label="Start my free trial" />
         </motion.div>
       )}
     </AnimatePresence>

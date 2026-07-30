@@ -24,7 +24,7 @@ export function PrestonFinalCta() {
       <div className="relative mx-auto max-w-3xl px-5 py-24 text-center sm:py-32">
         <Reveal>
           <h2 className="text-balance text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
-            Start saving at local restaurants today
+            Your table&apos;s waiting this weekend
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/85">
             Try EatinOut free for 30 days. Then only £4.99/month. Cancel anytime.
@@ -32,7 +32,7 @@ export function PrestonFinalCta() {
 
           <div className="mt-9 flex justify-center">
             <PrestonCtaButton
-              label="Start Your Free Trial"
+              label="Start my 30-day free trial"
               className="[&_a]:bg-white [&_a]:px-10 [&_a]:text-[var(--eo-red)] [&_a]:shadow-black/20 [&_a:hover]:bg-white/90"
             />
           </div>
