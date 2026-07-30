@@ -5,7 +5,6 @@ import { PrestonSavings } from "@/components/prestonblog/preston-savings"
 import { PrestonOffers } from "@/components/prestonblog/preston-offers"
 import { PrestonHowItWorks } from "@/components/prestonblog/preston-how-it-works"
 import { PrestonTestimonials } from "@/components/prestonblog/preston-testimonials"
-import { PrestonMsBonus } from "@/components/prestonblog/preston-ms-bonus"
 import { PrestonFaq } from "@/components/prestonblog/preston-faq"
 import { PrestonFinalCta } from "@/components/prestonblog/preston-final-cta"
 import { PrestonFooter } from "@/components/prestonblog/preston-footer"
@@ -34,7 +33,6 @@ export default function EatinOutLandingPage() {
       <PrestonOffers />
       <PrestonHowItWorks />
       <PrestonTestimonials />
-      <PrestonMsBonus />
       <PrestonFaq />
       <PrestonFinalCta />
       <PrestonFooter />

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { motion, type Variants } from "framer-motion"
-import { MapPin, Ban, CalendarCheck } from "lucide-react"
+import { MapPin, Ban, CalendarCheck, Gift } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
 
 const container: Variants = {
@@ -86,6 +86,37 @@ export function PrestonHero() {
             <CalendarCheck className="h-4 w-4 text-[var(--eo-teal)]" /> Cancel anytime
           </li>
         </motion.ul>
+
+        {/* Bonus incentive — surfaced early to reinforce the decision before scrolling.
+            Framed as an extra reward, deliberately lighter than the "Save up to 50%" message. */}
+        <motion.div variants={item} className="relative mt-8 max-w-md">
+          <div className="absolute -top-3 left-5 z-10 inline-flex items-center gap-1.5 rounded-full bg-[var(--eo-red)] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg shadow-black/30">
+            <Gift className="h-3.5 w-3.5" />
+            Limited-time bonus
+          </div>
+          <div className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/95 p-4 pt-5 shadow-2xl shadow-black/40 backdrop-blur-sm sm:gap-5 sm:p-5 sm:pt-6">
+            {/* Mini M&S gift-card visual */}
+            <div
+              className="flex h-[76px] w-24 shrink-0 flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-[var(--eo-ink)] to-[#1f2937] p-2.5 text-white shadow-lg sm:h-[84px] sm:w-28"
+              aria-hidden="true"
+            >
+              <span className="text-[8px] font-semibold uppercase tracking-widest text-white/60">Gift Card</span>
+              <div>
+                <p className="text-xl font-extrabold leading-none sm:text-2xl">£50</p>
+                <p className="mt-0.5 text-[9px] font-medium text-white/60">Marks &amp; Spencer</p>
+              </div>
+            </div>
+            {/* Concise messaging */}
+            <div className="min-w-0">
+              <p className="text-pretty text-sm font-bold leading-snug text-[var(--eo-ink)] sm:text-base">
+                Start your FREE trial today and receive a £50 M&amp;S Gift Card
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--eo-muted)]">
+                Available for a limited time with new memberships.
+              </p>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
     </section>
   )
