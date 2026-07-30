@@ -98,3 +98,79 @@ export function subscriptionSegment(sub: NormalizedSubscription | null): string 
   if (sub.billingInterval === "year") return "annual";
   return "paid";
 }
+
+// ---------------------------------------------------------------------------
+// Authoritative membership resolver (single source of truth for access)
+// ---------------------------------------------------------------------------
+
+/**
+ * The ONLY statuses that grant access to member offers. This is the effective
+ * rule required across the whole app: access is granted when — and only when —
+ * the latest Stripe subscription status is `active` or `trialing`. Every other
+ * status (`past_due`, `unpaid`, `canceled`, `incomplete`, `incomplete_expired`,
+ * `paused`, …) removes access.
+ */
+export function isAccessGrantingStripeStatus(stripeStatus: string | null | undefined): boolean {
+  return stripeStatus === "active" || stripeStatus === "trialing";
+}
+
+/** Fields we persist on the existing User document (no schema change). */
+export interface ResolvedMembership {
+  /** True only when the Stripe status is `active` or `trialing`. */
+  hasAccess: boolean;
+  /** Mirrors Stripe `trialing`; drives the existing trial-access gate. */
+  isTrialing: boolean;
+  /**
+   * Enum-safe value for the existing `User.subscriptionStatus` field, whose
+   * schema only permits: "active" | "inactive" | "cancelled" |
+   * "cancelled_with_access". We never introduce new enum values.
+   */
+  subscriptionStatus: "active" | "inactive" | "cancelled" | "cancelled_with_access";
+}
+
+/**
+ * Map a live Stripe subscription onto the existing User fields. Used by the
+ * Stripe webhook (real-time) so a failed recurring payment immediately removes
+ * access, and available to any other server path that must stay consistent.
+ *
+ * Mapping (uses only the existing enum values):
+ *  - active  + cancel_at_period_end  -> "cancelled_with_access" (still has access)
+ *  - active                          -> "active"                (has access)
+ *  - trialing                        -> "inactive" + isTrialing (has access via trial gate)
+ *  - trialing + cancel_at_period_end -> "cancelled_with_access" + isTrialing (has access)
+ *  - canceled                        -> "cancelled"             (no access)
+ *  - past_due/unpaid/incomplete/
+ *    incomplete_expired/paused/other -> "inactive"              (no access, recoverable)
+ */
+export function resolveMembershipFromStripe(subscription: {
+  status?: string | null;
+  cancel_at_period_end?: boolean | null;
+}): ResolvedMembership {
+  const status = subscription?.status ?? "";
+  const cancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
+
+  if (status === "active") {
+    return {
+      hasAccess: true,
+      isTrialing: false,
+      subscriptionStatus: cancelAtPeriodEnd ? "cancelled_with_access" : "active",
+    };
+  }
+
+  if (status === "trialing") {
+    return {
+      hasAccess: true,
+      isTrialing: true,
+      subscriptionStatus: cancelAtPeriodEnd ? "cancelled_with_access" : "inactive",
+    };
+  }
+
+  if (status === "canceled") {
+    return { hasAccess: false, isTrialing: false, subscriptionStatus: "cancelled" };
+  }
+
+  // past_due, unpaid, incomplete, incomplete_expired, paused, and anything else.
+  // "inactive" (with isTrialing=false) is the existing no-access state and lets
+  // the subscription recover to "active" later (e.g. dunning succeeds, resume).
+  return { hasAccess: false, isTrialing: false, subscriptionStatus: "inactive" };
+}

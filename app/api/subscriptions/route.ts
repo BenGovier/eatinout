@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import Stripe from "stripe";
 import User from "@/models/User";
 import type { NormalizedSubscription } from "@/lib/subscription";
+import { resolveMembershipFromStripe } from "@/lib/subscription";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // The installed stripe@18.5.0 types only permit the latest API version literal
@@ -629,10 +630,28 @@ export async function GET(req: Request) {
         user.isTrialing = false;
       }
 
-      // Update user status if needed
-      if (effectiveStatus !== user.subscriptionStatus || user.isModified('isTrialing')) {
+      // Authoritative access rule (single source of truth): access is granted
+      // ONLY when the live Stripe status is `active` or `trialing`. This replaces
+      // the previous permissive checks (e.g. "past_due but current_period_end in
+      // the future") so past_due / unpaid / canceled / incomplete /
+      // incomplete_expired / paused can never retain access. The legitimate
+      // "cancelled but keep access until period end" flow is unaffected because
+      // that subscription is still `active` (cancel_at_period_end = true) in Stripe.
+      const resolvedMembership = resolveMembershipFromStripe(subscription);
+      hasAccess = resolvedMembership.hasAccess;
+
+      // Persist enum-safe fields only. `effectiveStatus` is retained for the
+      // response/messaging below, but the User schema only permits
+      // active|inactive|cancelled|cancelled_with_access, so we store the mapped
+      // value (this also fixes the prior bug where writing "past_due" failed
+      // schema validation and silently left a stale "active" status).
+      if (
+        user.subscriptionStatus !== resolvedMembership.subscriptionStatus ||
+        user.isTrialing !== resolvedMembership.isTrialing
+      ) {
         try {
-          user.subscriptionStatus = effectiveStatus;
+          user.subscriptionStatus = resolvedMembership.subscriptionStatus;
+          user.isTrialing = resolvedMembership.isTrialing;
           await user.save();
         } catch (updateError) {
           console.error("Error updating user status:", updateError);
