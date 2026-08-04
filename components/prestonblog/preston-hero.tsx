@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { motion, type Variants } from "framer-motion"
-import { MapPin, Ban, CalendarCheck } from "lucide-react"
+import { Ban, CalendarCheck, Gift } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
 
 const container: Variants = {
@@ -40,19 +40,11 @@ export function PrestonHero() {
         animate="show"
         className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-12 pt-24 sm:pb-16 sm:pt-28"
       >
-        <motion.div
-          variants={item}
-          className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm"
-        >
-          <MapPin className="h-4 w-4 text-[var(--eo-teal)]" />
-          450+ offers across Lancashire
-        </motion.div>
-
         <motion.h1
           variants={item}
           className="max-w-3xl text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-sm sm:text-6xl md:text-7xl"
         >
-          Eat out more often.
+          Eat out more.
           <span className="block text-[var(--eo-teal)]">Spend less every time.</span>
         </motion.h1>
 
@@ -60,11 +52,15 @@ export function PrestonHero() {
           variants={item}
           className="mt-5 max-w-xl text-pretty text-lg font-medium leading-relaxed text-white/90 sm:text-xl"
         >
-          Save up to 50% at hundreds of restaurants across Lancashire.
+          Save up to 50% at 450+ restaurants across Lancashire with a free 30-day trial.
         </motion.p>
 
-        <motion.p variants={item} className="mt-3 max-w-xl text-pretty text-base text-white/75">
-          30 days free. Cancel anytime. No charge today.
+        <motion.p
+          variants={item}
+          className="mt-4 inline-flex max-w-xl items-center gap-2 text-pretty text-sm leading-relaxed text-white/70"
+        >
+          <Gift className="h-4 w-4 shrink-0 text-[var(--eo-teal)]" />
+          Join today and earn a FREE £25 M&amp;S Gift Card after maintaining your membership for 6 months.
         </motion.p>
 
         <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

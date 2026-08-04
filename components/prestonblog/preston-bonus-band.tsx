@@ -21,7 +21,7 @@ function GiftCardFace({ reflection = false }: { reflection?: boolean }) {
     >
       {/* Top row: denomination */}
       <div className="flex justify-end">
-        <span className="font-bold leading-none text-black [font-size:13cqw]">£50</span>
+        <span className="font-bold leading-none text-black [font-size:13cqw]">£25</span>
       </div>
 
       {/* Hero wordmark */}
@@ -43,20 +43,21 @@ export function PrestonBonusBand() {
   return (
     <Link
       href="/sign-up"
-      aria-label="Start your free trial and get a free £50 M&S gift card"
-      className="group relative flex min-h-[280px] w-full items-center overflow-hidden bg-[var(--eo-red)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/50"
+      aria-label="Join today and earn a free £25 M&S gift card after six months of membership"
+      className="group relative flex min-h-[320px] w-full items-center overflow-hidden bg-[var(--eo-red)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/50"
     >
-      {/* Reward typography — reads FREE → £50 → M&S GIFT CARD → supporting line */}
-      <div className="relative z-10 max-w-[58%] px-6 py-8 sm:mx-auto sm:w-full sm:max-w-6xl sm:px-10">
+      {/* Reward typography — reads FREE → £25 → M&S GIFT CARD → body copy */}
+      <div className="relative z-10 max-w-[58%] px-6 py-10 sm:mx-auto sm:w-full sm:max-w-6xl sm:px-10">
         <p className="text-[32px] font-bold leading-none text-white">FREE</p>
         <p className="mt-1 text-[88px] font-extrabold leading-[0.82] tracking-tight text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.25)]">
-          £50
+          £25
         </p>
         <p className="mt-2 whitespace-nowrap text-[26px] font-bold uppercase leading-none tracking-tight text-white sm:text-[34px]">
           M&amp;S Gift Card
         </p>
-        <p className="mt-3 text-[15px] font-medium leading-snug text-white/80 sm:text-[18px]">
-          When you start your free trial
+        <p className="mt-4 max-w-[15rem] text-pretty text-[15px] font-medium leading-relaxed text-white/85 sm:max-w-md sm:text-[17px]">
+          Your loyalty deserves rewarding. Stay with EatinOut for six months and you&apos;ll qualify for a FREE £25 M&amp;S
+          Gift Card — just contact us and we&apos;ll send it to you.
         </p>
       </div>
 

@@ -17,7 +17,7 @@ export function PrestonOffers({ experiences = EXPERIENCES }: { experiences?: Exp
         <Reveal className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-red)]">Your next night out</p>
           <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-4xl md:text-5xl">
-            Picture where you&apos;ll eat this week
+            Where&apos;s your first saving going to be?
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">
             Whatever you fancy, there&apos;s an offer for it — and you&apos;ll pay a lot less than full price.
