@@ -9,7 +9,7 @@ const steps = [
   },
   {
     step: "02",
-    title: "Browse local restaurant offers",
+    title: "Choose local restaurant offers",
     description: "See live discounts at restaurants, cafés and bars right across Lancashire.",
   },
   {

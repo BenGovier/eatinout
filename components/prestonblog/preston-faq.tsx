@@ -26,6 +26,18 @@ const faqs = [
     q: "Are there restaurants near me?",
     a: "With 450+ offers across Preston, Blackpool, Blackburn, Burnley, Lytham, Lancaster and beyond, there's plenty close to home.",
   },
+  {
+    q: "When do I receive my £25 M&S Gift Card?",
+    a: "Once you've been a member for six continuous months, you'll qualify for your FREE £25 M&S Gift Card.",
+  },
+  {
+    q: "How do I claim it?",
+    a: "It's simple — once you reach six months of membership, just contact us and we'll arrange for your £25 M&S Gift Card to be sent to you.",
+  },
+  {
+    q: "If I cancel before six months do I still receive it?",
+    a: "The gift card is a reward for staying with us for six months, so you'll need to maintain an active membership for the full six months to qualify.",
+  },
 ]
 
 /**

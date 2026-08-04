@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { PrestonHeader } from "@/components/prestonblog/preston-header"
 import { PrestonHero } from "@/components/prestonblog/preston-hero"
+import { PrestonTrustBar } from "@/components/prestonblog/preston-trust-bar"
 import { PrestonBonusBand } from "@/components/prestonblog/preston-bonus-band"
 import { PrestonSavings } from "@/components/prestonblog/preston-savings"
 import { PrestonOffers } from "@/components/prestonblog/preston-offers"
@@ -30,6 +31,7 @@ export default function EatinOutLandingPage() {
     <main className="min-h-screen bg-white">
       <PrestonHeader />
       <PrestonHero />
+      <PrestonTrustBar />
       <PrestonBonusBand />
       <PrestonSavings />
       <PrestonOffers />

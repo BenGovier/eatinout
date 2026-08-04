@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { Check } from "lucide-react"
 import { Reveal } from "./reveal"
 
 const billItems = [
@@ -11,11 +12,7 @@ const billItems = [
   { item: "Two desserts", price: "12.00" },
 ]
 
-const examples = [
-  { save: "£10+", label: "saved on one meal for two" },
-  { save: "£20+", label: "saved on a family meal out" },
-  { save: "£4.99", label: "your whole monthly membership" },
-]
+const benefits = ["Save up to 50%", "Hundreds of restaurants", "Use whenever you like"]
 
 /**
  * "Do the maths" value comparison. Anchors the £4.99/month price against the
@@ -38,23 +35,22 @@ export function PrestonSavings() {
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-teal)]">Do the maths</p>
           <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
-            One meal out could save more than a whole month&apos;s membership
+            One meal could pay for months of membership.
           </h2>
           <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-white/75">
-            EatinOut is just £4.99/month after your free trial. Save that back — and more — the very first time you eat
-            out.
+            Here&apos;s what a typical dinner for two could look like.
           </p>
 
           <ul className="mt-8 space-y-3">
-            {examples.map((ex) => (
+            {benefits.map((benefit) => (
               <li
-                key={ex.label}
+                key={benefit}
                 className="flex items-center gap-4 rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10"
               >
-                <span className="w-16 shrink-0 text-2xl font-extrabold tabular-nums text-[var(--eo-teal)]">
-                  {ex.save}
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--eo-teal)]/15 text-[var(--eo-teal)]">
+                  <Check className="h-4 w-4" />
                 </span>
-                <span className="text-pretty text-sm font-medium text-white/85">{ex.label}</span>
+                <span className="text-pretty text-base font-medium text-white/85">{benefit}</span>
               </li>
             ))}
           </ul>
@@ -82,19 +78,26 @@ export function PrestonSavings() {
               ))}
             </ul>
 
-            <div className="space-y-2 border-t border-black/10 pt-4">
-              <div className="flex items-center justify-between text-black/50">
-                <span className="text-sm">Bill total</span>
-                <span className="text-lg font-semibold line-through tabular-nums">£86.00</span>
+            <div className="space-y-2.5 border-t border-black/10 pt-4 text-sm">
+              <div className="flex items-center justify-between text-black/55">
+                <span>Original bill</span>
+                <span className="font-semibold line-through tabular-nums">£86.00</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--eo-ink)]">You pay with EatinOut</span>
-                <span className="text-3xl font-extrabold tabular-nums text-[var(--eo-red)]">£55</span>
+              <div className="flex items-center justify-between font-semibold text-[var(--eo-red)]">
+                <span>Saving</span>
+                <span className="tabular-nums">&minus;£31.00</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-black/10 pt-2.5 font-bold text-[var(--eo-ink)]">
+                <span>New total</span>
+                <span className="text-2xl font-extrabold tabular-nums">£55.00</span>
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl bg-[var(--eo-teal-100)] px-4 py-3 text-center">
-              <p className="text-sm font-bold text-[var(--eo-teal)]">You keep £31 — that&apos;s 6 months of membership</p>
+            <div className="mt-5 rounded-xl bg-[var(--eo-teal)] px-4 py-4 text-center">
+              <p className="text-2xl font-extrabold uppercase tracking-tight text-white">You saved £31</p>
+              <p className="mt-1 text-xs font-medium text-white/90">
+                That&apos;s over 6 months of membership from one meal.
+              </p>
             </div>
           </motion.div>
         </Reveal>
