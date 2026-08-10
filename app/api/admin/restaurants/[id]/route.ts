@@ -196,6 +196,41 @@ export async function PUT(
     // Always update the updatedAt timestamp
     updateData.updatedAt = new Date()
 
+    // Geocoding logic: if address-related fields are updated, geocode them
+    const addressChanged = data.address !== undefined && data.address !== existingRestaurant.address;
+    const cityChanged = data.city !== undefined && data.city !== existingRestaurant.city;
+    const zipCodeChanged = data.zipCode !== undefined && data.zipCode !== existingRestaurant.zipCode;
+    const missingCoords = !existingRestaurant.lat || !existingRestaurant.lng;
+
+    if (addressChanged || cityChanged || zipCodeChanged || missingCoords) {
+      try {
+        const { getCoordinatesFromAddress } = await import("@/utils/geocoding");
+        const targetAddress = typeof data.address === "string" ? data.address : existingRestaurant.address || "";
+        const targetCity = typeof data.city === "string" ? data.city : existingRestaurant.city || "";
+        const targetZipCode = typeof data.zipCode === "string" ? data.zipCode : existingRestaurant.zipCode || "";
+        
+        const coords = await getCoordinatesFromAddress(targetAddress, targetCity, targetZipCode);
+        if (coords) {
+          updateData.lat = coords.lat;
+          updateData.lng = coords.lng;
+          updateData.location = {
+            type: "Point" as const,
+            coordinates: [coords.lng, coords.lat],
+          };
+        }
+      } catch (geocodeError) {
+        console.error("Geocoding failed during admin update:", geocodeError);
+      }
+    } else if (data.lat !== undefined && data.lng !== undefined) {
+      // If admin explicitly provided lat/lng
+      updateData.lat = data.lat;
+      updateData.lng = data.lng;
+      updateData.location = {
+        type: "Point" as const,
+        coordinates: [data.lng, data.lat],
+      };
+    }
+
     // Update restaurant in database with only the fields that were provided
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
       id,

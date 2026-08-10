@@ -9,10 +9,11 @@ import { useAuth } from "@/context/auth-context";
 
 const navItems = [
   { href: "/restaurants", label: "Restaurants" },
+  { href: "/map", label: "Map" },
   { href: "/categories", label: "Categories" },
   { href: "/wallet", label: "Wallet" },
-  { href : "account/contact", label: "Contact" },
-  {href : "/favorites", label: "Favourites"}
+  { href: "/account/contact", label: "Contact" },
+  { href: "/favorites", label: "Favourites" }
 ];
 
 export function MainNav({ isAuthenticated }: { isAuthenticated: boolean }) {

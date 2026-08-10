@@ -12,7 +12,7 @@ export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: bo
     return (
         <>
             {canViewFullNav ? (
-                <div className="flex items-center gap-4">
+                <div className="hidden md:flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/account">My Account</Link>
                     </Button>
@@ -21,7 +21,7 @@ export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: bo
                     </Button>
                 </div>
             ) : (
-                <div className="flex items-center gap-4">
+                <div className="hidden md:flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/sign-in">Sign In</Link>
                     </Button>
@@ -30,7 +30,6 @@ export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: bo
                     </Button>
                 </div>
             )}
-            {canViewFullNav && <MobileNav />}
         </>
     );
 }

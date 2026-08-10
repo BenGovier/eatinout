@@ -8,6 +8,7 @@ import { MainNav } from "@/components/main-nav";
 import { Logo } from "@/components/logo";
 import { WalletProvider } from "@/context/wallet-context";
 import ClientWrapper from "@/components/client-wrapper";
+import { MobileNav } from "@/components/mobile-nav";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
@@ -130,14 +131,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <MainNav isAuthenticated={!!user} />
                 </div>
               </div>
-              <div className="hidden md:block">
+              <div>
                 <ClientWrapper isAuthenticated={!!user} />
               </div>
             </div>
           </header>
           <main className="flex-1 pb-16">{children}</main>
-          <div className="md:hidden">
-          </div>
+          {!!user && user.role === "user" && <MobileNav />}
         </div>
       </WalletProvider>
     );
@@ -172,14 +172,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <MainNav isAuthenticated={true} />
               </div>
             </div>
-            <div className="hidden md:block">
+            <div>
               <ClientWrapper isAuthenticated={true} />
             </div>
           </div>
         </header>
         <main className="flex-1 pb-16">{children}</main>
-        <div className="md:hidden">
-        </div>
+        {user?.role === "user" && <MobileNav />}
       </div>
     </WalletProvider>
   );
