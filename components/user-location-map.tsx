@@ -1083,7 +1083,7 @@ export default function UserLocationMap({
 
   const mobileDrawer = isMobile && mapPopoverList.length > 0 ? (
     <Drawer open={mapPopoverList.length > 0} onOpenChange={(open) => { if (!open) setMapPopoverList([]); }}>
-      <DrawerContent className="px-0 pb-8 pt-4 z-[9999]">
+      <DrawerContent className="px-0 pb-24 pt-4 z-[9999]">
         <Carousel className="w-full" opts={{ loop: false, align: "start" }}>
           <CarouselContent className="ml-0">
             {mapPopoverList.map((mapPopover) => (
