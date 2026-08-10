@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "react-toastify"
 import { signOut } from "next-auth/react"
 import {
@@ -51,18 +51,15 @@ interface UIState {
 export type RestaurantPageClientProps = {
   routeParam: string
   initialRestaurant: PublicRestaurantDetail
-  offerIdFromUrl: string | null
-  offerSlugFromUrl: string | null
 }
 
 export function RestaurantPageClient({
   routeParam,
   initialRestaurant,
-  offerIdFromUrl,
-  offerSlugFromUrl,
 }: RestaurantPageClientProps) {
-  const offerId = offerIdFromUrl
-  const offerSlug = offerSlugFromUrl
+  const searchParams = useSearchParams()
+  const offerId = searchParams?.get("offerId") ?? null
+  const offerSlug = searchParams?.get("offer") ?? null
   const router = useRouter()
   const { isAuthenticated, user } = useAuth()
 

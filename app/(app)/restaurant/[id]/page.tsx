@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import {
   getPublicRestaurantBuildTimePathParams,
   getPublicRestaurantDetailByRouteParam,
@@ -19,9 +20,7 @@ export const dynamicParams = true;
 // }
 
 export async function generateStaticParams() {
-  // Returning an empty array prevents excessive DB queries during build
-  // which causes the Vercel build to hang. Pages will be generated on-demand (ISR).
-  return [];
+  return getPublicRestaurantBuildTimePathParams();
 }
 
 export async function generateMetadata({
@@ -43,23 +42,20 @@ export async function generateMetadata({
 
 export default async function RestaurantPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ offerId?: string; offer?: string }>;
 }) {
   const { id } = await params;
-  const sp = await searchParams;
   const result = await getPublicRestaurantDetailByRouteParam(id);
   if (!result.success) {
     notFound();
   }
   return (
-    <RestaurantPageClient
-      routeParam={id}
-      initialRestaurant={result.restaurant}
-      offerIdFromUrl={sp.offerId ?? null}
-      offerSlugFromUrl={sp.offer ?? null}
-    />
+    <Suspense>
+      <RestaurantPageClient
+        routeParam={id}
+        initialRestaurant={result.restaurant}
+      />
+    </Suspense>
   );
 }
