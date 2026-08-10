@@ -17,10 +17,9 @@ export const dynamicParams = true;
 //   // which causes the Vercel build to hang. Pages will be generated on-demand (ISR).
 //   return [];
 // }
+
 export async function generateStaticParams() {
-  // Returning an empty array prevents excessive DB queries during build
-  // which causes the Vercel build to hang. Pages will be generated on-demand (ISR).
-  return [];
+  return getPublicRestaurantBuildTimePathParams();
 }
 
 export async function generateMetadata({
