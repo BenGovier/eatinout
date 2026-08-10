@@ -263,8 +263,7 @@ export async function getPublicRestaurantDetailByRouteParam(
         restaurantName: restaurant.name,
         offerTitle: offer.title,
         validDays: offer.validDays
-          ? offer.validDays
-            .split(",")
+          ? (Array.isArray(offer.validDays) ? offer.validDays : offer.validDays.split(","))
             .map((day: string) => day.trim())
             .sort(
               (a: string, b: string) =>
