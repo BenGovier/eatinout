@@ -12,8 +12,15 @@ export const revalidate = 3600;
 /** Allow URLs not returned from `generateStaticParams` (e.g. new venues, unlisted paths). */
 export const dynamicParams = true;
 
+// export async function generateStaticParams() {
+//   // Returning an empty array prevents excessive DB queries during build
+//   // which causes the Vercel build to hang. Pages will be generated on-demand (ISR).
+//   return [];
+// }
 export async function generateStaticParams() {
-  return getPublicRestaurantBuildTimePathParams();
+  // Returning an empty array prevents excessive DB queries during build
+  // which causes the Vercel build to hang. Pages will be generated on-demand (ISR).
+  return [];
 }
 
 export async function generateMetadata({
