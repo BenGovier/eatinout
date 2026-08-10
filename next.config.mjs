@@ -59,7 +59,7 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',   // ✅ ADD THIS LINE
+  // output: 'standalone',  // ❌ REMOVED - Vercel handles this automatically
 
   eslint: {
     ignoreDuringBuilds: true,
@@ -71,7 +71,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    webpackBuildWorker: true,
+    webpackBuildWorker: false, // ❌ CHANGED to false
   },
 }
 
