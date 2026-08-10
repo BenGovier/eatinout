@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Utensils, List, Wallet, User, LogOut } from "lucide-react";
+import { Utensils, List, Wallet, User, LogOut, Map, Phone } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/context/auth-context";
 
 const navItems = [
   { href: "/restaurants", label: "Restaurants" },
+  { href: "/map", label: "Map" },
   { href: "/categories", label: "Categories" },
   { href: "/wallet", label: "Wallet" },
+  { href: "/account/contact", label: "Contact" },
 ];
 
 export function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -113,18 +115,28 @@ export function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
       {/* Sticky Footer Navigation */}
       <footer className="fixed bottom-0 w-screen bg-red-600 text-white py-4 z-50">
         <nav className="flex justify-around items-center">
-          {canViewFullNav && navItems.map((item, index) => {
-            const icons = [<Utensils key="utensils" />, <List key="list" />, <Wallet key="wallet" />];
+          {canViewFullNav && navItems.map((item) => {
+            let IconComponent;
+            switch(item.href) {
+              case '/restaurants': IconComponent = <Utensils />; break;
+              case '/map': IconComponent = <Map />; break;
+              case '/categories': IconComponent = <List />; break;
+              case '/wallet': IconComponent = <Wallet />; break;
+              case '/account/contact': IconComponent = <Phone />; break;
+              default: IconComponent = <span>{item.label}</span>;
+            }
+            
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "text-sm font-medium transition-colors hover:text-gray-200",
+                  "flex flex-col items-center justify-center text-sm font-medium transition-colors hover:text-gray-200",
                   pathname === item.href ? "text-white" : "text-gray-300"
                 )}
               >
-                {icons[index]}
+                {IconComponent}
+                <span className="text-[10px] mt-1">{item.label}</span>
               </Link>
             );
           })}

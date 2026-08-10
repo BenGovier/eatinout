@@ -48,9 +48,9 @@ function haversineDistanceMiles(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return EARTH_RADIUS_MILES * c;
 }
@@ -366,18 +366,18 @@ export async function GET(request: Request) {
         const formattedAreaPins =
           Array.isArray(restaurant.areaPins) && restaurant.areaPins.length > 0
             ? restaurant.areaPins
-                .map((pin: any) => {
-                  const area = areaMap.get(pin.areaId?.toString());
-                  if (!area || !pin.isPinned) return null;
+              .map((pin: any) => {
+                const area = areaMap.get(pin.areaId?.toString());
+                if (!area || !pin.isPinned) return null;
 
-                  return {
-                    areaId: area._id.toString(),
-                    areaName: area.name,
-                    priority: pin.priority,
-                    pinnedAt: pin.areaPinnedAt,
-                  };
-                })
-                .filter(Boolean)
+                return {
+                  areaId: area._id.toString(),
+                  areaName: area.name,
+                  priority: pin.priority,
+                  pinnedAt: pin.areaPinnedAt,
+                };
+              })
+              .filter(Boolean)
             : [];
 
         return {
@@ -403,7 +403,7 @@ export async function GET(request: Request) {
               tags: Array.isArray(offer.validDays)
                 ? offer.validDays
                 : offer.validDays?.split(",").map((d: string) => d.trim()) ||
-                  [],
+                [],
               startDate: offer.startDate,
               expiryDate: offer.expiryDate,
               status: offer.status,
@@ -507,20 +507,20 @@ export async function GET(request: Request) {
 
     finalFormattedRestaurants = attachDistanceFromOrigin
       ? finalFormattedRestaurants.map((restaurant: any) => {
-          const lat = restaurant.lat;
-          const lng = restaurant.lng;
-          if (
-            typeof lat !== "number" ||
-            typeof lng !== "number" ||
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lng)
-          ) {
-            return restaurant;
-          }
-          const miles = haversineDistanceMiles(originLat, originLng, lat, lng);
-          const distanceMiles = Math.round(miles * 10) / 10;
-          return { ...restaurant, distanceMiles };
-        })
+        const lat = restaurant.lat;
+        const lng = restaurant.lng;
+        if (
+          typeof lat !== "number" ||
+          typeof lng !== "number" ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng)
+        ) {
+          return restaurant;
+        }
+        const miles = haversineDistanceMiles(originLat, originLng, lat, lng);
+        const distanceMiles = Math.round(miles * 10) / 10;
+        return { ...restaurant, distanceMiles };
+      })
       : finalFormattedRestaurants;
 
     // Remove validDays from all restaurants
@@ -706,11 +706,11 @@ function sortRestaurantsByPinning(
     if (areaFilter) {
       const areaPin = Array.isArray(restaurant.areaPins)
         ? restaurant.areaPins.find(
-            (p: any) =>
-              p.areaId === areaFilter &&
-              p.priority !== null &&
-              p.priority !== undefined,
-          )
+          (p: any) =>
+            p.areaId === areaFilter &&
+            p.priority !== null &&
+            p.priority !== undefined,
+        )
         : null;
 
       if (areaPin) {

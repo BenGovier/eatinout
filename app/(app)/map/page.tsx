@@ -6,6 +6,7 @@ import {
   Tag,
   Heart,
   ArrowDownWideNarrow,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,12 @@ const UserLocationMap = dynamic(
   () => import("@/components/user-location-map"),
   {
     ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full flex-col items-center justify-center bg-[#E5E3DF]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-[#eb221c]" />
+        <p className="mt-4 text-sm font-medium text-gray-500">Loading map...</p>
+      </div>
+    ),
   },
 );
 
@@ -316,6 +323,8 @@ export default function MapPage() {
   const [mobileDrawerSnap, setMobileDrawerSnap] = useState<
     number | string | null
   >(MOBILE_RESTAURANTS_DRAWER_PEEK);
+  
+  const [mapFilteredRestaurantIds, setMapFilteredRestaurantIds] = useState<string[] | null>(null);
 
   const isMobileDrawerExpandedForInnerScroll = useMemo(() => {
     if (typeof mobileDrawerSnap !== "number") return false;
@@ -922,15 +931,23 @@ export default function MapPage() {
     ],
   );
 
-  const visibleRestaurants = useMemo(() => {
+  const baseVisibleRestaurants = useMemo(() => {
     return restaurants.filter(
       (restaurant) => (restaurant.offers?.length ?? 0) > 0,
     );
   }, [restaurants]);
 
+  const visibleRestaurants = useMemo(() => {
+    if (mapFilteredRestaurantIds !== null) {
+      const idSet = new Set(mapFilteredRestaurantIds);
+      return baseVisibleRestaurants.filter(r => idSet.has(r.id));
+    }
+    return baseVisibleRestaurants;
+  }, [baseVisibleRestaurants, mapFilteredRestaurantIds]);
+
   const mapRestaurantMarkers = useMemo(
     () =>
-      visibleRestaurants
+      baseVisibleRestaurants
         .filter(
           (restaurant) =>
             typeof restaurant.lat === "number" &&
@@ -953,7 +970,7 @@ export default function MapPage() {
               : "Special offers"),
           firstOfferId: restaurant.offers?.[0]?.id,
         })),
-    [visibleRestaurants],
+    [baseVisibleRestaurants],
   );
 
   const hasFilters = useMemo(() => {
@@ -1394,7 +1411,7 @@ export default function MapPage() {
         </div>
       )}
 
-      <section className="px-4 py-8">
+      <section id="restaurant-list-section" className="px-4 py-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
           {sectionTitle}
         </h2>
@@ -1414,7 +1431,7 @@ export default function MapPage() {
               </div>
             )}
           {!listLoadingInitial && visibleRestaurants.length > 0 && (
-            visibleRestaurants.length >= MAP_LIST_VIRTUAL_THRESHOLD ? (
+            !isMobile && visibleRestaurants.length >= MAP_LIST_VIRTUAL_THRESHOLD ? (
               <MapRestaurantsVirtualList
                 restaurants={visibleRestaurants}
                 favorites={favorites}
@@ -1661,6 +1678,24 @@ export default function MapPage() {
                 </div>
               </div>
             )}
+          {!listLoadingInitial &&
+            !listErrorMessage &&
+            !hasFilters &&
+            visibleRestaurants.length === 0 && (
+              <div className="w-full">
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                    <MapPin className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    No restaurants in this area
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Try zooming out or panning the map to a different location.
+                  </p>
+                </div>
+              </div>
+            )}
         </div>
       </section>
     </>
@@ -1827,6 +1862,12 @@ export default function MapPage() {
                 isInteractionLocked={filtersHydrated && isRestaurantsFetching}
                 onViewDeal={handleRestaurantNavigate}
                 restaurants={mapRestaurantMarkers}
+                onVisibleRestaurantsChange={(ids) => setMapFilteredRestaurantIds(ids)}
+                onClusterClick={() => {
+                  if (isMobile) {
+                    setMobileDrawerSnap(MOBILE_RESTAURANTS_DRAWER_EXPANDED);
+                  }
+                }}
               />
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs max-md:hidden">
@@ -1854,7 +1895,7 @@ export default function MapPage() {
             activeSnapPoint={mobileDrawerSnap}
             setActiveSnapPoint={setMobileDrawerSnap}
           >
-            <DrawerContent className="border-[#FFFBF7] bg-[#FFFBF7] p-0 [&>div:first-child]:bg-gray-400/80">
+            <DrawerContent className="border-[#FFFBF7] bg-[#FFFBF7] p-0 pb-16 [&>div:first-child]:bg-gray-400/80 z-[9999]">
               <div className="flex max-h-[calc(90dvh-1.5rem)] flex-col overflow-hidden">
                 <p className="sr-only">
                   Restaurant list, cuisines and carousels. Drag the handle up

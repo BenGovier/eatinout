@@ -409,6 +409,48 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Geocoding logic: if address-related fields are updated, geocode them
+    const addressChanged = rest.address !== undefined && rest.address !== currentRestaurant?.address;
+    const cityChanged = rest.city !== undefined && rest.city !== currentRestaurant?.city;
+    const zipCodeChanged = rest.zipCode !== undefined && rest.zipCode !== currentRestaurant?.zipCode;
+    const missingCoords = !rest.lat || !rest.lng;
+
+    // console.log("=== GEOCODING CHECK ===");
+    // console.log("addressChanged:", addressChanged, "cityChanged:", cityChanged, "zipCodeChanged:", zipCodeChanged, "missingCoords:", missingCoords);
+
+    if (addressChanged || cityChanged || zipCodeChanged || missingCoords) {
+      console.log("Triggering geocoding...");
+      try {
+        const { getCoordinatesFromAddress } = await import("@/utils/geocoding");
+        const targetAddress = typeof rest.address === "string" ? rest.address : currentRestaurant?.address || "";
+        const targetCity = typeof rest.city === "string" ? rest.city : currentRestaurant?.city || "";
+        const targetZipCode = typeof rest.zipCode === "string" ? rest.zipCode : currentRestaurant?.zipCode || "";
+
+        console.log("Geocoding target:", { targetAddress, targetCity, targetZipCode });
+        const coords = await getCoordinatesFromAddress(targetAddress, targetCity, targetZipCode);
+
+        console.log("Geocoding returned:", coords);
+        if (coords) {
+          setPayload.lat = coords.lat;
+          setPayload.lng = coords.lng;
+          setPayload.location = {
+            type: "Point" as const,
+            coordinates: [coords.lng, coords.lat],
+          };
+          console.log("Successfully set payload coords to:", coords);
+        }
+      } catch (geocodeError) {
+        console.error("Geocoding failed during update:", geocodeError);
+      }
+    } else if (rest.lat && rest.lng) {
+      console.log("Using existing coords from request payload:", { lat: rest.lat, lng: rest.lng });
+      // If address didn't change but coords were provided (e.g. manual pin move)
+      setPayload.location = {
+        type: "Point" as const,
+        coordinates: [rest.lng, rest.lat],
+      };
+    }
+
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
       restaurantId,
       { $set: setPayload },
