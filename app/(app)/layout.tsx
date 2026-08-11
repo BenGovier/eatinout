@@ -8,7 +8,6 @@ import { MainNav } from "@/components/main-nav";
 import { Logo } from "@/components/logo";
 import { WalletProvider } from "@/context/wallet-context";
 import ClientWrapper from "@/components/client-wrapper";
-import { MobileNav } from "@/components/mobile-nav";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
@@ -23,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isVerifyingStatus, setIsVerifyingStatus] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
-  console.log("user",user)
+  console.log("user", user)
   useEffect(() => {
     if (isPublicRestaurantPage) {
       setLayoutReady(true);
@@ -136,8 +135,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </header>
-          <main className="flex-1 pb-16">{children}</main>
-          {!!user && user.role === "user" && <MobileNav />}
+          <main className="flex-1">{children}</main>
         </div>
       </WalletProvider>
     );
@@ -177,8 +175,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="flex-1 pb-16">{children}</main>
-        {user?.role === "user" && <MobileNav />}
+        <main className="flex-1">{children}</main>
       </div>
     </WalletProvider>
   );

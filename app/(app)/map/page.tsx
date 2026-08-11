@@ -1704,7 +1704,7 @@ export default function MapPage() {
   return (
     <>
       <main className="min-h-screen bg-[#FFFBF7] pb-20 max-md:min-h-[100dvh] max-md:pb-0">
-        <section className="z-30 border-b border-gray-100 bg-white py-8 md:sticky md:top-16 max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 max-md:z-[55] max-md:border-0 max-md:bg-transparent max-md:py-3 max-md:shadow-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <section className="z-30 border-b border-gray-100 bg-white py-8 md:sticky md:top-16 max-md:fixed max-md:top-16 max-md:left-0 max-md:right-0 max-md:z-[40] max-md:border-0 max-md:bg-transparent max-md:py-3 max-md:shadow-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="max-md:pointer-events-none">
             <div className="container mx-auto px-4 max-md:pointer-events-auto">
               <div className="mx-auto max-w-2xl space-y-4 max-md:max-w-none max-md:space-y-2">

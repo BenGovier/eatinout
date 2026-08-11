@@ -1168,7 +1168,7 @@ export default function UserLocationMap({
           <div
             className={cn(
               "pointer-events-none absolute z-[1200] flex flex-col gap-2",
-              "right-3 top-[calc(8rem+env(safe-area-inset-top))] max-md:bottom-[calc(28dvh+env(safe-area-inset-bottom,0px))] max-md:justify-start",
+              "right-3 top-[calc(13rem+env(safe-area-inset-top))] max-md:bottom-[calc(28dvh+env(safe-area-inset-bottom,0px))] max-md:justify-start",
               "md:bottom-3 md:right-3 md:top-auto md:justify-end",
             )}
           >
