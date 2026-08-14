@@ -29,10 +29,10 @@ const RESTAURANT_SELECT_FULL =
   "name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt";
 
 const OFFER_SELECT_MAP_LIST =
-  "title validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id";
+  "title validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id currentPeriodCount recurringType recurringStartDate lastResetDate";
 
 const OFFER_SELECT_FULL =
-  "title associatedId validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id";
+  "title associatedId validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id currentPeriodCount recurringType recurringStartDate lastResetDate";
 
 const EARTH_RADIUS_MILES = 3958.8;
 
@@ -218,7 +218,7 @@ export async function GET(request: Request) {
       .lean();
 
     const now = new Date();
-    const offersToUpdate: { id: string; status: string }[] = [];
+    const bulkUpdates: any[] = [];
 
     const offersGroupedByRestaurant = offersRaw.reduce(
       (acc: any, offer: any) => {
@@ -241,9 +241,35 @@ export async function GET(request: Request) {
 
           // Track offers that need database updates (when status changed)
           if (adjustedStatus !== offer.status) {
-            offersToUpdate.push({
-              id: offer._id.toString(),
-              status: adjustedStatus,
+            bulkUpdates.push({
+              updateOne: {
+                filter: { _id: offer._id },
+                update: { $set: { status: adjustedStatus } },
+              },
+            });
+          }
+        }
+
+        let currentPeriodCount = offer.currentPeriodCount || 0;
+        if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
+          const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
+          let shouldReset = false;
+          
+          if (offer.recurringType === "weekly") {
+            const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+            shouldReset = daysSinceReset >= 7;
+          } else if (offer.recurringType === "monthly") {
+            const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+            shouldReset = daysSinceReset >= 30;
+          }
+
+          if (shouldReset) {
+            currentPeriodCount = 0;
+            bulkUpdates.push({
+              updateOne: {
+                filter: { _id: offer._id },
+                update: { $set: { currentPeriodCount: 0, lastResetDate: now } },
+              },
             });
           }
         }
@@ -255,11 +281,22 @@ export async function GET(request: Request) {
 
         // Only include active deals in the response
         if (adjustedStatus === "active") {
+          // Hide offers that have reached their redemption limit
+          if (!offer.isUnlimited && offer.maxRedemptionLimit) {
+            const currentCount = (offer.recurringType && offer.recurringType !== "never") 
+              ? currentPeriodCount
+              : (offer.redeemCount || 0);
+              
+            const remaining = offer.maxRedemptionLimit - currentCount;
+            if (remaining <= 0) return acc;
+          }
+
           acc[offer.restaurantId.toString()] =
             acc[offer.restaurantId.toString()] || [];
           acc[offer.restaurantId.toString()].push({
             ...offer,
             status: adjustedStatus,
+            currentPeriodCount
           });
         }
 
@@ -268,15 +305,8 @@ export async function GET(request: Request) {
       {} as Record<string, any[]>,
     );
 
-    // Update database for offers with changed status (bulk write to avoid N round trips)
-    if (offersToUpdate.length > 0) {
-      const bulkOps = offersToUpdate.map(({ id, status }) => ({
-        updateOne: {
-          filter: { _id: new mongoose.Types.ObjectId(id) },
-          update: { $set: { status } },
-        },
-      }));
-      await Offer.bulkWrite(bulkOps);
+    if (bulkUpdates.length > 0) {
+      await Offer.bulkWrite(bulkUpdates);
     }
 
     const formattedRestaurants = restaurants
@@ -329,7 +359,7 @@ export async function GET(request: Request) {
                 totalCodes: offer.maxRedemptionLimit
                   ? offer.maxRedemptionLimit
                   : null,
-                codesRedeemed: offer.redeemCount || 0,
+                codesRedeemed: (offer.recurringType && offer.recurringType !== "never") ? (offer.currentPeriodCount || 0) : (offer.redeemCount || 0),
                 isUnlimited: offer.isUnlimited || false,
               };
               if (offer.validHours) {
@@ -410,7 +440,7 @@ export async function GET(request: Request) {
               totalCodes: offer.maxRedemptionLimit
                 ? offer.maxRedemptionLimit
                 : null,
-              codesRedeemed: offer.redeemCount || 0,
+              codesRedeemed: (offer.recurringType && offer.recurringType !== "never") ? (offer.currentPeriodCount || 0) : (offer.redeemCount || 0),
               isUnlimited: offer.isUnlimited || false,
               expiresAt: offer.expiryDate,
             };
