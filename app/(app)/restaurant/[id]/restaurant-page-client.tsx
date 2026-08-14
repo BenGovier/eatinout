@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "react-toastify"
 import { signOut } from "next-auth/react"
 import {
@@ -51,18 +51,15 @@ interface UIState {
 export type RestaurantPageClientProps = {
   routeParam: string
   initialRestaurant: PublicRestaurantDetail
-  offerIdFromUrl: string | null
-  offerSlugFromUrl: string | null
 }
 
 export function RestaurantPageClient({
   routeParam,
   initialRestaurant,
-  offerIdFromUrl,
-  offerSlugFromUrl,
 }: RestaurantPageClientProps) {
-  const offerId = offerIdFromUrl
-  const offerSlug = offerSlugFromUrl
+  const searchParams = useSearchParams()
+  const offerId = searchParams?.get("offerId") ?? null
+  const offerSlug = searchParams?.get("offer") ?? null
   const router = useRouter()
   const { isAuthenticated, user } = useAuth()
 
@@ -392,7 +389,13 @@ export function RestaurantPageClient({
               </p>
             )}
           </div>
-          {offers.map((offer: any, index: number) => (
+          {offers.length === 0 ? (
+            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200 animate-in fade-in duration-700">
+              <p className="font-medium text-dark-ink">No active offers right now</p>
+              <p className="text-sm text-dark-ink/60 mt-1">Check back later for new deals!</p>
+            </div>
+          ) : (
+            offers.map((offer: any, index: number) => (
             <div key={offer.id}>
               <div ref={(el) => { offerRefs.current[offer.id] = el }}>
                 <RestaurantDeal
@@ -463,7 +466,7 @@ export function RestaurantPageClient({
                 </Card>
               )}
             </div>
-          ))}
+          )))}
         </TabsContent>
 
         <TabsContent value="information" className="px-4 py-6">

@@ -7,6 +7,7 @@ interface User {
   email: string;
   role: string;
   subscriptionStatus: string;
+  isTrialing?: boolean;
   createdAt: string;
   restaurantName?: string;
    zipCode?: string; // ✅ Added
@@ -30,7 +31,8 @@ export function exportUsersToXLSX(users: User[]) {
     user.email,
     user.role.charAt(0).toUpperCase() + user.role.slice(1),
     user.role === "user"
-      ? user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)
+      ? (user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)) +
+        (user.subscriptionStatus === "inactive" && user.isTrialing ? " (On Trial)" : "")
       : "N/A",
       user.role === "restaurant" ? user.restaurantName || "N/A" : "N/A",
       user.zipCode || "N/A", 

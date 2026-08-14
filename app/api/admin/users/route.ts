@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
       role: user.role,
       zipCode: user.zipCode,
       subscriptionStatus: user.subscriptionStatus || "inactive",
+      isTrialing: user.isTrialing,
       createdAt: user.createdAt,
       ...(user.role === 'restaurant' && { restaurantName: restaurantMap[user._id.toString()] || null })
     }))
