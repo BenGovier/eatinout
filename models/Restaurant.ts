@@ -44,6 +44,12 @@ export interface IRestaurant extends Document {
   }>;
 
   searchTags: mongoose.Types.ObjectId[];
+  lat?: number;
+  lng?: number;
+  location?: {
+    type: string;
+    coordinates: number[];
+  };
 }
 
 const RestaurantSchema: Schema = new Schema(
@@ -123,6 +129,19 @@ const RestaurantSchema: Schema = new Schema(
         ref: "Tag",
       },
     ],
+
+    lat: { type: Number },
+    lng: { type: Number },
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined
+      }
+    },
   },
   { timestamps: true }
 );

@@ -224,14 +224,51 @@ export async function GET(request: Request) {
         statusForCalc
       );
 
-      // Update status in database if it has changed (but preserve rejected)
-      // Always update if status was pending (to convert to inactive/active/expired)
+      let currentPeriodCount = offer.currentPeriodCount || 0;
+      let shouldResetPeriod = false;
+      let newLastResetDate = offer.lastResetDate;
+
+      if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
+        const now = new Date();
+        const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
+        
+        if (offer.recurringType === "weekly") {
+          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+          shouldResetPeriod = daysSinceReset >= 7;
+        } else if (offer.recurringType === "monthly") {
+          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+          shouldResetPeriod = daysSinceReset >= 30;
+        }
+        
+        if (shouldResetPeriod) {
+          currentPeriodCount = 0;
+          newLastResetDate = now;
+        }
+      }
+
+      const updateFields: any = {};
+      let needsUpdate = false;
+
       if ((calculatedStatus !== offer.status && offer.status !== "rejected") || offer.status === "pending") {
-        // Update in background (don't await to avoid blocking response)
-        Offer.findByIdAndUpdate(offer._id, { status: calculatedStatus }, { new: true }).catch((err) => {
-          console.error(`Failed to update status for offer ${offerIdStr}:`, err);
+        updateFields.status = calculatedStatus;
+        needsUpdate = true;
+      }
+
+      if (shouldResetPeriod) {
+        updateFields.currentPeriodCount = 0;
+        updateFields.lastResetDate = newLastResetDate;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        Offer.findByIdAndUpdate(offer._id, updateFields, { new: true }).catch((err) => {
+          console.error(`Failed to update offer ${offerIdStr}:`, err);
         });
       }
+
+      const displayRedeemCount = (offer.recurringType && offer.recurringType !== "never") 
+        ? currentPeriodCount 
+        : (redeemCount || offer.redeemCount || 0);
 
       return {
         id: offerIdStr,
@@ -258,7 +295,7 @@ export async function GET(request: Request) {
         associatedId: offer.associatedId,
         maxRedemptionLimit: offer.maxRedemptionLimit ?? null,
         isUnlimited: offer.isUnlimited ?? false,
-        redeemCount,
+        redeemCount: displayRedeemCount,
       };
     });
 

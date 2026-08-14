@@ -9,17 +9,18 @@ import { useAuth } from "@/context/auth-context";
 
 const navItems = [
   { href: "/restaurants", label: "Restaurants" },
+  // { href: "/map", label: "Map" },
   { href: "/categories", label: "Categories" },
   { href: "/wallet", label: "Wallet" },
-  { href : "account/contact", label: "Contact" },
-  {href : "/favorites", label: "Favourites"}
+  { href: "/account/contact", label: "Contact" },
+  { href: "/favorites", label: "Favourites" }
 ];
 
 export function MainNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const { user  } = useAuth();
+  const { user } = useAuth();
   const canViewFullNav = isAuthenticated && user?.role === "user"
   const toggleMenu = () => {
     setIsMenuOpen((prev) => !prev);

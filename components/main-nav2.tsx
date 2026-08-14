@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 
 const navItems = [
   { href: "/restaurants", label: "Restaurants" },
+  { href: "/map", label: "Map" },
   { href: "/categories", label: "Categories" },
   { href: "/wallet", label: "Wallet" },
   { href: "/account/contact", label: "Contact" },
@@ -110,15 +111,14 @@ export function MainNav2({ isAuthenticated }: { isAuthenticated: boolean }) {
       {/* Sticky Footer Navigation */}
       <footer className="fixed bottom-0 w-screen bg-red-600 text-white py-4 z-50">
         <nav className="flex justify-around items-center">
-          {navItems.map((item, index) => {
-            const labels = ["Restaurants", "Categories", "Wallet"];
+          {navItems.map((item) => {
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className="text-xs font-medium transition-colors hover:text-gray-200 text-white"
               >
-                <span>{labels[index]}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}

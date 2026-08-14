@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isVerifyingStatus, setIsVerifyingStatus] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
-  console.log("user",user)
+  console.log("user", user)
   useEffect(() => {
     if (isPublicRestaurantPage) {
       setLayoutReady(true);
@@ -130,14 +130,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <MainNav isAuthenticated={!!user} />
                 </div>
               </div>
-              <div className="hidden md:block">
+              <div>
                 <ClientWrapper isAuthenticated={!!user} />
               </div>
             </div>
           </header>
-          <main className="flex-1 pb-16">{children}</main>
-          <div className="md:hidden">
-          </div>
+          <main className="flex-1">{children}</main>
         </div>
       </WalletProvider>
     );
@@ -172,14 +170,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <MainNav isAuthenticated={true} />
               </div>
             </div>
-            <div className="hidden md:block">
+            <div>
               <ClientWrapper isAuthenticated={true} />
             </div>
           </div>
         </header>
-        <main className="flex-1 pb-16">{children}</main>
-        <div className="md:hidden">
-        </div>
+        <main className="flex-1">{children}</main>
       </div>
     </WalletProvider>
   );

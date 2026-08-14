@@ -118,12 +118,32 @@ export async function POST(req: any) {
       data.city ?? ""
     );
 
-    // Create restaurant record — lat/lng/location from geocode on join-restaurant (or map defaults)
-    const regLat = parseCoord(data.lat) ?? DEFAULT_MAP_CENTER_LAT_LNG.lat;
-    const regLng = parseCoord(data.lng) ?? DEFAULT_MAP_CENTER_LAT_LNG.lng;
-    const location = geoPointFromLatLng(regLat, regLng) ?? {
+    let regLat = parseCoord(data.lat);
+    let regLng = parseCoord(data.lng);
+
+    // If frontend didn't send coords, try to geocode the address
+    if (regLat === null || regLng === null) {
+      try {
+        const { getCoordinatesFromAddress } = await import("@/utils/geocoding");
+        const coords = await getCoordinatesFromAddress(data.address || "", data.city || "", data.zipCode || "");
+        if (coords) {
+          regLat = coords.lat;
+          regLng = coords.lng;
+        }
+      } catch (geocodeError) {
+        console.error("Geocoding failed during registration:", geocodeError);
+      }
+      
+      // Fallback
+      if (regLat === null || regLng === null) {
+        regLat = DEFAULT_MAP_CENTER_LAT_LNG.lat;
+        regLng = DEFAULT_MAP_CENTER_LAT_LNG.lng;
+      }
+    }
+
+    const location = geoPointFromLatLng(regLat as number, regLng as number) ?? {
       type: "Point" as const,
-      coordinates: [regLng, regLat] as [number, number],
+      coordinates: [regLng as number, regLat as number],
     };
 
     const restaurant = new Restaurant({
