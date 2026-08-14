@@ -108,7 +108,7 @@ export async function getPublicRestaurantDetailByRouteParam(
       restaurantId: restaurant._id,
     })
       .select(
-        "title description validDays validHours startDate expiryDate status deactivated restaurantId isPinned pinnedAt createdAt terms associatedId bookingRequirement isUnlimited maxRedemptionLimit redeemCount",
+        "title description validDays validHours startDate expiryDate status deactivated restaurantId isPinned pinnedAt createdAt terms associatedId bookingRequirement isUnlimited maxRedemptionLimit redeemCount currentPeriodCount recurringType recurringStartDate lastResetDate",
       )
       .lean();
 
@@ -170,7 +170,32 @@ export async function getPublicRestaurantDetailByRouteParam(
         }
       }
 
-      return { ...offer, status: adjustedStatus };
+      let currentPeriodCount = offer.currentPeriodCount || 0;
+      if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
+        const now = new Date();
+        const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
+        let shouldReset = false;
+        
+        if (offer.recurringType === "weekly") {
+          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+          shouldReset = daysSinceReset >= 7;
+        } else if (offer.recurringType === "monthly") {
+          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+          shouldReset = daysSinceReset >= 30;
+        }
+
+        if (shouldReset) {
+          currentPeriodCount = 0;
+          bulkUpdates.push({
+            updateOne: {
+              filter: { _id: offer._id },
+              update: { $set: { currentPeriodCount: 0, lastResetDate: now } },
+            },
+          });
+        }
+      }
+
+      return { ...offer, status: adjustedStatus, currentPeriodCount };
     });
 
     if (bulkUpdates.length > 0) {
@@ -182,7 +207,11 @@ export async function getPublicRestaurantDetailByRouteParam(
 
       // Hide offers that have reached their redemption limit
       if (!offer.isUnlimited && offer.maxRedemptionLimit) {
-        const remaining = offer.maxRedemptionLimit - (offer.redeemCount || 0);
+        const currentCount = (offer.recurringType && offer.recurringType !== "never") 
+          ? (offer.currentPeriodCount || 0)
+          : (offer.redeemCount || 0);
+          
+        const remaining = offer.maxRedemptionLimit - currentCount;
         if (remaining <= 0) return false;
       }
 
