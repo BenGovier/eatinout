@@ -66,7 +66,7 @@ fbq('track', 'PageView');
         />
         {/* End Meta Pixel */}
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe

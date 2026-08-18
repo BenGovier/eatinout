@@ -161,7 +161,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletProvider>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen" suppressHydrationWarning>
         <header className="sticky top-0 z-50 w-full border-b bg-background">
           <div className="container flex h-16 items-center justify-between px-4">
             <div className="flex items-center justify-between w-full md:w-auto md:justify-start space-x-4">

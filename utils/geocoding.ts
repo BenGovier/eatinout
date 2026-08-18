@@ -4,7 +4,24 @@ export async function getCoordinatesFromAddress(
   zipCode: string
 ): Promise<{ lat: number; lng: number } | null> {
   try {
-    const query = `${address}, ${city}, ${zipCode}, UK`;
+    // 1. Prioritize postcodes.io for accurate UK postcode geocoding
+    if (zipCode) {
+      const cleanPostcode = zipCode.replace(/\s+/g, "");
+      const pcUrl = `https://api.postcodes.io/postcodes/${cleanPostcode}`;
+      const pcRes = await fetch(pcUrl);
+      if (pcRes.ok) {
+        const pcData = await pcRes.json();
+        if (pcData.status === 200 && pcData.result) {
+          return {
+            lat: pcData.result.latitude,
+            lng: pcData.result.longitude,
+          };
+        }
+      }
+    }
+
+    // 2. Fallback to Nominatim (OpenStreetMap) if postcodes.io fails or no zipCode
+    const query = `${address}, ${city}, ${zipCode}, UK`.replace(/,\s*,/g, ",");
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
       query
     )}&format=json&limit=1`;
@@ -25,11 +42,10 @@ export async function getCoordinatesFromAddress(
     if (data && data.length > 0) {
       return {
         lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon), // Nominatim uses 'lon' instead of 'lng'
+        lng: parseFloat(data[0].lon),
       };
     } else {
-      // Fallback: try just zipCode and city if full address fails
-      const fallbackQuery = `${city}, ${zipCode}, UK`;
+      const fallbackQuery = `${city}, ${zipCode}, UK`.replace(/,\s*,/g, ",");
       const fallbackUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
         fallbackQuery
       )}&format=json&limit=1`;
