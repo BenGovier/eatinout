@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       offerId,
       offerStatus,
       redeemCode,
-      offerRestaurantId,
+      offerRestaurantId: offerRestaurantId || offer.restaurantId,
     });
 
     try {

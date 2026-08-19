@@ -3704,11 +3704,6 @@ export default function MapPage() {
                 onViewDeal={handleRestaurantNavigate}
                 restaurants={mapRestaurantMarkers}
                 onVisibleRestaurantsChange={(ids) => setMapFilteredRestaurantIds(ids)}
-                onClusterClick={() => {
-                  if (isMobile) {
-                    setMobileDrawerSnap(MOBILE_RESTAURANTS_DRAWER_EXPANDED);
-                  }
-                }}
               />
             </div>
             <p className="mt-2 text-center text-[11px] leading-snug text-gray-500 sm:text-left sm:text-xs max-md:hidden">

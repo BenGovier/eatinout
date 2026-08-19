@@ -185,7 +185,7 @@ export function RestaurantDeal({
       )}
 
       <Button
-        onClick={() => onRedeem(deal.id, deal.associatedId)}
+        onClick={() => onRedeem(deal.id, deal.restaurantId || "")}
         className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
         disabled={isLoading === deal.id}
       >
