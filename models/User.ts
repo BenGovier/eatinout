@@ -25,6 +25,7 @@ export interface IUser extends Document {
   deleted: boolean;
   deletedAt?: Date;
   isTrialing?: boolean;
+  usedVoucherCode?: string | null;
 }
 
 const UserSchema: Schema = new Schema(
@@ -80,6 +81,7 @@ const UserSchema: Schema = new Schema(
     ],
 
     isTrialing: { type: Boolean, default: false },
+    usedVoucherCode: { type: String, default: null },
   },
   { timestamps: true }
 );

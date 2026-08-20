@@ -129,12 +129,25 @@ export async function POST(request: Request) {
 
     let subscriptionStatusToSet = "active";
     let isTrialing = false;
+    let usedVoucherCode = null;
     
     if (session.subscription) {
-      const subscriptionInfo = await stripe.subscriptions.retrieve(session.subscription as string);
+      const subscriptionInfo = await stripe.subscriptions.retrieve(session.subscription as string, {
+        expand: ['discount.promotion_code', 'discounts.promotion_code']
+      });
       if (subscriptionInfo.status === 'trialing') {
         subscriptionStatusToSet = "inactive";
         isTrialing = true;
+      }
+
+      // Check both new discounts array and old discount object
+      const discountObj = (subscriptionInfo.discounts && subscriptionInfo.discounts.length > 0) 
+        ? subscriptionInfo.discounts[0] 
+        : (subscriptionInfo as any).discount;
+        
+      const promoObj = discountObj?.promotion_code as any;
+      if (promoObj && promoObj.code) {
+        usedVoucherCode = promoObj.code;
       }
     }
 
@@ -144,6 +157,7 @@ export async function POST(request: Request) {
       {
         subscriptionStatus: subscriptionStatusToSet,
         isTrialing: isTrialing,
+        usedVoucherCode: usedVoucherCode,
         stripeCustomerId: session.customer,
         subscriptionId: session.subscription,
         hasSubscribedBefore: true,
