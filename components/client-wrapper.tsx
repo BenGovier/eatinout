@@ -1,6 +1,5 @@
 "use client";
 
-import { SignOutButton } from "@/components/sign-out-button";
 import { MobileNav } from "@/components/mobile-nav";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -15,9 +14,6 @@ export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: bo
                 <div className="hidden md:flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/account">My Account</Link>
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                        <SignOutButton />
                     </Button>
                 </div>
             ) : (

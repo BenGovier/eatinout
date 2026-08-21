@@ -185,10 +185,14 @@ export async function POST(request: Request) {
     // Send both Welcome Email and Subscription Confirmation Email after successful verification
     let emailErrors: string[] = [];
     
-    // Calculate trial end date (7 days from now)
+    // Trial end date: prefer Stripe's authoritative trial_end, falling back to
+    // 30 days from now only when Stripe doesn't provide one. Reuses the
+    // subscription already retrieved above (no second Stripe call).
     const trialEndDate = new Date();
-    // trialEndDate.setDate(trialEndDate.getDate() + 7);
     trialEndDate.setDate(trialEndDate.getDate() + 30);
+    if (stripeSubscription?.trial_end) {
+      trialEndDate.setTime(stripeSubscription.trial_end * 1000);
+    }
 
     // Send Welcome Email
     try {
@@ -205,9 +209,7 @@ export async function POST(request: Request) {
       );
       await sendEmail(
         user.email,
-        // "Welcome to Eatinout - Your 7-Day Free Trial Starts Now!",
-        "Welcome to Eatinout - Your 30 days free Trial Starts Now!",
-
+        "Welcome to Eatinout - Your 30-Day Free Trial Starts Now!",
         welcomeEmailHtml
       );
 
