@@ -24,6 +24,7 @@ interface User {
   role: string
   subscriptionStatus: string
   isTrialing?: boolean
+  usedVoucherCode?: string | null
   createdAt: string
   restaurantName?: string
   zipCode?: string
@@ -342,6 +343,7 @@ export default function AdminUsersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Subscription</TableHead>
+                    <TableHead>Voucher</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -370,6 +372,11 @@ export default function AdminUsersPage() {
                       {/* Subscription */}
                       <TableCell>
                         <div className="h-5 w-24 bg-gray-200 rounded-full"></div>
+                      </TableCell>
+
+                      {/* Voucher */}
+                      <TableCell>
+                        <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
                       </TableCell>
 
                       {/* Joined */}
@@ -439,6 +446,7 @@ export default function AdminUsersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Subscription</TableHead>
+                    <TableHead>Voucher</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -487,6 +495,15 @@ export default function AdminUsersPage() {
                           </Badge>
                         ) : (
                           <span className="text-gray-500 text-center pl-2">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.usedVoucherCode ? (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                            {user.usedVoucherCode}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 pl-2">-</span>
                         )}
                       </TableCell>
                       <TableCell>{new Date(user.createdAt).toLocaleDateString('en-GB')}</TableCell>

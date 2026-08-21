@@ -10,7 +10,8 @@ interface User {
   isTrialing?: boolean;
   createdAt: string;
   restaurantName?: string;
-   zipCode?: string; // ✅ Added
+  zipCode?: string; // ✅ Added
+  usedVoucherCode?: string | null;
 }
 
 export function exportUsersToXLSX(users: User[]) {
@@ -21,6 +22,7 @@ export function exportUsersToXLSX(users: User[]) {
     "Email",
     "Role",
     "Subscription",
+    "Voucher Used",
     "Restaurant Name",
     "Zip Code",  
     "Joined At",
@@ -34,8 +36,9 @@ export function exportUsersToXLSX(users: User[]) {
       ? (user.subscriptionStatus.charAt(0).toUpperCase() + user.subscriptionStatus.slice(1)) +
         (user.subscriptionStatus === "inactive" && user.isTrialing ? " (On Trial)" : "")
       : "N/A",
-      user.role === "restaurant" ? user.restaurantName || "N/A" : "N/A",
-      user.zipCode || "N/A", 
+    user.usedVoucherCode || "N/A",
+    user.role === "restaurant" ? user.restaurantName || "N/A" : "N/A",
+    user.zipCode || "N/A", 
     new Date(user.createdAt).toLocaleDateString("en-GB"),
   ]);
 
@@ -46,8 +49,9 @@ export function exportUsersToXLSX(users: User[]) {
     { wch: 30 }, // Email
     { wch: 15 }, // Role
     { wch: 18 }, // Subscription
+    { wch: 15 }, // Voucher Used
     { wch: 30 }, // Restaurant Name
-       { wch: 12 }, // Zip Code  ✅ NEW SIZE
+    { wch: 12 }, // Zip Code
     { wch: 15 }, // Joined At
   ];
 

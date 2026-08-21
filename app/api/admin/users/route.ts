@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
       zipCode: user.zipCode,
       subscriptionStatus: user.subscriptionStatus || "inactive",
       isTrialing: user.isTrialing,
+      usedVoucherCode: user.usedVoucherCode,
       createdAt: user.createdAt,
       ...(user.role === 'restaurant' && { restaurantName: restaurantMap[user._id.toString()] || null })
     }))

@@ -15,6 +15,7 @@ import {
   FileText,
   Globe,
   ArrowLeft,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -50,12 +51,16 @@ interface UIState {
 
 export type RestaurantPageClientProps = {
   routeParam: string
-  initialRestaurant: PublicRestaurantDetail
+  initialRestaurant?: PublicRestaurantDetail
+  isModal?: boolean
+  onClose?: () => void
 }
 
 export function RestaurantPageClient({
   routeParam,
   initialRestaurant,
+  isModal = false,
+  onClose,
 }: RestaurantPageClientProps) {
   const searchParams = useSearchParams()
   const offerId = searchParams?.get("offerId") ?? null
@@ -64,10 +69,43 @@ export function RestaurantPageClient({
   const { isAuthenticated, user } = useAuth()
 
   const [restaurantState, setRestaurantState] = useState<RestaurantState>({
-    data: initialRestaurant,
-    loading: false,
+    data: initialRestaurant || null,
+    loading: !initialRestaurant,
     error: null,
   })
+
+  useEffect(() => {
+    if (initialRestaurant) {
+      setRestaurantState({
+        data: initialRestaurant,
+        loading: false,
+        error: null,
+      })
+      return
+    }
+
+    if (routeParam) {
+      setRestaurantState(prev => ({ ...prev, loading: true, error: null }))
+      
+      const abortController = new AbortController()
+      
+      fetch(`/api/restaurants/${routeParam}`, { signal: abortController.signal })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setRestaurantState({ data: data.restaurant, loading: false, error: null })
+          } else {
+            setRestaurantState({ data: null, loading: false, error: data.message || "Failed to load restaurant details." })
+          }
+        })
+        .catch(err => {
+          if (err.name === 'AbortError') return
+          setRestaurantState({ data: null, loading: false, error: "Failed to load restaurant details." })
+        })
+        
+      return () => abortController.abort()
+    }
+  }, [initialRestaurant, routeParam])
 
   const [redeemState, setRedeemState] = useState<RedeemState>({
     loadingId: null,
@@ -108,14 +146,6 @@ export function RestaurantPageClient({
     return null
   }, [offerId, offerSlug, offers])
 
-
-  useEffect(() => {
-    setRestaurantState({
-      data: initialRestaurant,
-      loading: false,
-      error: null,
-    })
-  }, [routeParam, initialRestaurant])
 
   useEffect(() => {
     const name = restaurantState.data?.name
@@ -271,15 +301,94 @@ export function RestaurantPageClient({
   }, []);
 
 
-  if (restaurantState.error || !restaurantState.data) {
+  if (!restaurant && restaurantState.loading) {
+    if (isModal) {
+      return (
+        <div className="flex h-64 w-full flex-col items-center justify-center space-y-4 bg-white relative rounded-2xl overflow-hidden shadow-2xl">
+          {onClose && (
+            <button onClick={onClose} className="absolute right-4 top-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
+          )}
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary" />
+          <p className="text-sm font-medium text-gray-500 animate-pulse">Loading deal details...</p>
+        </div>
+      )
+    }
     return (
-      <div className="container px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">Restaurant not found</h1>
-        <p>Sorry, we couldn't find the restaurant you're looking for.</p>
-        <p className="text-sm text-gray-500 mt-2">Error: {restaurantState.error || "Unknown error"}</p>
-        <Button asChild className="mt-4">
-          <a href="/restaurants">Browse Restaurants</a>
-        </Button>
+      <div className="flex h-[50vh] min-h-[400px] w-full flex-col items-center justify-center space-y-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-primary" />
+        <p className="text-sm font-medium text-gray-500 animate-pulse">Loading restaurant...</p>
+      </div>
+    )
+  }
+
+  if (!restaurant) {
+    if (isModal) {
+      return (
+        <div className="flex h-64 w-full flex-col items-center justify-center space-y-4 bg-white relative rounded-2xl overflow-hidden shadow-2xl">
+          {onClose && (
+            <button onClick={onClose} className="absolute right-4 top-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
+          )}
+          <Globe className="h-8 w-8 text-red-600 opacity-20" />
+          <p className="text-sm text-gray-500 font-bold">{restaurantState.error || "Could not load details."}</p>
+          <p className="text-xs text-gray-400 mt-2 text-center">ID: {routeParam}</p>
+        </div>
+      )
+    }
+    return (
+      <div className="flex h-[50vh] min-h-[400px] w-full flex-col items-center justify-center space-y-4">
+        <div className="rounded-full bg-red-100 p-3">
+          <Globe className="h-8 w-8 text-red-600" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-900">Restaurant not found</h2>
+          <p className="text-sm text-gray-500 mt-1">We couldn&apos;t load this restaurant&apos;s details.</p>
+        </div>
+        <Button variant="outline" onClick={() => router.back()}>Go Back</Button>
+      </div>
+    )
+  }
+
+  if (isModal) {
+    return (
+      <div className="w-full flex flex-col h-full bg-white relative rounded-2xl overflow-hidden shadow-2xl">
+        {onClose && (
+          <button onClick={onClose} className="absolute right-3 top-3 z-[60] p-1.5 bg-gray-100 rounded-full hover:bg-gray-200">
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
+        )}
+        <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+        <div className="px-1 py-4 space-y-4 flex-1 overflow-y-auto">
+          <div className="sticky top-0 bg-white/95 backdrop-blur z-10 pb-2 border-b border-gray-100 mb-4 px-2 pt-2">
+             <h2 className="text-xl font-bold text-dark-ink pr-8">{restaurant.name}</h2>
+             <p className="text-sm text-gray-500">{restaurant.location || restaurant.address}</p>
+          </div>
+          {offers.length === 0 ? (
+            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+              <p className="font-medium text-dark-ink">No active offers right now</p>
+            </div>
+          ) : (
+            offers.map((offer: any, index: number) => (
+              <div key={offer.id}>
+                <div ref={(el) => { offerRefs.current[offer.id] = el }}>
+                  <RestaurantDeal
+                    deal={offer}
+                    phoneNumber={phone}
+                    membersUsed={membersUsed}
+                    onRedeem={handleRedeem}
+                    isLoading={redeemState.loadingId}
+                    style={{ animationDelay: `${index * 100}ms` }}
+                    featured={index === 0}
+                    defaultExpanded={offer.id === deepLinkOfferId}
+                  />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     )
   }

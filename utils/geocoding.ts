@@ -4,51 +4,37 @@ export async function getCoordinatesFromAddress(
   zipCode: string
 ): Promise<{ lat: number; lng: number } | null> {
   try {
-    const query = `${address}, ${city}, ${zipCode}, UK`;
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-      query
-    )}&format=json&limit=1`;
+    const GOOGLE_API_KEY = process.env.GOOGLE_GEOCODING_API;
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "EatInOut-App/1.0",
-      },
-    });
+    if (!GOOGLE_API_KEY) {
+      console.warn("GOOGLE_GEOCODING_API key is missing in environment variables.");
+      return null;
+    }
+
+    // Construct a clean, full address string
+    const fullAddress = `${address || ''}, ${city || ''}, ${zipCode || ''}, UK`.replace(/^, /, '').trim();
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_API_KEY}`;
+
+    const response = await fetch(url);
 
     if (!response.ok) {
-      console.error("Nominatim API error:", response.statusText);
+      console.error("Google Geocoding API HTTP error:", response.statusText);
       return null;
     }
 
     const data = await response.json();
 
-    if (data && data.length > 0) {
+    if (data.status === 'OK' && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
       return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon), // Nominatim uses 'lon' instead of 'lng'
+        lat: location.lat,
+        lng: location.lng,
       };
     } else {
-      // Fallback: try just zipCode and city if full address fails
-      const fallbackQuery = `${city}, ${zipCode}, UK`;
-      const fallbackUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-        fallbackQuery
-      )}&format=json&limit=1`;
-
-      const fallbackResponse = await fetch(fallbackUrl, {
-        headers: {
-          "User-Agent": "EatInOut-App/1.0",
-        },
-      });
-      
-      const fallbackData = await fallbackResponse.json();
-      if (fallbackData && fallbackData.length > 0) {
-        return {
-          lat: parseFloat(fallbackData[0].lat),
-          lng: parseFloat(fallbackData[0].lon),
-        };
+      console.warn(`Geocoding failed for address "${fullAddress}": ${data.status}`);
+      if (data.error_message) {
+        console.error(`Error details: ${data.error_message}`);
       }
-
-      console.warn("No coordinates found for address:", query);
       return null;
     }
   } catch (error) {
