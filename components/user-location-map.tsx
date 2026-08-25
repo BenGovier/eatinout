@@ -873,7 +873,7 @@ export default function UserLocationMap({
 
         if (isCluster) {
           const count = props.point_count;
-          el.innerHTML = `<div style="position: relative; width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
+          el.innerHTML = `<div style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
             <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Cluster" />
           </div>`;
 
