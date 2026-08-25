@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
 import User from "@/models/User";
+import connectToDatabase from "@/lib/mongodb";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -14,6 +15,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 // Create subscription
 export async function POST(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -79,6 +82,8 @@ export async function POST(req: Request) {
 // Cancel subscription
 export async function DELETE(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -163,6 +168,8 @@ export async function DELETE(req: Request) {
 // Get subscription status
 export async function GET(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -307,6 +314,8 @@ export async function GET(req: Request) {
 // Reactivate or pause subscription
 export async function PATCH(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
     

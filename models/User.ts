@@ -86,7 +86,6 @@ const UserSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ subscriptionStatus: 1 });
 UserSchema.index({ deleted: 1 });
