@@ -15,6 +15,7 @@ export type MapVirtualRestaurant = {
   name: string;
   city?: string;
   zipCode?: string;
+  distanceMiles?: number;
   imageUrl?: string;
   offers?: Array<{
     title?: string;
@@ -179,6 +180,12 @@ const MapRestaurantGridCard = memo(function MapRestaurantGridCard({
               {restaurant.city}
               <span className="text-gray-400">·</span>
               {restaurant.zipCode}
+              {restaurant.distanceMiles !== undefined && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="font-medium text-gray-700">{restaurant.distanceMiles} mi</span>
+                </>
+              )}
             </p>
 
             <div className="-mx-3 overflow-x-auto px-3 scrollbar-hide">

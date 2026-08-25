@@ -3414,6 +3414,12 @@ export default function MapPage() {
                               {restaurant.city}
                               <span className="text-gray-400">·</span>
                               {restaurant.zipCode}
+                              {restaurant.distanceMiles !== undefined && (
+                                <>
+                                  <span className="text-gray-400">·</span>
+                                  <span className="font-medium text-gray-700">{restaurant.distanceMiles} mi</span>
+                                </>
+                              )}
                             </p>
 
                             {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">

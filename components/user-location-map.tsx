@@ -873,7 +873,7 @@ export default function UserLocationMap({
 
         if (isCluster) {
           const count = props.point_count;
-          el.innerHTML = `<div style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
+          el.innerHTML = `<div style="position: relative; width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
             <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Cluster" />
           </div>`;
 
@@ -890,9 +890,13 @@ export default function UserLocationMap({
           };
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
-          el.innerHTML = `<div style="width: 40px; height: 40px; border-radius: 50%; background: white; border: 3px solid #eb221c; box-shadow: 0 4px 6px rgba(0,0,0,0.3); overflow: hidden; position: relative;">
-            <img src="${restaurant.imageUrl || "/placeholder.svg"}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/placeholder.svg'" />
-          </div>`;
+          el.innerHTML = `
+            <div style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 6px; position: relative;">
+              <img src="${restaurant.imageUrl || "/placeholder.svg"}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover;" onerror="this.src='/placeholder.svg'" />
+              <span style="font-weight: 600; font-size: 12px; color: #111; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: sans-serif;">${restaurant.name}</span>
+              <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #eb221c;"></div>
+            </div>
+          `;
 
           el.onclick = (e) => {
             e.stopPropagation();
