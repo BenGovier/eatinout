@@ -9,6 +9,7 @@ import Stripe from "stripe";
 import User from "@/models/User";
 import type { NormalizedSubscription } from "@/lib/subscription";
 import { resolveMembershipFromStripe } from "@/lib/subscription";
+import connectToDatabase from "@/lib/mongodb";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // The installed stripe@18.5.0 types only permit the latest API version literal
@@ -236,6 +237,8 @@ function stripeUnavailable() {
 // Create subscription
 export async function POST(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -307,6 +310,8 @@ export async function POST(req: Request) {
 //     cancel_at_period_end: true, retaining access until current_period_end.
 export async function DELETE(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -528,6 +533,8 @@ export async function DELETE(req: Request) {
 // Get subscription status
 export async function GET(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -723,6 +730,8 @@ export async function GET(req: Request) {
 //   pause / resume           — legacy actions, retained for compatibility
 export async function PATCH(req: Request) {
   try {
+    await connectToDatabase();
+    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
