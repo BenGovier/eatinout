@@ -35,10 +35,10 @@ export function PrestonSavings() {
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-teal)]">Do the maths</p>
           <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
-            One meal could pay for months of membership.
+            One meal can pay for months of membership.
           </h2>
           <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-white/75">
-            Here&apos;s what a typical dinner for two could look like.
+            Here&apos;s what a typical dinner for two can look like.
           </p>
 
           <ul className="mt-8 space-y-3">
@@ -66,7 +66,6 @@ export function PrestonSavings() {
           >
             <div className="border-b border-dashed border-black/15 pb-4 text-center">
               <p className="text-xl font-bold tracking-tight text-[var(--eo-ink)]">Dinner for two</p>
-              <p className="mt-0.5 text-xs uppercase tracking-widest text-black/40">A local Lancashire restaurant</p>
             </div>
 
             <ul className="space-y-2.5 py-5 text-sm">
@@ -85,18 +84,18 @@ export function PrestonSavings() {
               </div>
               <div className="flex items-center justify-between font-semibold text-[var(--eo-red)]">
                 <span>Saving</span>
-                <span className="tabular-nums">&minus;£31.00</span>
+                <span className="tabular-nums">&minus;£43.00</span>
               </div>
               <div className="flex items-center justify-between border-t border-black/10 pt-2.5 font-bold text-[var(--eo-ink)]">
                 <span>New total</span>
-                <span className="text-2xl font-extrabold tabular-nums">£55.00</span>
+                <span className="text-2xl font-extrabold tabular-nums">£43.00</span>
               </div>
             </div>
 
             <div className="mt-5 rounded-xl bg-[var(--eo-teal)] px-4 py-4 text-center">
-              <p className="text-2xl font-extrabold uppercase tracking-tight text-white">You saved £31</p>
+              <p className="text-2xl font-extrabold uppercase tracking-tight text-white">You saved £43</p>
               <p className="mt-1 text-xs font-medium text-white/90">
-                That&apos;s over 6 months of membership from one meal.
+                That&apos;s over 8 months of membership from one meal.
               </p>
             </div>
           </motion.div>
