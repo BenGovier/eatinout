@@ -60,7 +60,7 @@ export function PrestonHero() {
           className="mt-4 inline-flex max-w-xl items-center gap-2 text-pretty text-sm leading-relaxed text-white/70"
         >
           <Gift className="h-4 w-4 shrink-0 text-[var(--eo-teal)]" />
-          Join today and earn a FREE £25 M&amp;S Gift Card after maintaining your membership for 6 months.
+          Join today and earn a FREE £25 M&amp;S Gift Card after 6 months.
         </motion.p>
 
         <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

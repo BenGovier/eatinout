@@ -5,10 +5,10 @@ import { motion } from "framer-motion"
 
 /**
  * PrestonBonusBand
- * A full-width, art-directed advertising band — not a UI card.
- * Pure EatinOut red field, oversized reward typography, and a premium
- * M&S gift card rendered in crisp CSS (authentic yellow/black branding)
- * that floats bottom-right, rotated and overlapping the £50 for depth.
+ * Full-width advertising band on the EatinOut red field — not a UI card.
+ * Two clear columns: uncramped reward copy on the left, a premium M&S gift
+ * card rendered in crisp CSS on the right. The card is fully inside the frame
+ * at every breakpoint (it used to bleed off screen on mobile).
  * The entire band is the call to action.
  */
 
@@ -43,61 +43,49 @@ export function PrestonBonusBand() {
   return (
     <Link
       href="/sign-up"
-      aria-label="Join today and earn a free £25 M&S gift card after six months of membership"
-      className="group relative flex min-h-[320px] w-full items-center overflow-hidden bg-[var(--eo-red)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/50"
+      aria-label="Your loyalty deserves rewarding. Stay subscribed for 6 months and qualify for a free £25 M&S gift card"
+      className="group block w-full overflow-hidden bg-[var(--eo-red)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/50"
     >
-      {/* Reward typography — reads FREE → £25 → M&S GIFT CARD → body copy */}
-      <div className="relative z-10 max-w-[58%] px-6 py-10 sm:mx-auto sm:w-full sm:max-w-6xl sm:px-10">
-        <p className="text-[32px] font-bold leading-none text-white">FREE</p>
-        <p className="mt-1 text-[88px] font-extrabold leading-[0.82] tracking-tight text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.25)]">
-          £25
-        </p>
-        <p className="mt-2 whitespace-nowrap text-[26px] font-bold uppercase leading-none tracking-tight text-white sm:text-[34px]">
-          M&amp;S Gift Card
-        </p>
-        <p className="mt-4 max-w-[15rem] text-pretty text-[15px] font-medium leading-relaxed text-white/85 sm:max-w-md sm:text-[17px]">
-          Your loyalty deserves rewarding. Stay with EatinOut for six months and you&apos;ll qualify for a FREE £25 M&amp;S
-          Gift Card — just contact us and we&apos;ll send it to you.
-        </p>
-      </div>
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-10 px-6 py-14 text-center sm:px-10 sm:py-16 lg:flex-row lg:justify-between lg:gap-16 lg:text-left">
+        {/* Reward copy — generous line length, room to breathe */}
+        <div className="max-w-xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">Members&apos; reward</p>
+          <h2 className="mt-4 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-4xl md:text-5xl">
+            Your loyalty deserves rewarding.
+          </h2>
+          <p className="mx-auto mt-5 max-w-md text-pretty text-lg font-medium leading-relaxed text-white/90 sm:text-xl lg:mx-0">
+            Stay subscribed for 6 months and you&apos;ll qualify for a FREE £25 M&amp;S Gift Card.
+          </p>
+        </div>
 
-      {/* Premium floating gift card — bottom right, rotated, overlapping the £50.
-          Rotation lives on this static wrapper so the motion float below can't override it. */}
-      <div
-        className="pointer-events-none absolute -bottom-[7%] -right-[8%] z-20 w-[54%] max-w-[300px] -rotate-12 sm:right-[7%] sm:w-[32%]"
-        style={{ containerType: "inline-size" }}
-      >
-        <motion.div
-          initial={{ y: 0 }}
-          animate={{ y: [0, -4, 0] }}
-          transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        {/* Premium gift card — always fully in frame, gently tilted */}
+        <div
+          className="w-full max-w-[300px] shrink-0 -rotate-6 lg:w-[34%] lg:max-w-[360px]"
+          style={{ containerType: "inline-size" }}
         >
-          {/* Card + light sweep */}
-          <div className="relative overflow-hidden rounded-[7%]">
-            <GiftCardFace />
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[7%]">
-              <motion.div
-                className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent"
-                animate={{ x: ["0%", "520%"] }}
-                transition={{
-                  duration: 1.4,
-                  repeat: Number.POSITIVE_INFINITY,
-                  repeatDelay: 8,
-                  ease: "easeInOut",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Subtle reflection underneath */}
-          <div
-            aria-hidden="true"
-            className="absolute left-0 top-full mt-[2%] w-full scale-y-[-1] opacity-20 [mask-image:linear-gradient(to_bottom,#000,transparent_55%)]"
-            style={{ containerType: "inline-size" }}
+          <motion.div
+            initial={{ y: 0 }}
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
           >
-            <GiftCardFace reflection />
-          </div>
-        </motion.div>
+            {/* Card + light sweep */}
+            <div className="relative overflow-hidden rounded-[7%]">
+              <GiftCardFace />
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[7%]">
+                <motion.div
+                  className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent"
+                  animate={{ x: ["0%", "520%"] }}
+                  transition={{
+                    duration: 1.4,
+                    repeat: Number.POSITIVE_INFINITY,
+                    repeatDelay: 8,
+                    ease: "easeInOut",
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </Link>
   )
