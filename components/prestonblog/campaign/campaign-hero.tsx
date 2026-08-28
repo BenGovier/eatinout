@@ -27,12 +27,14 @@ export function CampaignHero() {
 
       <div className="mx-auto flex min-h-[88svh] max-w-5xl flex-col justify-end px-4 pb-10 pt-24 sm:min-h-[86svh] sm:px-6 sm:pb-16">
         <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/85">Local dining, for less</p>
+          <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-sm">
+            Exclusive for BlogPreston readers
+          </span>
 
           <h1 className="mt-4 text-balance text-[2.6rem] font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl">
             Eat out more.
             <br />
-            <span className="text-[var(--eo-teal)]">Spend less every time.</span>
+            <span className="text-[var(--eo-teal)]">Spend less around Preston.</span>
           </h1>
 
           <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-white/90">

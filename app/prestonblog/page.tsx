@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
 import { CampaignHeader } from "@/components/prestonblog/campaign/campaign-header"
 import { CampaignHero } from "@/components/prestonblog/campaign/campaign-hero"
+import { CampaignLocal } from "@/components/prestonblog/campaign/campaign-local"
 import { CampaignValue } from "@/components/prestonblog/campaign/campaign-value"
 import { CampaignOccasions } from "@/components/prestonblog/campaign/campaign-occasions"
 import { CampaignHowItWorks } from "@/components/prestonblog/campaign/campaign-how-it-works"
 import { CampaignTrust } from "@/components/prestonblog/campaign/campaign-trust"
-import { CampaignMsBand } from "@/components/prestonblog/campaign/campaign-ms-band"
 import { CampaignFinalCta } from "@/components/prestonblog/campaign/campaign-final-cta"
 
 export const metadata: Metadata = {
@@ -31,11 +31,11 @@ export default function PrestonBlogCampaignPage() {
     <main className="bg-white text-[var(--eo-ink)]">
       <CampaignHeader />
       <CampaignHero />
+      <CampaignLocal />
       <CampaignValue />
       <CampaignOccasions />
       <CampaignHowItWorks />
       <CampaignTrust />
-      <CampaignMsBand />
       <CampaignFinalCta />
     </main>
   )

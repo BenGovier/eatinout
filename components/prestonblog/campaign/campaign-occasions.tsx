@@ -19,10 +19,10 @@ export function CampaignOccasions() {
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Reveal className="max-w-xl">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-4xl">
-            More reasons to eat out.
+            What are you in the mood for?
           </h2>
           <p className="mt-3 text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">
-            Whatever you&apos;re in the mood for, EatinOut helps make going out cost less.
+            Whatever the occasion, EatinOut helps make going out cost less.
           </p>
         </Reveal>
 

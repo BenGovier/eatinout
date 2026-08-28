@@ -21,11 +21,14 @@ export function CampaignFinalCta() {
         </div>
 
         <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-20 text-center sm:px-6 sm:py-28">
-          <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-            Your next meal could cost a lot less.
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--eo-teal)]">
+            BlogPreston readers
+          </span>
+          <h2 className="mt-4 text-balance text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+            Ready to eat out for less?
           </h2>
           <p className="mt-4 max-w-xl text-pretty text-lg leading-relaxed text-white/85">
-            Join EatinOut free for 30 days and discover offers across Preston and Lancashire.
+            Start your free trial today and discover local restaurant offers across Preston and Lancashire.
           </p>
 
           <div className="mt-8 w-full max-w-sm">
