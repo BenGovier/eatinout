@@ -1,46 +1,42 @@
 import type { Metadata } from "next"
-import { PrestonHeader } from "@/components/prestonblog/preston-header"
-import { PrestonHero } from "@/components/prestonblog/preston-hero"
-import { PrestonTrustBar } from "@/components/prestonblog/preston-trust-bar"
-import { PrestonBonusBand } from "@/components/prestonblog/preston-bonus-band"
-import { PrestonSavings } from "@/components/prestonblog/preston-savings"
-import { PrestonOffers } from "@/components/prestonblog/preston-offers"
-import { PrestonHowItWorks } from "@/components/prestonblog/preston-how-it-works"
-import { PrestonTestimonials } from "@/components/prestonblog/preston-testimonials"
-import { PrestonFaq } from "@/components/prestonblog/preston-faq"
-import { PrestonFinalCta } from "@/components/prestonblog/preston-final-cta"
-import { PrestonFooter } from "@/components/prestonblog/preston-footer"
-import { PrestonStickyCta } from "@/components/prestonblog/preston-sticky-cta"
+import { CampaignHeader } from "@/components/prestonblog/campaign/campaign-header"
+import { CampaignHero } from "@/components/prestonblog/campaign/campaign-hero"
+import { CampaignLocal } from "@/components/prestonblog/campaign/campaign-local"
+import { CampaignValue } from "@/components/prestonblog/campaign/campaign-value"
+import { CampaignOccasions } from "@/components/prestonblog/campaign/campaign-occasions"
+import { CampaignHowItWorks } from "@/components/prestonblog/campaign/campaign-how-it-works"
+import { CampaignTrust } from "@/components/prestonblog/campaign/campaign-trust"
+import { CampaignFinalCta } from "@/components/prestonblog/campaign/campaign-final-cta"
 
 export const metadata: Metadata = {
-  title: "Eat Out More, Spend Less | EatinOut Free 30-Day Trial",
+  title: "Save up to 50% at local restaurants | EatinOut",
   description:
-    "Save up to 50% at hundreds of restaurants across Lancashire. Use EatinOut as often as you like. Try free for 30 days, then only £4.99/month. Cancel anytime.",
-  robots: { index: true, follow: true },
+    "Eat out more and spend less across Preston and Lancashire. Start your 30-day free trial with EatinOut — 450+ restaurant offers. No charge today, cancel anytime.",
   openGraph: {
-    title: "Eat out more often. Spend less every time. | EatinOut",
+    title: "Save up to 50% at local restaurants | EatinOut",
     description:
-      "Save up to 50% at hundreds of restaurants across Lancashire. Free 30-day trial, then £4.99/month. Cancel anytime.",
-    type: "website",
-    images: [{ url: "/images/prestonblog/hero-people.png" }],
+      "Eat out more and spend less across Preston and Lancashire. Start your 30-day free trial — no charge today, cancel anytime.",
+    images: ["/images/prestonblog/campaign/hero-dinner.png"],
   },
 }
 
-export default function EatinOutLandingPage() {
+/**
+ * /prestonblog — isolated BlogPreston campaign landing page.
+ * Single conversion goal: start a 30-day free trial via the existing
+ * /sign-up route. Consumes existing functionality only; no auth, signup,
+ * checkout, API, database or shared components are modified.
+ */
+export default function PrestonBlogCampaignPage() {
   return (
-    <main className="min-h-screen bg-white">
-      <PrestonHeader />
-      <PrestonHero />
-      <PrestonTrustBar />
-      <PrestonBonusBand />
-      <PrestonSavings />
-      <PrestonOffers />
-      <PrestonHowItWorks />
-      <PrestonTestimonials />
-      <PrestonFaq />
-      <PrestonFinalCta />
-      <PrestonFooter />
-      <PrestonStickyCta />
+    <main className="bg-white text-[var(--eo-ink)]">
+      <CampaignHeader />
+      <CampaignHero />
+      <CampaignLocal />
+      <CampaignValue />
+      <CampaignOccasions />
+      <CampaignHowItWorks />
+      <CampaignTrust />
+      <CampaignFinalCta />
     </main>
   )
 }
