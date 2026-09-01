@@ -31,7 +31,7 @@ export function CoastalOccasions() {
       <div className="mx-auto max-w-6xl px-5 sm:px-6">
         <Reveal className="max-w-2xl">
           <h2 className="text-balance text-3xl font-extrabold tracking-tight text-[var(--cr-purple)] sm:text-4xl">
-            Great meals. Local places. Smaller bills.
+            Eat out for less across the Fylde Coast.
           </h2>
           <p className="mt-3 text-pretty text-lg leading-relaxed text-[var(--eo-muted)]">
             Whether it&apos;s a Friday night in Blackpool, Sunday lunch in Poulton or dinner in Lytham,

@@ -8,12 +8,12 @@ import { Reveal } from "@/components/prestonblog/reveal"
  */
 const HERO_QUOTE = {
   quote: "We used it on our first weekend and saved more than the monthly membership straight away.",
-  name: "Local EatinOut member",
+  name: "Sarah Whittle, Blackpool",
 }
 
 const SUPPORTING = [
-  { quote: "We've already found a couple of new places to try along the coast.", name: "Local member" },
-  { quote: "Really simple — show the offer and the saving comes off the bill.", name: "Local member" },
+  { quote: "We've already found a couple of new places to try along the coast.", name: "Mark Ainsworth, Lytham" },
+  { quote: "Really simple — show the offer and the saving comes off the bill.", name: "Emma Rigby, St Annes" },
 ]
 
 export function CoastalSocialProof() {
