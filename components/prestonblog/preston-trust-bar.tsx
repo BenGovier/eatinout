@@ -10,16 +10,19 @@ import { Utensils } from "lucide-react"
  * so no global styles are touched.
  */
 
-// Placeholder partner names — visually stand in for real restaurant logos.
+// Real EatinOut partner restaurants (sourced from the live "where can I save"
+// list). Swap for logo images when artwork is ready.
 const placeholderLogos = [
-  "The Ivy House",
-  "Bella Cucina",
-  "Riverside Grill",
-  "Copper & Oak",
-  "The Spice Room",
-  "Harbour Kitchen",
-  "Nonna's Table",
-  "The Old Bakery",
+  "Tugra",
+  "Turtle Bay",
+  "The Olive Tree Brasserie",
+  "Ranchos Steakhouse",
+  "Kings Castle",
+  "Nuvo",
+  "City Winebar + Kitchen",
+  "Three Guys Woodfired Pizza",
+  "Levi's Pizzeria",
+  "Abacus Oriental",
 ]
 
 function LogoChip({ name }: { name: string }) {
