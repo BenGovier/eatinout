@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { Plus, Minus } from "lucide-react"
 import { Reveal } from "./reveal"
@@ -29,14 +30,17 @@ const faqs = [
   {
     q: "When do I receive my £25 M&S Gift Card?",
     a: "Once you've been a member for six continuous months, you'll qualify for your FREE £25 M&S Gift Card.",
+    terms: true,
   },
   {
     q: "How do I claim it?",
     a: "It's simple — once you reach six months of membership, just contact us and we'll arrange for your £25 M&S Gift Card to be sent to you.",
+    terms: true,
   },
   {
     q: "If I cancel before six months do I still receive it?",
     a: "The gift card is a reward for staying with us for six months, so you'll need to maintain an active membership for the full six months to qualify.",
+    terms: true,
   },
 ]
 
@@ -85,6 +89,18 @@ export function PrestonFaq() {
                       >
                         <p className="pb-5 pr-11 text-pretty text-base leading-relaxed text-[var(--eo-muted)]">
                           {faq.a}
+                          {"terms" in faq && faq.terms ? (
+                            <>
+                              {" "}
+                              <Link
+                                href="/terms"
+                                className="font-semibold text-[var(--eo-red)] underline underline-offset-2 hover:opacity-80"
+                              >
+                                See full gift card terms &amp; conditions
+                              </Link>
+                              .
+                            </>
+                          ) : null}
                         </p>
                       </motion.div>
                     ) : null}

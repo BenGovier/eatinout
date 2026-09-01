@@ -30,6 +30,9 @@
     --eo-red: #d90429;
     --eo-teal: #14b8a6; /* accent */
     --eo-teal-100: #e6fffb;
+    --eo-gold: #c8a24a; /* 3rd brand colour — replaces teal on the M&S page */
+    --eo-gold-light: #f3dd93;
+    --eo-gold-dark: #a67c2e;
     --eo-ink: #0f172a; /* headings */
     --eo-muted: #6b7280; /* body text */
     --eo-bg: #f8fafc; /* soft page bg */
@@ -61,6 +64,9 @@
     --eo-red: #d90429;
     --eo-teal: #14b8a6; /* accent */
     --eo-teal-100: #e6fffb;
+    --eo-gold: #c8a24a; /* 3rd brand colour — replaces teal on the M&S page */
+    --eo-gold-light: #f3dd93;
+    --eo-gold-dark: #a67c2e;
     --eo-ink: #0f172a; /* headings */
     --eo-muted: #6b7280; /* body text */
     --eo-bg: #f8fafc; /* soft page bg */

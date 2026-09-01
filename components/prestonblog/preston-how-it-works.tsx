@@ -1,4 +1,3 @@
-import { RefreshCw } from "lucide-react"
 import { Reveal } from "./reveal"
 
 const steps = [
@@ -51,15 +50,6 @@ export function PrestonHowItWorks() {
             </Reveal>
           ))}
         </div>
-
-        <Reveal delay={0.1}>
-          <div className="mx-auto mt-10 flex max-w-2xl items-center gap-3 rounded-2xl bg-white px-5 py-3.5 shadow-sm ring-1 ring-black/5 sm:justify-center">
-            <RefreshCw className="h-4 w-4 shrink-0 text-[var(--eo-teal)]" />
-            <p className="text-pretty text-sm font-semibold text-[var(--eo-ink)]">
-              Not a one-off voucher — use your offers again and again, as often as you like.
-            </p>
-          </div>
-        </Reveal>
       </div>
     </section>
   )
