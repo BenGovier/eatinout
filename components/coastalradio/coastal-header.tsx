@@ -23,7 +23,7 @@ export function CoastalHeader() {
             width={600}
             height={200}
             priority
-            className="h-8 w-auto sm:h-10"
+            className="h-11 w-auto sm:h-14"
           />
         </div>
         <p className="text-[0.6rem] font-bold uppercase tracking-[0.28em] text-black/45 sm:text-[0.68rem]">

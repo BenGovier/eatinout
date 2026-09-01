@@ -67,13 +67,13 @@ export function CoastalHero() {
         />
 
         {/* overlapping Fylde Coast cue, magenta framed */}
-        <div className="absolute bottom-4 left-4 w-[42%] max-w-[220px] overflow-hidden rounded-sm shadow-2xl ring-2 ring-[var(--cr-magenta)] sm:bottom-6 sm:left-6 lg:w-[38%]">
-          <div className="relative aspect-[4/3]">
+        <div className="absolute bottom-4 left-4 w-[52%] max-w-[300px] overflow-hidden rounded-sm shadow-2xl ring-2 ring-[var(--cr-magenta)] sm:bottom-6 sm:left-6 lg:w-[46%]">
+          <div className="relative aspect-[16/9]">
             <Image
-              src="/images/coastalradio/hero-coast.png"
-              alt="Blackpool seafront and Tower at dusk"
+              src="/images/coastalradio/blackpool-real.jpg"
+              alt="Blackpool Tower lit pink at dusk, reflected on the beach along the seafront"
               fill
-              sizes="220px"
+              sizes="300px"
               className="object-cover"
             />
           </div>
