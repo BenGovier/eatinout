@@ -45,8 +45,6 @@ export function CoastalHero() {
             <li>No charge today</li>
             <li aria-hidden="true" className="text-white/30">&bull;</li>
             <li>Then £4.99/month</li>
-            <li aria-hidden="true" className="text-white/30">&bull;</li>
-            <li>Cancel anytime</li>
           </ul>
         </div>
       </div>
