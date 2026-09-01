@@ -18,12 +18,12 @@ export function CoastalHeader() {
           </span>
 
           <Image
-            src="/eatinout-logo.webp"
+            src="/images/coastalradio/eatinout-logo-trim.png"
             alt="EatinOut"
-            width={600}
-            height={200}
+            width={538}
+            height={141}
             priority
-            className="h-11 w-auto sm:h-14"
+            className="h-7 w-auto sm:h-9"
           />
         </div>
         <p className="text-[0.6rem] font-bold uppercase tracking-[0.28em] text-black/45 sm:text-[0.68rem]">
