@@ -207,10 +207,10 @@ export default function MandsTermsPage() {
             <p>The Promotion is available to eligible customers who join between:</p>
             <ul className="list-none space-y-1.5">
               <li>
-                <span className="font-semibold">Promotion starts:</span> [DATE AND TIME &mdash; to be confirmed]
+                <span className="font-semibold">Promotion starts:</span> 1 September 2026 at 00:01 (BST)
               </li>
               <li>
-                <span className="font-semibold">Promotion ends:</span> [DATE AND TIME &mdash; to be confirmed]
+                <span className="font-semibold">Promotion ends:</span> 31 October 2026 at 23:59 (GMT)
               </li>
             </ul>
             <p>
