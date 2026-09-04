@@ -81,13 +81,18 @@ export function PrestonHero() {
           Save up to 50% at 450+ restaurants across Lancashire with a free 30-day trial.
         </motion.p>
 
-        <motion.p
+        <motion.div
           variants={item}
-          className="mt-4 inline-flex max-w-xl items-center gap-2 text-pretty text-sm leading-relaxed text-white/70"
+          className="mt-4 flex max-w-xl flex-wrap items-center gap-x-2 gap-y-2 text-pretty text-sm leading-relaxed text-white/80"
         >
           <Gift className="h-4 w-4 shrink-0 text-[var(--eo-gold-light)]" />
-          Join today and earn a FREE £25 M&amp;S Gift Card.
-        </motion.p>
+          <span>
+            Join today and earn a FREE £25 M&amp;S Gift Card &mdash; use code
+          </span>
+          <span className="inline-flex items-center rounded-md border border-dashed border-[var(--eo-gold-light)]/70 bg-[var(--eo-gold-light)]/15 px-2 py-0.5 font-mono text-sm font-bold uppercase tracking-widest text-[var(--eo-gold-light)]">
+            M&amp;S25
+          </span>
+        </motion.div>
 
         <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <PrestonCtaButton block className="sm:w-auto" />

@@ -93,7 +93,7 @@ export function PrestonFaq() {
                             <>
                               {" "}
                               <Link
-                                href="/terms"
+                                href="/mands/terms"
                                 className="font-semibold text-[var(--eo-red)] underline underline-offset-2 hover:opacity-80"
                               >
                                 See full gift card terms &amp; conditions

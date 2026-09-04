@@ -72,6 +72,7 @@
     "leaflet.markercluster": "^1.5.3",
     "lodash": "^4.17.21",
     "lucide-react": "^0.454.0",
+    "mammoth": "^1.12.2",
     "mapbox-gl": "^3.27.0",
     "mongoose": "latest",
     "next": "15.2.8",
