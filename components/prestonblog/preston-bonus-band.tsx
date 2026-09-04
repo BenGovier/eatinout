@@ -56,6 +56,13 @@ export function PrestonBonusBand() {
           <p className="mx-auto mt-5 max-w-md text-pretty text-lg font-medium leading-relaxed text-white/90 sm:text-xl lg:mx-0">
             Stay subscribed for 6 months and you&apos;ll qualify for a FREE £25 M&amp;S Gift Card.
           </p>
+          <p className="mx-auto mt-5 flex max-w-md flex-wrap items-center justify-center gap-x-2 gap-y-2 text-sm font-medium text-white/90 lg:mx-0 lg:justify-start">
+            Use code
+            <span className="inline-flex items-center rounded-md border border-dashed border-white/70 bg-white/15 px-2 py-0.5 font-mono text-sm font-bold uppercase tracking-widest text-white">
+              M&amp;S25
+            </span>
+            when you join
+          </p>
         </div>
 
         {/* Premium gift card — always fully in frame, gently tilted */}
