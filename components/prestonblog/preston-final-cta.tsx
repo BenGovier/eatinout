@@ -31,6 +31,14 @@ export function PrestonFinalCta() {
             Gift Card.
           </p>
 
+          <p className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-base font-medium text-white/85">
+            Use code
+            <span className="inline-flex items-center rounded-md border border-dashed border-[var(--eo-gold-light)]/70 bg-[var(--eo-gold-light)]/15 px-2 py-0.5 font-mono text-base font-bold uppercase tracking-widest text-[var(--eo-gold-light)]">
+              M&amp;S25
+            </span>
+            at sign-up
+          </p>
+
           <div className="mt-9 flex justify-center">
             <PrestonCtaButton
               label="Start my free trial"
