@@ -90,7 +90,7 @@ export function PrestonHero() {
             Join today and earn a FREE £25 M&amp;S Gift Card &mdash; use code
           </span>
           <span className="inline-flex items-center rounded-md border border-dashed border-[var(--eo-gold-light)]/70 bg-[var(--eo-gold-light)]/15 px-2 py-0.5 font-mono text-sm font-bold uppercase tracking-widest text-[var(--eo-gold-light)]">
-            M&amp;S25
+            MANDS25
           </span>
         </motion.div>
 

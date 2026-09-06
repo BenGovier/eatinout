@@ -59,7 +59,7 @@ export function PrestonBonusBand() {
           <p className="mx-auto mt-5 flex max-w-md flex-wrap items-center justify-center gap-x-2 gap-y-2 text-sm font-medium text-white/90 lg:mx-0 lg:justify-start">
             Use code
             <span className="inline-flex items-center rounded-md border border-dashed border-white/70 bg-white/15 px-2 py-0.5 font-mono text-sm font-bold uppercase tracking-widest text-white">
-              M&amp;S25
+              MANDS25
             </span>
             when you join
           </p>
