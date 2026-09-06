@@ -68,7 +68,7 @@ export default function MandsTermsPage() {
               <li>successfully complete six monthly paid membership payments; and</li>
               <li>satisfy all other requirements contained in these terms.</li>
             </ul>
-            <p>The Promotion is available only to new qualifying EatinOut memberships using promo code M&amp;S25.</p>
+            <p>The Promotion is available only to new qualifying EatinOut memberships using promo code MANDS25.</p>
             <p>Customers who previously held an EatinOut membership are excluded from the Promotion.</p>
             <p>
               A member becomes eligible to claim the reward only once six separate successful monthly EatinOut membership
@@ -86,7 +86,7 @@ export default function MandsTermsPage() {
               <li>otherwise cancelled or returned.</li>
             </ul>
             <p>Failed or declined payments do not count.</p>
-            <p>Promo code M&amp;S25 cannot be used in conjunction with any other offer.</p>
+            <p>Promo code MANDS25 cannot be used in conjunction with any other offer.</p>
           </Term>
 
           <Term title="Membership Status">
