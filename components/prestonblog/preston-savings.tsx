@@ -33,7 +33,7 @@ export function PrestonSavings() {
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
         <Reveal>
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-teal)]">Do the maths</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--eo-gold-light)]">Do the maths</p>
           <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
             One meal can pay for months of membership.
           </h2>
@@ -47,7 +47,7 @@ export function PrestonSavings() {
                 key={benefit}
                 className="flex items-center gap-4 rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--eo-teal)]/15 text-[var(--eo-teal)]">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--eo-gold)]/20 text-[var(--eo-gold-light)]">
                   <Check className="h-4 w-4" />
                 </span>
                 <span className="text-pretty text-base font-medium text-white/85">{benefit}</span>
@@ -83,7 +83,10 @@ export function PrestonSavings() {
                 <span className="font-semibold line-through tabular-nums">£86.00</span>
               </div>
               <div className="flex items-center justify-between font-semibold text-[var(--eo-red)]">
-                <span>Saving</span>
+                <span className="flex items-center gap-2">
+                  Saving
+                  <span className="rounded-full bg-[var(--eo-red)] px-2 py-0.5 text-xs font-bold text-white">50%</span>
+                </span>
                 <span className="tabular-nums">&minus;£43.00</span>
               </div>
               <div className="flex items-center justify-between border-t border-black/10 pt-2.5 font-bold text-[var(--eo-ink)]">
@@ -92,9 +95,17 @@ export function PrestonSavings() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl bg-[var(--eo-teal)] px-4 py-4 text-center">
-              <p className="text-2xl font-extrabold uppercase tracking-tight text-white">You saved £43</p>
-              <p className="mt-1 text-xs font-medium text-white/90">
+            <div
+              className="mt-5 overflow-hidden rounded-xl px-4 py-4 text-center ring-1 ring-[var(--eo-gold-dark)]/40"
+              style={{
+                backgroundImage:
+                  "linear-gradient(135deg, var(--eo-gold-dark) 0%, var(--eo-gold-light) 38%, #fff6d8 50%, var(--eo-gold-light) 62%, var(--eo-gold-dark) 100%)",
+              }}
+            >
+              <p className="text-2xl font-extrabold uppercase tracking-tight text-[var(--eo-ink)] drop-shadow-[0_1px_0_rgba(255,255,255,0.5)]">
+                You saved £43
+              </p>
+              <p className="mt-1 text-xs font-semibold text-[var(--eo-ink)]/80">
                 That&apos;s over 8 months of membership from one meal.
               </p>
             </div>
