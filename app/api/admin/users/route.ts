@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
       subscriptionStatus: user.subscriptionStatus || "inactive",
       isTrialing: user.isTrialing,
       usedVoucherCode: user.usedVoucherCode,
+      source: user.source,
       createdAt: user.createdAt,
       ...(user.role === 'restaurant' && { restaurantName: restaurantMap[user._id.toString()] || null })
     }))

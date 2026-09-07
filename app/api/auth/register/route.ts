@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode } = requestBody;
+    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source } = requestBody;
 
     // Log referral for debugging
     if (referral) {
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
         selectedPriceId: selectedPriceId || null,
         // Store Rewardful referral ID for affiliate tracking
         rewardfulReferral: referral || null,
+        source: source || null,
       });
 
       await user.save();

@@ -1392,7 +1392,7 @@ import type React from "react"
 
 import { useEffect, useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1407,6 +1407,8 @@ import { useAuth } from "@/context/auth-context"
 function SignUpPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const params = useParams()
+  const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug || null
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
@@ -1707,6 +1709,7 @@ function SignUpPageContent() {
           zipCode: formData.zipCode,
           selectedPriceId,
           referral,
+          source: slug,
         }),
       });
 
