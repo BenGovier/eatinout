@@ -694,10 +694,9 @@ export default function UserLocationMap({
       style: "mapbox://styles/mapbox/streets-v12",
       center: [-2.0, 54.0], // Center of UK
       zoom: 5.5, // Frame the UK
-
       attributionControl: false,
-      maxBounds: [[-10.85, 49.8], [2.05, 60.9]], // Tighter UK bounds
-      minZoom: 6,
+      maxBounds: [[-12.0, 49.0], [3.0, 61.5]], // Expanded bounds to allow full UK view without getting restricted by viewport size
+      minZoom: 4.5, // Lower min zoom to allow full UK on mobile
     });
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
@@ -901,7 +900,7 @@ export default function UserLocationMap({
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
           const isZoomedOut = currentZoom < 13;
-          
+
           el.innerHTML = `
             <div class="marker-zoomed-out" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
               <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Area Pin" />
