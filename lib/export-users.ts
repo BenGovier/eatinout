@@ -12,6 +12,7 @@ interface User {
   restaurantName?: string;
   zipCode?: string; // ✅ Added
   usedVoucherCode?: string | null;
+  source?: string | null;
 }
 
 export function exportUsersToXLSX(users: User[]) {
@@ -25,6 +26,7 @@ export function exportUsersToXLSX(users: User[]) {
     "Voucher Used",
     "Restaurant Name",
     "Zip Code",  
+    "Source",
     "Joined At",
   ];
 
@@ -39,6 +41,7 @@ export function exportUsersToXLSX(users: User[]) {
     user.usedVoucherCode || "N/A",
     user.role === "restaurant" ? user.restaurantName || "N/A" : "N/A",
     user.zipCode || "N/A", 
+    user.source || "N/A",
     new Date(user.createdAt).toLocaleDateString("en-GB"),
   ]);
 
@@ -52,6 +55,7 @@ export function exportUsersToXLSX(users: User[]) {
     { wch: 15 }, // Voucher Used
     { wch: 30 }, // Restaurant Name
     { wch: 12 }, // Zip Code
+    { wch: 20 }, // Source
     { wch: 15 }, // Joined At
   ];
 

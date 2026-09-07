@@ -25,6 +25,7 @@ interface User {
   subscriptionStatus: string
   isTrialing?: boolean
   usedVoucherCode?: string | null
+  source?: string | null
   createdAt: string
   restaurantName?: string
   zipCode?: string
@@ -344,6 +345,7 @@ export default function AdminUsersPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Subscription</TableHead>
                     <TableHead>Voucher</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -375,6 +377,11 @@ export default function AdminUsersPage() {
                       </TableCell>
 
                       {/* Voucher */}
+                      <TableCell>
+                        <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
+                      </TableCell>
+
+                      {/* Source */}
                       <TableCell>
                         <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
                       </TableCell>
@@ -447,6 +454,7 @@ export default function AdminUsersPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Subscription</TableHead>
                     <TableHead>Voucher</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -501,6 +509,15 @@ export default function AdminUsersPage() {
                         {user.usedVoucherCode ? (
                           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                             {user.usedVoucherCode}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 pl-2">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.source ? (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {user.source}
                           </Badge>
                         ) : (
                           <span className="text-gray-400 pl-2">-</span>
