@@ -696,8 +696,8 @@ export default function UserLocationMap({
       zoom: 5.5, // Frame the UK
 
       attributionControl: false,
-      maxBounds: [[-8.7, 49.5], [1.95, 60.95]],
-      minZoom: 5,
+      maxBounds: [[-10.85, 49.8], [2.05, 60.9]], // Tighter UK bounds
+      minZoom: 6,
     });
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
@@ -716,7 +716,7 @@ export default function UserLocationMap({
         data: { type: "FeatureCollection", features: [] },
         cluster: true,
         clusterMaxZoom: 18,
-        clusterRadius: 50,
+        clusterRadius: 60,
       });
 
       map.addLayer({
@@ -847,6 +847,7 @@ export default function UserLocationMap({
 
     const features = map.queryRenderedFeatures({ layers: ["restaurants-points", "restaurants-clusters"] });
     const newMarkers: { [key: string]: mapboxgl.Marker } = {};
+    const currentZoom = map.getZoom();
 
     for (const feature of features) {
       // Auto fitBounds is disabled to ensure the map always loads showing the whole UK
@@ -865,6 +866,15 @@ export default function UserLocationMap({
 
       let marker = markersRef.current[id];
       if (marker) {
+        if (!isCluster) {
+          const zoomedOutDiv = marker.getElement().querySelector('.marker-zoomed-out') as HTMLElement;
+          const zoomedInDiv = marker.getElement().querySelector('.marker-zoomed-in') as HTMLElement;
+          if (zoomedOutDiv && zoomedInDiv) {
+            const isZoomedOut = currentZoom < 13;
+            zoomedOutDiv.style.display = isZoomedOut ? 'block' : 'none';
+            zoomedInDiv.style.display = isZoomedOut ? 'none' : 'flex';
+          }
+        }
         newMarkers[id] = marker;
         delete markersRef.current[id];
       } else {
@@ -890,8 +900,13 @@ export default function UserLocationMap({
           };
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
+          const isZoomedOut = currentZoom < 13;
+          
           el.innerHTML = `
-            <div style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 6px; position: relative;">
+            <div class="marker-zoomed-out" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
+              <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Area Pin" />
+            </div>
+            <div class="marker-zoomed-in" style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: ${isZoomedOut ? 'none' : 'flex'}; align-items: center; gap: 6px; position: relative;">
               <img src="${restaurant.imageUrl || "/placeholder.svg"}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover;" onerror="this.src='/placeholder.svg'" />
               <span style="font-weight: 600; font-size: 12px; color: #111; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: sans-serif;">${restaurant.name}</span>
               <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #eb221c;"></div>
