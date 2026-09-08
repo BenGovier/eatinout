@@ -41,7 +41,7 @@ export function OfferWizardStep3({
   onEndDateChange,
   onRunUntilFurtherNoticeChange,
 }: OfferWizardStep3Props) {
-  const TIME_INTERVAL_MINUTES = 30
+  const TIME_INTERVAL_MINUTES = 1
 
   const roundUpToInterval = (date: Date, minutes: number) => {
     const intervalMs = minutes * 60 * 1000
@@ -68,10 +68,10 @@ export function OfferWizardStep3({
 
     const now = new Date()
     
-    // Round up to next 30-minute interval
+    // Round up to next 1-minute interval
     const roundedDate = roundUpToInterval(date, TIME_INTERVAL_MINUTES)
     
-    // If selected time is in the past, bump to next 30-minute interval
+    // If selected time is in the past, bump to next 1-minute interval
     if (roundedDate <= now) {
       const nextInterval = roundUpToInterval(now, TIME_INTERVAL_MINUTES)
       
@@ -238,7 +238,7 @@ export function OfferWizardStep3({
           className="w-full border rounded px-3 py-2 border-gray-300 focus:border-[#E31E24] focus:ring-[#E31E24] focus:outline-none focus:ring-1"
           wrapperClassName="w-full"
         />
-        <p className="text-xs text-muted-foreground">Select a date and time in the future (30-minute intervals: 1:00, 1:30, 2:00, etc.)</p>
+        <p className="text-xs text-muted-foreground">Select a date and time in the future (1-minute intervals: 1:01, 1:02, etc.)</p>
       </div>
 
       {!isFirstOffer && (
@@ -298,7 +298,7 @@ export function OfferWizardStep3({
                 className="w-full border rounded px-3 py-2 border-gray-300 focus:border-[#E31E24] focus:ring-[#E31E24] focus:outline-none focus:ring-1"
                 wrapperClassName="w-full"
               />
-              <p className="text-xs text-muted-foreground">Must be after start date (30-minute intervals: 1:00, 1:30, 2:00, etc.)</p>
+              <p className="text-xs text-muted-foreground">Must be after start date (1-minute intervals: 1:01, 1:02, etc.)</p>
             </>
           )}
         </div>
