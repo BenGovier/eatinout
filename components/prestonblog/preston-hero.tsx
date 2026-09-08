@@ -4,6 +4,7 @@ import Image from "next/image"
 import { motion, type Variants } from "framer-motion"
 import { Ban, CalendarCheck, Gift } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
+import { MANDS_SIGNUP_URL } from "./mands-signup-url"
 
 const container: Variants = {
   hidden: {},
@@ -95,7 +96,7 @@ export function PrestonHero() {
         </motion.div>
 
         <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <PrestonCtaButton block className="sm:w-auto" />
+          <PrestonCtaButton href={MANDS_SIGNUP_URL} block className="sm:w-auto" />
           <PrestonCtaButton
             variant="secondary"
             href="#how-it-works"

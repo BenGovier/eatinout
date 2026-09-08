@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { Ban, CalendarCheck, Clock } from "lucide-react"
 import { PrestonCtaButton } from "./preston-cta-button"
+import { MANDS_SIGNUP_URL } from "./mands-signup-url"
 import { Reveal } from "./reveal"
 
 /**
@@ -41,6 +42,7 @@ export function PrestonFinalCta() {
 
           <div className="mt-9 flex justify-center">
             <PrestonCtaButton
+              href={MANDS_SIGNUP_URL}
               label="Start my free trial"
               className="[&_a]:bg-white [&_a]:px-10 [&_a]:text-[var(--eo-red)] [&_a]:shadow-black/20 [&_a:hover]:bg-white/90"
             />
