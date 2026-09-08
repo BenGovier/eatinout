@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { MANDS_SIGNUP_URL } from "./mands-signup-url"
 
 /**
  * PrestonBonusBand
@@ -42,7 +43,7 @@ function GiftCardFace({ reflection = false }: { reflection?: boolean }) {
 export function PrestonBonusBand() {
   return (
     <Link
-      href="/sign-up"
+      href={MANDS_SIGNUP_URL}
       aria-label="Your loyalty deserves rewarding. Stay subscribed for 6 months and qualify for a free £25 M&S gift card"
       className="group block w-full overflow-hidden bg-[var(--eo-red)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/50"
     >

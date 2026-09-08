@@ -4,6 +4,7 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import { Reveal } from "./reveal"
 import { PrestonCtaButton } from "./preston-cta-button"
+import { MANDS_SIGNUP_URL } from "./mands-signup-url"
 import { EXPERIENCES, EXPERIENCE_FOOTNOTE } from "./offers-data"
 
 /** Decorative food imagery only — the invitation to imagine their own night out. */
@@ -22,7 +23,7 @@ export function PrestonOffers() {
             Where&apos;s your first saving going to be?
           </h2>
           <div className="mt-8 flex justify-center">
-            <PrestonCtaButton label="Find offers near me" />
+            <PrestonCtaButton href={MANDS_SIGNUP_URL} label="Find offers near me" />
           </div>
         </Reveal>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { PrestonCtaButton } from "./preston-cta-button"
+import { MANDS_SIGNUP_URL } from "./mands-signup-url"
 
 /**
  * Mobile-only sticky CTA. Appears after the visitor scrolls past the hero
@@ -31,7 +32,7 @@ export function PrestonStickyCta() {
           <p className="mb-1.5 text-center text-xs font-medium text-[var(--eo-muted)]">
             30 days free, then £4.99/month · Cancel anytime
           </p>
-          <PrestonCtaButton block label="Start my free trial" />
+          <PrestonCtaButton href={MANDS_SIGNUP_URL} block label="Start my free trial" />
         </motion.div>
       )}
     </AnimatePresence>
