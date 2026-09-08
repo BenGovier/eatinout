@@ -714,7 +714,7 @@ export default function UserLocationMap({
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
         cluster: true,
-        clusterMaxZoom: 18,
+        clusterMaxZoom: 10,
         clusterRadius: 60,
       });
 
@@ -869,7 +869,7 @@ export default function UserLocationMap({
           const zoomedOutDiv = marker.getElement().querySelector('.marker-zoomed-out') as HTMLElement;
           const zoomedInDiv = marker.getElement().querySelector('.marker-zoomed-in') as HTMLElement;
           if (zoomedOutDiv && zoomedInDiv) {
-            const isZoomedOut = currentZoom < 13;
+            const isZoomedOut = currentZoom < 10;
             zoomedOutDiv.style.display = isZoomedOut ? 'block' : 'none';
             zoomedInDiv.style.display = isZoomedOut ? 'none' : 'flex';
           }
@@ -899,7 +899,7 @@ export default function UserLocationMap({
           };
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
-          const isZoomedOut = currentZoom < 13;
+          const isZoomedOut = currentZoom < 10;
 
           el.innerHTML = `
             <div class="marker-zoomed-out" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">

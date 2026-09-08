@@ -325,6 +325,10 @@ export async function GET(request: Request) {
         const activeOffersRaw = (
           offersGroupedByRestaurant[restaurantId] || []
         ).filter((o: any) => o.status === "active");
+        
+        // Only live active restaurants should be showing (must have at least 1 active offer)
+        if (activeOffersRaw.length === 0) return null;
+
         // Sort offers by pinning status: newest pinned → older pinned → newest unpinned → older unpinned
         const activeOffers = sortOffersByPinning(activeOffersRaw);
         const offerValidDays = activeOffers.map((o: any) => o.validDays);

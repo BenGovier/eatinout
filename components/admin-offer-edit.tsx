@@ -39,18 +39,7 @@ const daysOfWeek = [
   { id: "sunday", label: "Sunday" },
 ];
 
-// ✅ FIX 2: Corrected AM/PM logic in timeOptions
-const timeOptions = Array.from({ length: 24 * 2 }, (_, i) => {
-  const totalHour = Math.floor(i / 2)             // 0–23
-  const minute = i % 2 === 0 ? "00" : "30"
-  const hour24 = totalHour.toString().padStart(2, "0")
-  const ampm = totalHour < 12 ? "AM" : "PM"
-  const hour12 = totalHour % 12 === 0 ? 12 : totalHour % 12
-  return {
-    value: `${hour24}:${minute}`,
-    label: `${hour24}:${minute} (${hour12}:${minute} ${ampm})`
-  }
-})
+// TIME_OPTIONS removed in favor of native time input for 1-minute intervals.
 
 const bookingOptions = [
   { id: "mandatory", label: "Mandatory booking" },
@@ -831,7 +820,7 @@ export default function AdminEditOfferPage({
                       handleChange("startDate", date.toISOString());
                     }}
                     showTimeSelect
-                    timeIntervals={30}
+                    timeIntervals={1}
                     timeCaption="Time"
                     dateFormat="dd MMMM yyyy h:mm aa"
                     placeholderText="Select date and time"
@@ -898,7 +887,7 @@ export default function AdminEditOfferPage({
                     handleChange("expiryDate", date.toISOString());
                   }}
                   showTimeSelect
-                  timeIntervals={30}
+                  timeIntervals={1}
                   timeCaption="Time"
                   dateFormat="MMMM d, yyyy h:mm aa"
                   placeholderText="Select expiry date and time"
@@ -1055,24 +1044,13 @@ export default function AdminEditOfferPage({
                 >
                   Start Time For Offer
                 </Label>
-                <Select
+                <Input
+                  type="time"
+                  id="startTime"
                   value={formData.startTime}
-                  onValueChange={(value) => handleChange("startTime", value)}
-                >
-                  <SelectTrigger
-                    id="startTime"
-                    className={errors.startTime ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select start time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => handleChange("startTime", e.target.value)}
+                  className={errors.startTime ? "border-red-500 w-full" : "w-full"}
+                />
                 {errors.startTime && (
                   <p className="text-sm text-red-500 flex items-center mt-1">
                     <AlertCircle className="h-4 w-4 mr-1" />
@@ -1088,24 +1066,13 @@ export default function AdminEditOfferPage({
                 >
                   End Time For Offer
                 </Label>
-                <Select
+                <Input
+                  type="time"
+                  id="endTime"
                   value={formData.endTime}
-                  onValueChange={(value) => handleChange("endTime", value)}
-                >
-                  <SelectTrigger
-                    id="endTime"
-                    className={errors.endTime ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select end time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => handleChange("endTime", e.target.value)}
+                  className={errors.endTime ? "border-red-500 w-full" : "w-full"}
+                />
                 {errors.endTime && (
                   <p className="text-sm text-red-500 flex items-center mt-1">
                     <AlertCircle className="h-4 w-4 mr-1" />
