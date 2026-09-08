@@ -863,6 +863,9 @@ export default function UserLocationMap({
         id = `marker-${props.id}`;
       }
 
+      // Skip if we've already processed this feature in this render cycle to avoid orphaned markers
+      if (newMarkers[id]) continue;
+
       let marker = markersRef.current[id];
       if (marker) {
         if (!isCluster) {
