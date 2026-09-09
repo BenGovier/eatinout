@@ -104,7 +104,7 @@ export function RestaurantDeal({
                 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
                 const todayIndex = new Date().getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
                 const today = weekDays[(todayIndex + 6) % 7]; // shift so Sunday=0 → "Sun"
-                const isToday = day === today; // compare current day with today
+                // const isToday = day === today; // compare current day with today
 
                 return (
                   <div
