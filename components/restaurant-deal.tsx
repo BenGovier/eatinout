@@ -104,16 +104,12 @@ export function RestaurantDeal({
                 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
                 const todayIndex = new Date().getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
                 const today = weekDays[(todayIndex + 6) % 7]; // shift so Sunday=0 → "Sun"
-                const isToday = day === today; // compare current day with today
+                // const isToday = day === today; // compare current day with today
 
                 return (
                   <div
                     key={day}
-                    className={`snap-start flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                      isToday
-                        ? "border-primary bg-primary text-white shadow-[0_2px_6px_rgba(227,30,36,0.25)]"
-                        : "border-lines bg-white text-dark-ink"
-                    }`}
+                    className="snap-start flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors border-lines bg-white text-dark-ink"
                   >
                     {day}
                   </div>

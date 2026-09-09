@@ -702,7 +702,7 @@ export default function UserLocationMap({
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
 
     const el = document.createElement("div");
-    el.innerHTML = `<img src="/User-marker.svg" alt="User Location" style="width: 36px; height: 36px; drop-shadow: 0 4px 6px rgba(0,0,0,0.3);" />`;
+    el.innerHTML = `<img src="/blue-icon.svg" alt="User Location" style="width: 36px; height: 36px; drop-shadow: 0 4px 6px rgba(0,0,0,0.3);" />`;
     userMarkerRef.current = new mapboxgl.Marker({ element: el })
       .setLngLat([coords.lng, coords.lat])
       .addTo(map);
@@ -872,7 +872,7 @@ export default function UserLocationMap({
           const zoomedOutDiv = marker.getElement().querySelector('.marker-zoomed-out') as HTMLElement;
           const zoomedInDiv = marker.getElement().querySelector('.marker-zoomed-in') as HTMLElement;
           if (zoomedOutDiv && zoomedInDiv) {
-            const isZoomedOut = currentZoom < 10;
+            const isZoomedOut = currentZoom < 16;
             zoomedOutDiv.style.display = isZoomedOut ? 'block' : 'none';
             zoomedInDiv.style.display = isZoomedOut ? 'none' : 'flex';
           }
@@ -886,7 +886,7 @@ export default function UserLocationMap({
         if (isCluster) {
           const count = props.point_count;
           el.innerHTML = `<div style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
-            <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Cluster" />
+            <img src="/map-icon.svg" style="width: 100%; height: 100%;" alt="Cluster" />
           </div>`;
 
           el.onclick = (e) => {
@@ -902,11 +902,11 @@ export default function UserLocationMap({
           };
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
-          const isZoomedOut = currentZoom < 10;
+          const isZoomedOut = currentZoom < 16;
 
           el.innerHTML = `
             <div class="marker-zoomed-out" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
-              <img src="/Marker.svg" style="width: 100%; height: 100%;" alt="Area Pin" />
+              <img src="/map-icon.svg" style="width: 100%; height: 100%;" alt="Area Pin" />
             </div>
             <div class="marker-zoomed-in" style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: ${isZoomedOut ? 'none' : 'flex'}; align-items: center; gap: 6px; position: relative;">
               <img src="${restaurant.imageUrl || "/placeholder.svg"}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover;" onerror="this.src='/placeholder.svg'" />
