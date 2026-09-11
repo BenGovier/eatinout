@@ -768,7 +768,14 @@ export default function UserLocationMap({
       map.on("moveend", notifyVisible);
       map.on("zoomend", notifyVisible);
 
-      map.on("render", updateMarkers);
+      map.on("sourcedata", (e: any) => {
+        if (e.sourceId === "restaurants" && map.isSourceLoaded("restaurants")) {
+          updateMarkers();
+        }
+      });
+      map.on("move", updateMarkers);
+      map.on("moveend", updateMarkers);
+      updateMarkers();
       updateSourceData();
       notifyVisible();
     });
@@ -808,7 +815,7 @@ export default function UserLocationMap({
         typeof r.lng === "number" &&
         Number.isFinite(r.lng)
     );
-
+    console.log("validRestaurants", validRestaurants)
     const features = validRestaurants.map((r) => ({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: [r.lng, r.lat] },
@@ -842,9 +849,9 @@ export default function UserLocationMap({
     const map = mapInstanceRef.current;
     if (!map || !isMapLoaded.current) return;
     const source = map.getSource("restaurants") as mapboxgl.GeoJSONSource;
-    if (!source) return;
+    if (!source || !map.isSourceLoaded("restaurants")) return;
 
-    const features = map.queryRenderedFeatures({ layers: ["restaurants-points", "restaurants-clusters"] });
+    const features = map.querySourceFeatures("restaurants");
     const newMarkers: { [key: string]: mapboxgl.Marker } = {};
     const currentZoom = map.getZoom();
 
@@ -852,6 +859,7 @@ export default function UserLocationMap({
       // Auto fitBounds is disabled to ensure the map always loads showing the whole UK
       if (feature.geometry.type !== "Point") continue;
       const coords = feature.geometry.coordinates as [number, number];
+      if (!coords || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1])) continue;
       const props = feature.properties;
       if (!props) continue;
       const isCluster = props.cluster;
@@ -873,19 +881,21 @@ export default function UserLocationMap({
           const zoomedInDiv = marker.getElement().querySelector('.marker-zoomed-in') as HTMLElement;
           if (zoomedOutDiv && zoomedInDiv) {
             const isZoomedOut = currentZoom < 16;
-            zoomedOutDiv.style.display = isZoomedOut ? 'block' : 'none';
-            zoomedInDiv.style.display = isZoomedOut ? 'none' : 'flex';
+            const outDisplay = isZoomedOut ? 'block' : 'none';
+            const inDisplay = isZoomedOut ? 'none' : 'flex';
+            if (zoomedOutDiv.style.display !== outDisplay) zoomedOutDiv.style.display = outDisplay;
+            if (zoomedInDiv.style.display !== inDisplay) zoomedInDiv.style.display = inDisplay;
           }
         }
         newMarkers[id] = marker;
         delete markersRef.current[id];
       } else {
         const el = document.createElement("div");
-        el.className = "cursor-pointer transition-transform duration-200 hover:scale-110";
+        el.className = "cursor-pointer";
 
         if (isCluster) {
           const count = props.point_count;
-          el.innerHTML = `<div style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
+          el.innerHTML = `<div class="transition-transform duration-200 hover:scale-110" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));">
             <img src="/map-icon.svg" style="width: 100%; height: 100%;" alt="Cluster" />
           </div>`;
 
@@ -905,10 +915,10 @@ export default function UserLocationMap({
           const isZoomedOut = currentZoom < 16;
 
           el.innerHTML = `
-            <div class="marker-zoomed-out" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
+            <div class="marker-zoomed-out transition-transform duration-200 hover:scale-110" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
               <img src="/map-icon.svg" style="width: 100%; height: 100%;" alt="Area Pin" />
             </div>
-            <div class="marker-zoomed-in" style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: ${isZoomedOut ? 'none' : 'flex'}; align-items: center; gap: 6px; position: relative;">
+            <div class="marker-zoomed-in transition-transform duration-200 hover:scale-110" style="background: white; border: 2px solid #eb221c; border-radius: 6px; padding: 4px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: ${isZoomedOut ? 'none' : 'flex'}; align-items: center; gap: 6px; position: relative;">
               <img src="${restaurant.imageUrl || "/placeholder.svg"}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover;" onerror="this.src='/placeholder.svg'" />
               <span style="font-weight: 600; font-size: 12px; color: #111; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: sans-serif;">${restaurant.name}</span>
               <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #eb221c;"></div>
