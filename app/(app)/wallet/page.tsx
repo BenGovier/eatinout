@@ -83,7 +83,7 @@ export default function WalletPage() {
         else setLoadingMore(true)
 
         const params = new URLSearchParams({ page: page.toString(), limit: "10" })
-        const response = await fetch(`/api/wallet?${params.toString()}`)
+        const response = await fetch(`/api/wallet?${params.toString()}`, { cache: "no-store" })
         if (!response.ok) throw new Error("Failed to fetch wallet data")
         const data: WalletData = await response.json()
 
