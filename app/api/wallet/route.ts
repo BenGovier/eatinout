@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = 'force-dynamic';
 import crypto from "crypto";
 import connectToDatabase from "@/lib/mongodb";
 import { Wallet } from "@/models/Wallet";
