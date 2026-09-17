@@ -27,7 +27,7 @@ function CheckoutHeader() {
   )
 }
 
-const REASSURANCE = ["Cancel anytime", "Secure checkout", "Local dining offers"]
+const REASSURANCE = ["Up to 50% off", "500+ places", "Cancel anytime"]
 
 function CheckoutLifestylePanel() {
   return (
@@ -54,19 +54,19 @@ function CheckoutLifestylePanel() {
           </p>
         </div>
 
-        {/* EatinOut savings overlay — styled as product UI, not an advertising sticker */}
+        {/* EatinOut savings overlay — compact product card, ~20-25% smaller than before */}
         <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
-          <div className="flex items-center gap-2.5 rounded-xl border border-black/5 bg-white/95 p-2 pr-3 shadow-lg backdrop-blur">
-            <span className="flex flex-col items-center justify-center rounded-lg bg-[var(--eo-red)] px-2.5 py-1.5 leading-none text-white">
-              <span className="text-base font-extrabold sm:text-lg">50%</span>
-              <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider">Off</span>
+          <div className="flex items-center gap-2 rounded-lg border border-black/5 bg-white/95 p-1.5 pr-2.5 shadow-lg backdrop-blur">
+            <span className="flex flex-col items-center justify-center rounded-md bg-[var(--eo-red)] px-2 py-1 leading-none text-white">
+              <span className="text-sm font-extrabold sm:text-base">50%</span>
+              <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wider">Off</span>
             </span>
             <span>
-              <span className="block text-[13px] font-bold leading-tight text-[var(--eo-ink)]">
+              <span className="block text-[11px] font-bold leading-tight text-[var(--eo-ink)]">
                 Potential £25 saving
               </span>
-              <span className="block text-[11px] leading-tight text-[var(--eo-muted)]">on a £50 bill</span>
-              <span className="mt-0.5 block text-[10px] leading-tight text-[var(--eo-muted)]/80">
+              <span className="block text-[10px] leading-tight text-[var(--eo-muted)]">on a £50 bill</span>
+              <span className="mt-0.5 block text-[9px] leading-tight text-[var(--eo-muted)]/80">
                 with a participating 50% offer
               </span>
             </span>
@@ -78,7 +78,7 @@ function CheckoutLifestylePanel() {
       <div className="hidden lg:block">
         <h2 className="text-xl font-bold text-[var(--eo-ink)]">Dine out for less, all year round</h2>
         <p className="mt-2 text-pretty text-[var(--eo-muted)]">
-          Unlock 2-for-1 mains and up to 50% off at hundreds of local restaurants, cafés and bars near you.
+          Unlock 2-for-1 mains and exclusive member offers at hundreds of local restaurants, cafés and bars near you.
         </p>
         <ul className="mt-5 space-y-3">
           {REASSURANCE.map((item) => (
@@ -101,7 +101,9 @@ function CheckoutIntro() {
       <h1 className="text-2xl font-bold tracking-tight text-[var(--eo-ink)] sm:text-3xl">
         Start your 30-day free trial
       </h1>
-      <p className="mt-2 text-pretty text-[var(--eo-muted)]">Save up to 50% at local restaurants near you.</p>
+      <p className="mt-2 text-pretty text-[var(--eo-muted)]">
+        Try EatinOut free and start saving at 500+ restaurants, cafés and bars.
+      </p>
 
       {/* Mobile reassurance chips (desktop uses the left-panel list) */}
       <ul className="mt-4 flex flex-wrap gap-2 lg:hidden">
@@ -139,7 +141,11 @@ function SocialProof() {
           </span>
         ))}
       </div>
-      <p className="text-sm font-medium text-[var(--eo-muted)]">500+ restaurants, cafés and bars</p>
+      <div>
+        <p className="text-sm font-semibold text-[var(--eo-ink)]">500+ restaurants, cafés and bars</p>
+        <p className="text-xs font-medium text-[var(--eo-muted)]">Rated 4.8 by EatinOut members</p>
+        <p className="text-xs text-[var(--eo-muted)]/80">&ldquo;Saved £27 on our first meal.&rdquo;</p>
+      </div>
     </div>
   )
 }
@@ -149,14 +155,18 @@ function MembershipSummary() {
     <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-3xl font-bold text-[var(--eo-ink)]">£0 today</p>
-          <p className="mt-1 text-sm text-[var(--eo-muted)]">
-            Then £4.99/month after your 30-day free trial
-          </p>
+          <p className="text-3xl font-extrabold leading-none text-[var(--eo-ink)] sm:text-4xl">£0 today</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--eo-ink)]">30 days completely free</p>
+          <p className="mt-1 text-sm text-[var(--eo-muted)]">Then £4.99/month</p>
+          <p className="mt-0.5 text-sm text-[var(--eo-muted)]">Cancel anytime</p>
         </div>
-        <span className="shrink-0 rounded-full bg-[var(--eo-red)]/10 px-3 py-1 text-xs font-semibold text-[var(--eo-red)]">
-          Save up to 50%
-        </span>
+        <div className="shrink-0 rounded-xl bg-[var(--eo-red)]/10 px-3 py-2 text-center">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--eo-red)]">
+            Save up to
+          </span>
+          <span className="block text-xl font-extrabold leading-none text-[var(--eo-red)]">50%</span>
+          <span className="mt-1 block text-[9px] leading-tight text-[var(--eo-red)]/70">on participating offers</span>
+        </div>
       </div>
     </div>
   )
