@@ -51,9 +51,11 @@ export function StripePaymentElementPlaceholder() {
 
       <MockField label="Country" placeholder="United Kingdom" />
 
-      <p className="text-center text-xs text-[var(--eo-muted)]">
-        Mock card fields &mdash; the secure Stripe PaymentElement will replace this region.
-      </p>
+      {/*
+        DEV INTEGRATION POINT:
+        Replace this region with Stripe PaymentElement. Stripe owns and secures
+        all sensitive card fields — no card data is collected here.
+      */}
     </section>
   )
 }

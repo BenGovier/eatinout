@@ -22,6 +22,8 @@ export function CheckoutCTA() {
         Start my free trial
       </button>
 
+      <p className="mt-2 text-center text-xs font-medium text-[var(--eo-muted)]">£0 charged today</p>
+
       {notice && (
         <p
           role="status"
