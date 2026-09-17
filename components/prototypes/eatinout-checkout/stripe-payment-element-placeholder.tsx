@@ -28,7 +28,7 @@ function MockField({
       <span className="mb-1.5 block text-xs font-medium text-[var(--eo-muted)]">{label}</span>
       <div
         aria-hidden="true"
-        className="flex h-11 items-center justify-between rounded-lg border border-black/10 bg-white px-3 text-sm text-[var(--eo-muted)]/70"
+        className="flex h-11 items-center justify-between rounded-lg border border-black/10 bg-white px-3 text-sm text-[var(--eo-muted)]/70 transition-colors duration-150 hover:border-[var(--eo-red)]/40"
       >
         <span>{placeholder}</span>
         {children}
@@ -51,9 +51,11 @@ export function StripePaymentElementPlaceholder() {
 
       <MockField label="Country" placeholder="United Kingdom" />
 
-      <p className="text-center text-xs text-[var(--eo-muted)]">
-        Mock card fields &mdash; the secure Stripe PaymentElement will replace this region.
-      </p>
+      {/*
+        DEV INTEGRATION POINT:
+        Replace this region with Stripe PaymentElement. Stripe owns and secures
+        all sensitive card fields — no card data is collected here.
+      */}
     </section>
   )
 }
