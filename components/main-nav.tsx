@@ -46,7 +46,7 @@ export function MainNav({ isAuthenticated }: { isAuthenticated: boolean }) {
       {/* Desktop Navigation */}
       <nav className="hidden md:flex items-center space-x-6">
         {navItems.map((item) => {
-          if (!canViewFullNav && !item.isPublic) return null;
+          if (!canViewFullNav) return null;
           return (
             <Link
               key={item.href}
