@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, useReducedMotion } from "framer-motion"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 /**
  * Shared motion primitives for the checkout prototype.
@@ -44,12 +44,14 @@ export function LoadReveal({
 export function ViewReveal({
   children,
   className,
+  style,
   y = 10,
   delay = 0,
   duration = 0.5,
 }: {
   children: ReactNode
   className?: string
+  style?: CSSProperties
   y?: number
   delay?: number
   duration?: number
@@ -60,6 +62,7 @@ export function ViewReveal({
   return (
     <motion.div
       className={className}
+      style={style}
       initial={hidden}
       whileInView={shown}
       viewport={{ once: true, amount: 0.35 }}
@@ -99,13 +102,23 @@ export function StaggerGroup({
   )
 }
 
-export function StaggerItem({ children, className, y = 8 }: { children: ReactNode; className?: string; y?: number }) {
+export function StaggerItem({
+  children,
+  className,
+  style,
+  y = 8,
+}: {
+  children: ReactNode
+  className?: string
+  style?: CSSProperties
+  y?: number
+}) {
   const reduce = useReducedMotion()
   const variants = reduce
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : { hidden: { opacity: 0, y }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } } }
   return (
-    <motion.div className={className} variants={variants}>
+    <motion.div className={className} style={style} variants={variants}>
       {children}
     </motion.div>
   )
