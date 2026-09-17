@@ -8,27 +8,45 @@ import { CreditCard } from "lucide-react"
  * Stripe will own and secure all sensitive payment fields.
  *
  * The "fields" below are non-interactive styled divs used only to communicate
- * layout, spacing and dimensions. They are NOT inputs. No payment data is
- * collected, entered, stored or processed.
+ * layout, spacing, dimensions and the intended focus treatment. They are NOT
+ * inputs. No payment data is collected, entered, stored or processed.
+ *
+ * Colours come from the prototype-scoped `--p-*` custom properties on the
+ * prototype root; this component touches no global tokens.
  */
 
 function MockField({
   label,
   placeholder,
   className = "",
+  focused = false,
   children,
 }: {
   label: string
   placeholder?: string
   className?: string
+  /** Statically shows the intended focus treatment (border + ring) for handoff. */
+  focused?: boolean
   children?: React.ReactNode
 }) {
   return (
     <div className={className}>
-      <span className="mb-1.5 block text-xs font-medium text-[var(--eo-muted)]">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-semibold text-[var(--p-muted-strong)]">{label}</span>
       <div
         aria-hidden="true"
-        className="flex h-11 items-center justify-between rounded-lg border border-black/10 bg-white px-3 text-sm text-[var(--eo-muted)]/70 transition-colors duration-150 hover:border-[var(--eo-red)]/40"
+        className="flex h-[52px] items-center justify-between rounded-xl px-3.5 text-sm text-[var(--p-muted)]/70 transition-all duration-150"
+        style={
+          focused
+            ? {
+                background: "var(--p-field)",
+                border: "1px solid var(--p-red)",
+                boxShadow: "0 0 0 3px rgba(217,4,41,0.08)",
+              }
+            : {
+                background: "var(--p-field)",
+                border: "1px solid rgba(22,23,26,0.10)",
+              }
+        }
       >
         <span>{placeholder}</span>
         {children}
@@ -40,8 +58,9 @@ function MockField({
 export function StripePaymentElementPlaceholder() {
   return (
     <section aria-label="Card payment fields (prototype placeholder)" className="space-y-3">
-      <MockField label="Card number" placeholder="1234 1234 1234 1234">
-        <CreditCard className="h-4 w-4 text-[var(--eo-muted)]/60" aria-hidden="true" />
+      {/* First field shows the intended focus state so the design intent is visible. */}
+      <MockField label="Card number" placeholder="1234 1234 1234 1234" focused>
+        <CreditCard className="h-4 w-4 text-[var(--p-muted)]/60" aria-hidden="true" />
       </MockField>
 
       <div className="grid grid-cols-2 gap-3">
@@ -50,12 +69,6 @@ export function StripePaymentElementPlaceholder() {
       </div>
 
       <MockField label="Country" placeholder="United Kingdom" />
-
-      {/*
-        DEV INTEGRATION POINT:
-        Replace this region with Stripe PaymentElement. Stripe owns and secures
-        all sensitive card fields — no card data is collected here.
-      */}
     </section>
   )
 }
