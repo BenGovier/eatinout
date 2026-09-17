@@ -17,12 +17,14 @@ export function CheckoutCTA() {
       <button
         type="button"
         onClick={() => setNotice(true)}
-        className="flex h-12 w-full items-center justify-center rounded-full bg-[var(--eo-red)] px-6 text-base font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--eo-red)]"
+        className="flex h-14 w-full items-center justify-center rounded-full bg-[var(--eo-red)] px-6 text-base font-bold text-white shadow-sm transition-all duration-150 hover:brightness-95 motion-safe:hover:-translate-y-px motion-safe:hover:shadow-lg motion-safe:active:translate-y-0 motion-safe:active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--eo-red)]"
       >
-        Start my free trial
+        Start saving &mdash; £0 today
       </button>
 
-      <p className="mt-2 text-center text-xs font-medium text-[var(--eo-muted)]">£0 charged today</p>
+      <p className="mt-2.5 text-center text-xs font-medium text-[var(--eo-muted)]">
+        30 days free &bull; Then £4.99/month &bull; Cancel anytime
+      </p>
 
       {notice && (
         <p
