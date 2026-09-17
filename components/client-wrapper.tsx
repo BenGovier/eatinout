@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 
 export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: boolean }) {
-    const { user  } = useAuth();
+    const { user } = useAuth();
     const canViewFullNav = isAuthenticated && user?.role === "user"
     return (
         <>
@@ -18,6 +18,12 @@ export default function ClientWrapper({ isAuthenticated }: { isAuthenticated: bo
                 </div>
             ) : (
                 <div className="hidden md:flex items-center gap-4">
+                    <Link
+                        href="/map"
+                        className="text-sm font-medium transition-colors hover:text-red-600 text-foreground mr-6"
+                    >
+                        Map
+                    </Link>
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/sign-in">Sign In</Link>
                     </Button>
