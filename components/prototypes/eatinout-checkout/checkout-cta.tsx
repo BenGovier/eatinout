@@ -21,14 +21,22 @@ export function CheckoutCTA() {
       <button
         type="button"
         onClick={() => setNotice(true)}
-        className="flex h-[58px] w-full items-center justify-center gap-2 rounded-2xl bg-[var(--p-red)] px-6 text-[17px] font-bold text-white shadow-sm transition-all duration-150 hover:bg-[var(--p-red-hover)] hover:shadow-[0_10px_30px_rgba(217,4,41,0.22)] motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--p-red)]"
+        style={{ boxShadow: "0 12px 28px rgba(217,4,41,0.20)", letterSpacing: "-0.01em" }}
+        className="group flex h-[58px] w-full items-center justify-center gap-2 rounded-2xl bg-[var(--p-red)] px-6 text-[17px] font-extrabold text-white transition-all duration-150 hover:bg-[var(--p-red-hover)] motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--p-red)]"
       >
         Start saving &mdash; £0 today
-        <ArrowRight className="h-5 w-5" aria-hidden="true" />
+        <ArrowRight
+          className="h-5 w-5 text-white/90 transition-transform duration-150 motion-safe:group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
       </button>
 
-      <p className="mt-3 text-center text-xs font-medium text-[var(--p-muted)]">
-        30 days free &bull; Then £4.99/month &bull; Cancel anytime
+      <p className="mt-3 text-center text-xs">
+        <span className="font-bold text-[var(--p-ink)]">30 days free</span>
+        <span className="text-[var(--p-sep)]"> &bull; </span>
+        <span className="text-[var(--p-body)]">Then £4.99/month</span>
+        <span className="text-[var(--p-sep)]"> &bull; </span>
+        <span className="text-[var(--p-sage)]" style={{ fontWeight: 650 }}>Cancel anytime</span>
       </p>
 
       {notice && (
