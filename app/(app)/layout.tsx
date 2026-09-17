@@ -21,7 +21,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [layoutReady, setLayoutReady] = useState(false);
   const [isVerifyingStatus, setIsVerifyingStatus] = useState(false);
 
-  const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants";
+  const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants" || pathname === "/map";
   console.log("user", user)
   useEffect(() => {
     if (isPublicRestaurantPage) {

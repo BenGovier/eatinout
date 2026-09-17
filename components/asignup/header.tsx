@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 
 const navLinks = [
     { href: "https://www.eatinout.com", label: "See Offers" },
+    { href: "/map", label: "Map" },
     { href: "#pricing", label: "Pricing" },
     { href: "#how-it-works", label: "How It Works" },
     { href: "#faq", label: "FAQs" },

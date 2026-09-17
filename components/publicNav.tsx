@@ -10,7 +10,7 @@ import { useAuth } from "@/context/auth-context";
 
 const navItems = [
   { href: "/restaurants", label: "Restaurants" },
-  { href: "/map", label: "Map" },
+  { href: "/map", label: "Map", isPublic: true },
   { href: "/categories", label: "Categories" },
   { href: "/wallet", label: "Wallet" },
   { href: "/account/contact", label: "Contact" },
@@ -43,20 +43,23 @@ export function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
       {isMenuOpen && (
         <nav className="absolute top-16 left-0 w-full bg-white shadow-lg z-50">
           <ul className="flex flex-col space-y-2 p-4">
-            {canViewFullNav && navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "block text-sm font-medium transition-colors hover:text-red-600",
-                    pathname === item.href ? "text-red-600" : "text-gray-800"
-                  )}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+            {navItems.map((item) => {
+              if (!canViewFullNav && !item.isPublic) return null;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "block text-sm font-medium transition-colors hover:text-red-600",
+                      pathname === item.href ? "text-red-600" : "text-gray-800"
+                    )}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
 
             {canViewFullNav ? (
               <>
