@@ -31,10 +31,10 @@ function MockField({
 }) {
   return (
     <div className={className}>
-      <span className="mb-1.5 block text-[13px] font-semibold text-[var(--p-muted-strong)]">{label}</span>
+      <span className="mb-1.5 block text-[12px] text-[var(--p-body)]" style={{ fontWeight: 650 }}>{label}</span>
       <div
         aria-hidden="true"
-        className="flex h-[52px] items-center justify-between rounded-xl px-3.5 text-sm text-[var(--p-muted)]/70 transition-all duration-150"
+        className="flex h-[52px] items-center justify-between rounded-xl px-3.5 text-sm text-[var(--p-muted)]/75 transition-all duration-150"
         style={
           focused
             ? {
@@ -44,7 +44,7 @@ function MockField({
               }
             : {
                 background: "var(--p-field)",
-                border: "1px solid rgba(22,23,26,0.10)",
+                border: "1px solid rgba(25,23,21,0.12)",
               }
         }
       >
