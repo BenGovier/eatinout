@@ -34,17 +34,44 @@ function CheckoutLifestylePanel() {
     <div className="space-y-6">
       <div className="relative overflow-hidden rounded-2xl">
         <Image
-          src="/images/prestonblog/moment-datenight.png"
-          alt="Friends and couples enjoying an evening out at a local restaurant"
+          src="/images/prestonblog/moment-grill.png"
+          alt="Happy diners enjoying a freshly cooked steak dinner at a warm, characterful local restaurant"
           width={1024}
           height={1024}
           priority
-          className="h-40 w-full object-cover sm:h-52 lg:h-80"
+          className="h-56 w-full object-cover object-center sm:h-64 lg:h-80"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-        <p className="absolute bottom-3 left-4 text-sm font-semibold text-white drop-shadow-sm sm:bottom-4 sm:left-5 sm:text-base">
-          Great food. Better value.
-        </p>
+        {/* Warm legibility gradient — darker at the base so the hero copy reads cleanly */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/10" />
+
+        {/* Hero proposition — bottom-left, over the darkest part of the gradient */}
+        <div className="absolute bottom-3 left-4 right-4 sm:bottom-4 sm:left-5">
+          <p className="text-lg font-bold leading-tight text-white drop-shadow-sm sm:text-xl">
+            Eat out more. Pay less.
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-white/85 sm:text-sm">
+            Save up to 50% at restaurants near you.
+          </p>
+        </div>
+
+        {/* EatinOut savings overlay — styled as product UI, not an advertising sticker */}
+        <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
+          <div className="flex items-center gap-2.5 rounded-xl border border-black/5 bg-white/95 p-2 pr-3 shadow-lg backdrop-blur">
+            <span className="flex flex-col items-center justify-center rounded-lg bg-[var(--eo-red)] px-2.5 py-1.5 leading-none text-white">
+              <span className="text-base font-extrabold sm:text-lg">50%</span>
+              <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider">Off</span>
+            </span>
+            <span>
+              <span className="block text-[13px] font-bold leading-tight text-[var(--eo-ink)]">
+                Potential £25 saving
+              </span>
+              <span className="block text-[11px] leading-tight text-[var(--eo-muted)]">on a £50 bill</span>
+              <span className="mt-0.5 block text-[10px] leading-tight text-[var(--eo-muted)]/80">
+                with a participating 50% offer
+              </span>
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Desktop-only value proposition + reassurance list */}
