@@ -4,51 +4,17 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import sendEmail from '@/lib/sendEmail';
-import { render } from '@react-email/render';
-import { SubscriptionConfirmationEmail } from '@/utils/email-templates/subscription-confirmation';
-import { WelcomeEmail } from '@/utils/email-templates/welcome';
+import { activateSubscription } from '@/lib/activate-subscription';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
-// Keep in sync with the plans shown during signup / checkout
-const PLANS = [
-  {
-    id: "monthly",
-    name: "Monthly",
-    price: "£4.99",
-    period: "/month",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
-  },
-  {
-    id: "six",
-    name: "6 Months",
-    price: "£29.94",
-    period: "/6 months",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS,
-  },
-  {
-    id: "annual",
-    name: "Annual",
-    price: "£59.88",
-    period: "/year",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR,
-  },
-  {
-    id: "eighteen",
-    name: "18 Months",
-    price: "£89.82",
-    period: "",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_18MONTHS,
-  },
-];
-
 /**
  * Sync subscription status + voucher code onto the user record. Called on
  * every created/updated event so status and voucher always stay current.
- * This function NEVER sends emails — that only happens once we have proof
- * of an actually-confirmed payment method (see sendActivationEmailsIfNeeded).
+ * This function NEVER sends emails — emails are handled by
+ * activateSubscription (shared with /api/payment/verify-subscription),
+ * which only runs once a card/payment is actually confirmed.
  */
 async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string;
@@ -78,17 +44,22 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     isTrialing = false;
   }
 
-  // Capture voucher code (if any) whenever we see this subscription —
-  // do this regardless of status so it's always kept up to date.
-  let usedVoucherCode: string | null = null;
+  // Capture voucher code (if any). undefined = lookup failed, so we leave
+  // the existing DB value untouched instead of overwriting it with null.
+  let usedVoucherCode: string | null | undefined = undefined;
   try {
-    const full = await stripe.subscriptions.retrieve(subscription.id, {
+    const full: any = await stripe.subscriptions.retrieve(subscription.id, {
       expand: ['discounts.promotion_code'],
     });
-    const promo = (full.discounts?.[0] as any)?.promotion_code;
-    if (promo && promo.code) {
-      usedVoucherCode = promo.code;
+    const discount = full.discounts?.[0] ?? full.discount;
+    let promo = discount?.promotion_code;
+
+    // If not expanded, it comes back as a string id
+    if (typeof promo === 'string') {
+      promo = await stripe.promotionCodes.retrieve(promo);
     }
+
+    usedVoucherCode = promo?.code ?? null;
   } catch (expandErr) {
     console.error('[Webhook] Error expanding subscription for voucher info:', expandErr);
   }
@@ -96,102 +67,13 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   user.subscriptionStatus = ourStatus;
   user.isTrialing = isTrialing;
   user.subscriptionId = subscription.id;
-  user.usedVoucherCode = usedVoucherCode;
+  if (usedVoucherCode !== undefined) {
+    user.usedVoucherCode = usedVoucherCode;
+  }
   user.stripeCustomerId = customerId;
   await user.save();
 
-  console.log(`[Webhook] Synced user ${user.email} — status: ${ourStatus}, trialing: ${isTrialing}, voucher: ${usedVoucherCode ?? "none"}`);
-}
-
-/**
- * Sends the welcome + subscription confirmation emails exactly once, only
- * once we have proof the customer actually confirmed a card (SetupIntent
- * or PaymentIntent succeeded). Idempotent via user.welcomeEmailSent.
- */
-async function sendActivationEmailsIfNeeded(subscriptionId: string) {
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ['latest_invoice'],
-  });
-
-  const customerId = subscription.customer as string;
-  const user = await User.findOne({ stripeCustomerId: customerId });
-  if (!user) {
-    console.warn(`[Webhook] No user found for customer ${customerId} when sending emails`);
-    return;
-  }
-
-  // Idempotency: only send once per subscription
-  if (user.welcomeEmailSent && user.subscriptionId === subscription.id) {
-    console.log(`[Webhook] Emails already sent for subscription ${subscription.id}, skipping`);
-    return;
-  }
-
-  const selectedPriceId = subscription.items.data[0]?.price?.id;
-  const selectedPlan = PLANS.find((plan) => plan.priceId === selectedPriceId) ?? PLANS[0];
-
-  const trialEndDate = new Date();
-  if (subscription.trial_end) {
-    trialEndDate.setTime(subscription.trial_end * 1000);
-  } else {
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-  }
-
-  // Send Welcome Email
-  try {
-    const welcomeEmailHtml = await render(
-      WelcomeEmail({
-        firstName: user.firstName,
-        trialEndDate: trialEndDate.toISOString(),
-        selectedPlan: {
-          name: selectedPlan.name,
-          price: selectedPlan.price,
-          period: selectedPlan.period,
-        },
-      })
-    );
-    await sendEmail(
-      user.email,
-      "Welcome to Eatinout - Your 30 days free Trial Starts Now!",
-      welcomeEmailHtml
-    );
-    console.log("[Webhook] Welcome email sent to:", user.email);
-  } catch (emailError: any) {
-    console.error("[Webhook] Error sending welcome email:", emailError);
-  }
-
-  // Send Subscription Confirmation Email
-  try {
-    const latestInvoice = subscription.latest_invoice;
-    let amountTotal = 0;
-    let currency = "gbp";
-    if (typeof latestInvoice === "string") {
-      const invoice = await stripe.invoices.retrieve(latestInvoice);
-      amountTotal = invoice.amount_paid ?? invoice.amount_due ?? 0;
-      currency = invoice.currency ?? currency;
-    } else if (latestInvoice) {
-      amountTotal = (latestInvoice as Stripe.Invoice).amount_paid ?? 0;
-      currency = (latestInvoice as Stripe.Invoice).currency ?? currency;
-    }
-
-    const subscriptionEmailHtml = await render(
-      SubscriptionConfirmationEmail({
-        firstName: user.firstName,
-        planName: selectedPlan.name,
-        amount: `${(amountTotal / 100).toFixed(2)} ${currency.toUpperCase()}`,
-        billingDate: "15th of each month",
-        startDate: new Date().toISOString(),
-      })
-    );
-    await sendEmail(user.email, "Your Subscription is Confirmed!", subscriptionEmailHtml);
-    console.log("[Webhook] Subscription confirmation email sent to:", user.email);
-  } catch (emailError: any) {
-    console.error("[Webhook] Error sending subscription confirmation email:", emailError);
-  }
-
-  user.hasSubscribedBefore = true;
-  user.selectedPriceId = null;
-  user.welcomeEmailSent = true;
-  await user.save();
+  console.log(`[Webhook] Synced user ${user.email} — status: ${ourStatus}, trialing: ${isTrialing}, voucher: ${user.usedVoucherCode ?? "none"}`);
 }
 
 export async function POST(req: Request) {
@@ -222,9 +104,7 @@ export async function POST(req: Request) {
     switch (event.type) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        // Keep status/voucher in sync on every change (including every
-        // voucher apply/reapply, which now updates the SAME subscription
-        // instead of creating a new one). Never send emails from here.
+        // Keep status/voucher in sync on every change. Never send emails here.
         const subscription = event.data.object as Stripe.Subscription;
         await syncSubscriptionToUser(subscription);
         break;
@@ -242,9 +122,8 @@ export async function POST(req: Request) {
       }
 
       // Fires the instant the customer's card is confirmed for a trial
-      // (30-day free trial signups). This is the correct "checkout truly
-      // completed" signal — NOT subscription.created, which can fire
-      // before the customer has entered any card details.
+      // (30-day free trial signups). Backup path: the client normally
+      // triggers activation first via /api/payment/verify-subscription.
       case 'setup_intent.succeeded': {
         const setupIntent = event.data.object as Stripe.SetupIntent;
         const customerId = setupIntent.customer as string;
@@ -256,20 +135,19 @@ export async function POST(req: Request) {
           });
           const sub = subs.data[0];
           if (sub) {
-            await sendActivationEmailsIfNeeded(sub.id);
+            await activateSubscription(sub.id);
           }
         }
         break;
       }
 
-      // Fires when a non-trial (returning customer) payment actually
-      // succeeds — the equivalent "checkout truly completed" signal for
-      // immediate-charge subscriptions.
+      // Fires when a non-trial (returning customer) payment actually succeeds.
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = (invoice as any).subscription as string | undefined;
-        if (subscriptionId) {
-          await sendActivationEmailsIfNeeded(subscriptionId);
+        // Ignore the £0 trial invoice: it is created at page load, before any card is entered.
+        if (subscriptionId && (invoice.amount_paid ?? 0) > 0) {
+          await activateSubscription(subscriptionId);
         }
         break;
       }

@@ -45,6 +45,8 @@ export async function POST(request: Request) {
 
     // Resolve voucher code to a Stripe promotion code, if provided
     let promotionCodeId: string | undefined;
+    let appliedVoucherCode: string | null = null;
+    let promoCoupon: Stripe.Coupon | undefined;
     if (voucherCode) {
       const promo = await stripe.promotionCodes.list({
         code: voucherCode,
@@ -58,33 +60,18 @@ export async function POST(request: Request) {
         );
       }
       promotionCodeId = promo.data[0].id;
+      appliedVoucherCode = promo.data[0].code;
+      promoCoupon = promo.data[0].coupon;
     }
 
-    // IMPORTANT: reuse an existing incomplete/trialing subscription instead
-    // of creating a new one every time this route is called (initial page
-    // load AND every voucher apply/reapply). Creating a fresh subscription
-    // each time left orphaned subscriptions on Stripe and caused their
-    // 'customer.subscription.created' webhook events to race each other —
-    // whichever event happened to be processed last could silently
-    // overwrite the user's saved voucher code. Updating the same
-    // subscription in place fixes that.
-    let existingSub: Stripe.Subscription | undefined;
-
-    const incompleteList = await stripe.subscriptions.list({
-      customer: stripeCustomerId,
-      status: "incomplete",
-      limit: 1,
-    });
-    existingSub = incompleteList.data[0];
-
-    if (!existingSub) {
-      const trialingList = await stripe.subscriptions.list({
-        customer: stripeCustomerId,
-        status: "trialing",
-        limit: 1,
-      });
-      existingSub = trialingList.data[0];
-    }
+    // Reuse an existing incomplete/trialing subscription instead of creating
+    // a new one on every call (page load + every voucher apply/reapply).
+    const [incompleteList, trialingList] = await Promise.all([
+      stripe.subscriptions.list({ customer: stripeCustomerId, status: "incomplete", limit: 1 }),
+      stripe.subscriptions.list({ customer: stripeCustomerId, status: "trialing", limit: 1 }),
+    ]);
+    const existingSub: Stripe.Subscription | undefined =
+      incompleteList.data[0] ?? trialingList.data[0];
 
     let subscription: Stripe.Subscription;
 
@@ -135,21 +122,23 @@ export async function POST(request: Request) {
     // For trialing subscriptions Stripe creates a SetupIntent
     // (pending_setup_intent) which does NOT automatically inherit the
     // payment_method_types restriction above — restrict it explicitly too.
-    if (subscription.pending_setup_intent) {
-      const setupIntent = subscription.pending_setup_intent as Stripe.SetupIntent;
-      await stripe.setupIntents.update(setupIntent.id, {
-        payment_method_types: ["card"],
-      });
-    }
-
-    // Persist the chosen plan / referral so the webhook can use it later
-    await User.updateOne(
-      { email },
-      {
-        selectedPriceId,
-        rewardfulReferral: rewardfulReferral || null,
-      }
-    );
+    // Also persist the chosen plan / referral / voucher immediately so we
+    // don't depend only on the webhook for saving the voucher code.
+    await Promise.all([
+      subscription.pending_setup_intent
+        ? stripe.setupIntents.update((subscription.pending_setup_intent as Stripe.SetupIntent).id, {
+            payment_method_types: ["card"],
+          })
+        : Promise.resolve(),
+      User.updateOne(
+        { email },
+        {
+          selectedPriceId,
+          rewardfulReferral: rewardfulReferral || null,
+          usedVoucherCode: appliedVoucherCode,
+        }
+      ),
+    ]);
 
     const clientSecret =
       (subscription.pending_setup_intent as any)?.client_secret ??
@@ -175,21 +164,13 @@ export async function POST(request: Request) {
     let discountedAmount = baseAmount;
     let discountLabel: string | null = null;
 
-    if (promotionCodeId) {
-      try {
-        const promo = await stripe.promotionCodes.retrieve(promotionCodeId, {
-          expand: ["coupon"],
-        });
-        const coupon = promo.coupon;
-        if (coupon.percent_off) {
-          discountedAmount = Math.round(baseAmount * (1 - coupon.percent_off / 100));
-          discountLabel = `${coupon.percent_off}% off`;
-        } else if (coupon.amount_off) {
-          discountedAmount = Math.max(0, baseAmount - coupon.amount_off);
-          discountLabel = `${(coupon.amount_off / 100).toFixed(2)} off`;
-        }
-      } catch (promoErr) {
-        console.error("Error retrieving promotion code for pricing display:", promoErr);
+    if (promoCoupon) {
+      if (promoCoupon.percent_off) {
+        discountedAmount = Math.round(baseAmount * (1 - promoCoupon.percent_off / 100));
+        discountLabel = `${promoCoupon.percent_off}% off`;
+      } else if (promoCoupon.amount_off) {
+        discountedAmount = Math.max(0, baseAmount - promoCoupon.amount_off);
+        discountLabel = `${(promoCoupon.amount_off / 100).toFixed(2)} off`;
       }
     }
 

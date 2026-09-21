@@ -10,13 +10,28 @@ import {
   CardNumberElement,
   CardExpiryElement,
   CardCvcElement,
+  PaymentRequestButtonElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
 import { LoadReveal, ViewReveal, StaggerGroup, StaggerItem } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+// ── DEBUG: confirm the publishable key actually made it into the bundle ──
+// If this logs "MISSING", loadStripe() will never resolve to a usable
+// Stripe instance, `stripe` in useStripe() will stay null forever, and the
+// CTA button will be disabled no matter what — on localhost AND on Vercel,
+// unless you also add the env var to the Vercel project settings.
+const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+console.log(
+  "[checkout][debug] NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:",
+  STRIPE_PUBLISHABLE_KEY ? `present (starts with ${STRIPE_PUBLISHABLE_KEY.slice(0, 7)}...)` : "MISSING"
+)
+
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY!).then((s) => {
+  console.log("[checkout][debug] loadStripe resolved:", s ? "OK — stripe.js object created" : "NULL — check the publishable key / network tab for stripe.js")
+  return s
+})
 
 const palette = {
   "--p-bg": "#F7F3EF",
@@ -273,7 +288,10 @@ function CheckoutTransition() {
 }
 
 /* ── Static Apple Pay / Google Pay buttons ──────────────────────────────
- * Per client's approved design: visible, inert placeholders.
+ * Inert fallback — shown only when neither Apple Pay nor Google Pay is
+ * available on the visitor's browser/device (e.g. desktop Firefox, or
+ * Safari/Chrome with no card saved to the wallet). Preserves the exact
+ * approved visual design for that case.
  * ------------------------------------------------------------------- */
 function StaticWalletButtons() {
   return (
@@ -303,6 +321,141 @@ function StaticWalletButtons() {
         </span>
         Pay
       </div>
+    </div>
+  )
+}
+
+/* ── Real Apple Pay / Google Pay — wired to the same SetupIntent /
+ * PaymentIntent flow as the card fields below.
+ *
+ * Stripe's PaymentRequestButtonElement automatically renders as an
+ * Apple Pay button on Safari (with a card in the wallet) or a Google Pay
+ * button on Chrome (with a card in the wallet) — it cannot show both
+ * brand styles simultaneously, that decision is made by the browser/OS.
+ * When neither wallet is available (desktop Firefox, no saved card,
+ * etc.) we fall back to the exact static design so nothing looks broken.
+ * ------------------------------------------------------------------- */
+function ExpressWalletButtons({
+  clientSecret,
+  mode,
+  pricing,
+  onSuccess,
+  onError,
+}: {
+  clientSecret: string | null
+  mode: "setup" | "payment"
+  pricing: Pricing | null
+  onSuccess: () => Promise<void>
+  onError: (message: string) => void
+}) {
+  const stripe = useStripe()
+  const [paymentRequest, setPaymentRequest] = useState<any>(null)
+  const [canUseWallet, setCanUseWallet] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  // Build (or rebuild) the Payment Request whenever pricing/mode changes —
+  // e.g. after a voucher is applied and the renewal amount changes.
+  useEffect(() => {
+    if (!stripe) {
+      console.log("[checkout][debug][wallet] stripe not ready yet, skipping paymentRequest build")
+      return
+    }
+
+    const currency = pricing?.currency ?? "gbp"
+    const renewalAmount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
+    // SetupIntent (free trial): Apple Pay / Google Pay support authorizing
+    // a card for future use with a £0 request — nothing is charged today.
+    const amount = mode === "setup" ? 0 : renewalAmount
+    const label = mode === "setup" ? "EatinOut — 30 day free trial" : "EatinOut membership"
+
+    console.log("[checkout][debug][wallet] building paymentRequest:", { currency, amount, mode })
+
+    const pr = stripe.paymentRequest({
+      country: "GB",
+      currency,
+      total: { label, amount },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    })
+
+    let cancelled = false
+    pr.canMakePayment().then((result: any) => {
+      console.log("[checkout][debug][wallet] canMakePayment result:", result)
+      if (!cancelled) setCanUseWallet(!!result)
+    })
+
+    setPaymentRequest(pr)
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe, mode, pricing?.discountedAmount, pricing?.baseAmount, pricing?.currency])
+
+  useEffect(() => {
+    if (!paymentRequest || !clientSecret || !stripe) return
+
+    const handler = async (ev: any) => {
+      setIsProcessing(true)
+
+      const confirmParams = { payment_method: ev.paymentMethod.id }
+
+      const result =
+        mode === "setup"
+          ? await stripe.confirmCardSetup(clientSecret, confirmParams, { handleActions: false })
+          : await stripe.confirmCardPayment(clientSecret, confirmParams, { handleActions: false })
+
+      if (result.error) {
+        console.error("[checkout][debug][wallet] confirmCardSetup/Payment error:", result.error)
+        ev.complete("fail")
+        setIsProcessing(false)
+        onError(result.error.message || "Payment failed. Please try again or use a card.")
+        return
+      }
+
+      ev.complete("success")
+
+      const intent: any = (result as any).setupIntent ?? (result as any).paymentIntent
+      if (intent && intent.status === "requires_action") {
+        const actionResult =
+          mode === "setup"
+            ? await stripe.confirmCardSetup(clientSecret)
+            : await stripe.confirmCardPayment(clientSecret)
+
+        if (actionResult.error) {
+          console.error("[checkout][debug][wallet] requires_action follow-up error:", actionResult.error)
+          setIsProcessing(false)
+          onError(actionResult.error.message || "Payment failed. Please try again or use a card.")
+          return
+        }
+      }
+
+      await onSuccess()
+    }
+
+    paymentRequest.on("paymentmethod", handler)
+    return () => {
+      paymentRequest.off("paymentmethod", handler)
+    }
+  }, [paymentRequest, clientSecret, mode, stripe, onSuccess, onError])
+
+  if (!canUseWallet || !paymentRequest || !clientSecret) {
+    return <StaticWalletButtons />
+  }
+
+  return (
+    <div style={{ opacity: isProcessing ? 0.6 : 1, pointerEvents: isProcessing ? "none" : "auto" }}>
+      <PaymentRequestButtonElement
+        options={{
+          paymentRequest,
+          style: {
+            paymentRequestButton: {
+              type: "default",
+              theme: "dark",
+              height: "48px",
+            },
+          },
+        }}
+      />
     </div>
   )
 }
@@ -353,12 +506,14 @@ function CardFields() {
         }
 
   const handleNumberChange = (event: StripeCardNumberElementChangeEvent) => {
+    if (event.error) console.warn("[checkout][debug][card] number field error:", event.error.message)
     if (event.complete) {
       elements?.getElement(CardExpiryElement)?.focus()
     }
   }
 
   const handleExpiryChange = (event: StripeCardExpiryElementChangeEvent) => {
+    if (event.error) console.warn("[checkout][debug][card] expiry field error:", event.error.message)
     if (event.complete) {
       elements?.getElement(CardCvcElement)?.focus()
     }
@@ -447,11 +602,11 @@ function LiveCheckoutCardInner({
   onSuccess,
   onReapply,
 }: {
-  clientSecret: string
+  clientSecret: string | null
   mode: "setup" | "payment"
   postcode?: string
   pricing: Pricing | null
-  onSuccess: () => void
+  onSuccess: () => Promise<void>
   onReapply: (voucherCode: string) => Promise<void>
 }) {
   const stripe = useStripe()
@@ -463,22 +618,37 @@ function LiveCheckoutCardInner({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // ── DEBUG: this is the exact set of conditions the submit button's
+  // `disabled` prop checks. Whichever one logs false/null is your culprit.
+  useEffect(() => {
+    console.log("[checkout][debug][button-state]", {
+      isSubmitting,
+      stripeReady: !!stripe,
+      elementsReady: !!elements,
+      clientSecret: clientSecret ? `present (${clientSecret.slice(0, 12)}...)` : null,
+      willBeDisabled: isSubmitting || !stripe || !elements || !clientSecret,
+    })
+  }, [isSubmitting, stripe, elements, clientSecret])
+
   const applyVoucher = async () => {
     if (!voucher.trim()) return
     setIsCheckingVoucher(true)
     setVoucherStatus(null)
     try {
+      console.log("[checkout][debug][voucher] validating:", voucher.trim())
       const res = await fetch("/api/payment/validate-voucher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: voucher.trim() }),
       })
       const data = await res.json()
+      console.log("[checkout][debug][voucher] response:", res.status, data)
       setVoucherStatus(data)
       if (data.valid) {
         await onReapply(voucher.trim())
       }
-    } catch {
+    } catch (err) {
+      console.error("[checkout][debug][voucher] request failed:", err)
       setVoucherStatus({ valid: false, message: "Could not validate code" })
     } finally {
       setIsCheckingVoucher(false)
@@ -486,9 +656,16 @@ function LiveCheckoutCardInner({
   }
 
   const confirm = async () => {
-    if (!stripe || !elements) return
+    console.log("[checkout][debug][confirm] clicked. stripe:", !!stripe, "elements:", !!elements, "clientSecret:", !!clientSecret)
+    if (!stripe || !elements || !clientSecret) {
+      console.warn("[checkout][debug][confirm] aborting — missing stripe/elements/clientSecret")
+      return
+    }
     const cardNumberElement = elements.getElement(CardNumberElement)
-    if (!cardNumberElement) return
+    if (!cardNumberElement) {
+      console.warn("[checkout][debug][confirm] aborting — CardNumberElement not mounted")
+      return
+    }
 
     setIsSubmitting(true)
     setError(null)
@@ -508,14 +685,16 @@ function LiveCheckoutCardInner({
         ? await stripe.confirmCardSetup(clientSecret, { payment_method: paymentMethodParams })
         : await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodParams })
 
-    setIsSubmitting(false)
-
     if (confirmError) {
+      console.error("[checkout][debug][confirm] Stripe confirm error:", confirmError)
+      setIsSubmitting(false)
       setError(confirmError.message || "Payment failed. Please check your details and try again.")
       return
     }
 
-    onSuccess()
+    console.log("[checkout][debug][confirm] success, calling onSuccess()")
+    // Stay in "Processing..." until we navigate away (no button flicker)
+    await onSuccess()
   }
 
   const isTrialing = mode === "setup"
@@ -524,6 +703,7 @@ function LiveCheckoutCardInner({
   const todayAmount = isTrialing ? 0 : renewalAmount
   const suffix = intervalSuffix(pricing)
   const word = intervalWord(pricing)
+  const renewalText = pricing ? formatMoney(renewalAmount, currency) : "—"
 
   return (
     <>
@@ -541,7 +721,7 @@ function LiveCheckoutCardInner({
             {isTrialing ? "After 30 days" : "Renews at"}
           </p>
           <p className="text-[22px] leading-tight text-[var(--p-ink)]" style={{ fontWeight: 850 }}>
-            {formatMoney(renewalAmount, currency)}
+            {renewalText}
             <span className="text-sm text-[var(--p-body)]" style={{ fontWeight: 600 }}>/{suffix}</span>
           </p>
         </div>
@@ -554,12 +734,18 @@ function LiveCheckoutCardInner({
         Cancel anytime
       </p>
 
-      {/* express — static Apple Pay / Google Pay, per approved design */}
+      {/* express — real Apple Pay / Google Pay when available, static fallback otherwise */}
       <div className="mt-6">
         <h3 className="text-[17px] font-extrabold text-[var(--p-ink)]">Fastest way to join</h3>
         <p className="mt-0.5 text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
         <div className="mt-3">
-          <StaticWalletButtons />
+          <ExpressWalletButtons
+            clientSecret={clientSecret}
+            mode={mode}
+            pricing={pricing}
+            onSuccess={onSuccess}
+            onError={setError}
+          />
         </div>
       </div>
 
@@ -588,7 +774,7 @@ function LiveCheckoutCardInner({
           <button
             type="button"
             onClick={applyVoucher}
-            disabled={isCheckingVoucher || !voucher.trim()}
+            disabled={isCheckingVoucher || isSubmitting || !voucher.trim()}
             className="h-12 px-4 rounded-xl text-sm font-semibold disabled:opacity-50"
             style={{ border: "1px solid rgba(25,23,21,0.12)", color: "var(--p-ink)" }}
           >
@@ -613,7 +799,7 @@ function LiveCheckoutCardInner({
         <button
           type="button"
           onClick={confirm}
-          disabled={isSubmitting || !stripe || !elements}
+          disabled={isSubmitting || !stripe || !elements || !clientSecret}
           style={{ boxShadow: "0 12px 28px rgba(217,4,41,0.20)", letterSpacing: "-0.01em", background: "var(--p-red)" }}
           className="group flex h-[58px] w-full items-center justify-center gap-2 rounded-2xl px-6 text-[17px] font-extrabold text-white transition-all duration-150 hover:opacity-95 disabled:opacity-60"
         >
@@ -634,7 +820,7 @@ function LiveCheckoutCardInner({
           <span className="font-bold text-[var(--p-ink)]">30 days free</span>
           <span className="text-[var(--p-sep)]"> &bull; </span>
           <span className="text-[var(--p-body)]">
-            Then {formatMoney(renewalAmount, currency)}/{word}
+            Then {renewalText}/{word}
           </span>
           <span className="text-[var(--p-sep)]"> &bull; </span>
           <span className="text-[var(--p-sage)]" style={{ fontWeight: 650 }}>Cancel anytime</span>
@@ -661,11 +847,11 @@ function LiveCheckoutCard({
   onSuccess,
   onReapply,
 }: {
-  clientSecret: string
+  clientSecret: string | null
   mode: "setup" | "payment"
   postcode?: string
   pricing: Pricing | null
-  onSuccess: () => void
+  onSuccess: () => Promise<void>
   onReapply: (voucherCode: string) => Promise<void>
 }) {
   return (
@@ -692,6 +878,7 @@ function LiveCheckoutCard({
 export function EatinOutCheckoutLive() {
   const router = useRouter()
   const [checkoutData, setCheckoutData] = useState<{ clientSecret: string; mode: "setup" | "payment" } | null>(null)
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [postcode, setPostcode] = useState<string | undefined>(undefined)
@@ -702,19 +889,28 @@ export function EatinOutCheckoutLive() {
     const priceId = sessionStorage.getItem("selectedPriceId") || undefined
     const referral = sessionStorage.getItem("checkoutReferral") || undefined
 
+    console.log("[checkout][debug][fetchSubscription] request:", { userEmail, priceId, referral, voucherCode })
+
     const response = await fetch("/api/payment/create-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: userEmail, priceId, referral, voucherCode }),
     })
     const data = await response.json()
+
+    console.log("[checkout][debug][fetchSubscription] response:", response.status, data)
+
     if (!response.ok) throw new Error(data.error || "Failed to start checkout")
     return data
   }
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem("checkoutEmail")
+    console.log("[checkout][debug][init] checkoutEmail from sessionStorage:", storedEmail)
+
     if (!storedEmail) {
+      console.warn("[checkout][debug][init] no checkoutEmail found — redirecting to /sign-up. " +
+        "If you're opening this checkout page directly (not via the sign-up flow), this is why nothing loads.")
       router.replace("/sign-up")
       return
     }
@@ -723,10 +919,20 @@ export function EatinOutCheckoutLive() {
 
     fetchSubscription(storedEmail)
       .then((data) => {
+        console.log("[checkout][debug][init] subscription created OK:", {
+          hasClientSecret: !!data.clientSecret,
+          mode: data.mode,
+          subscriptionId: data.subscriptionId,
+          pricing: data.pricing,
+        })
         setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
+        setSubscriptionId(data.subscriptionId ?? null)
         setPricing(data.pricing ?? null)
       })
-      .catch((err) => setLoadError(err.message || "Failed to start checkout"))
+      .catch((err) => {
+        console.error("[checkout][debug][init] fetchSubscription FAILED:", err)
+        setLoadError(err.message || "Failed to start checkout")
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -734,23 +940,31 @@ export function EatinOutCheckoutLive() {
     if (!email) return
     const data = await fetchSubscription(email, voucherCode)
     setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
+    setSubscriptionId(data.subscriptionId ?? null)
     setPricing(data.pricing ?? null)
   }
 
-const handleSuccess = async () => {
-  setPaymentDone(true)
-  // Webhook updates the DB asynchronously; give it a brief moment, then
-  // refresh the JWT/cookie so subsequent pages see the correct status
-  // instead of the stale claims from registration.
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    await fetch("/api/auth/refresh-session", { method: "POST" })
-  } catch (err) {
-    console.error("Failed to refresh session after checkout:", err)
-    // Non-fatal — the success page's checkAuth() call is a second safety net
+  const handleSuccess = async () => {
+    setPaymentDone(true)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    try {
+      // Server-side activation (same job the old verify-checkout-session did):
+      // DB update, voucher save, Welcome + Confirmation emails, fresh auth cookie.
+      await fetch("/api/payment/verify-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId }),
+        signal: controller.signal,
+      })
+    } catch (err) {
+      console.error("[checkout][debug] Failed to verify subscription after checkout:", err)
+      // Non-fatal: the Stripe webhook is the backup path
+    } finally {
+      clearTimeout(timer)
+    }
+    router.push("/success")
   }
-  router.push("/success")
-}
 
   return (
     <div className="min-h-dvh text-[var(--p-ink)]" style={{ ...palette, background: "var(--p-bg)" }}>
@@ -775,14 +989,10 @@ const handleSuccess = async () => {
               <div className="rounded-[26px] bg-white p-5 text-center" style={{ border: "1px solid rgba(217,4,41,0.2)" }}>
                 <p className="text-sm font-medium" style={{ color: "var(--p-red)" }}>{loadError}</p>
               </div>
-            ) : !checkoutData ? (
-              <div className="rounded-[26px] bg-white p-10 flex items-center justify-center" style={{ border: "1px solid rgba(25,23,21,0.07)" }}>
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--p-red)" }} />
-              </div>
             ) : (
               <LiveCheckoutCard
-                clientSecret={checkoutData.clientSecret}
-                mode={checkoutData.mode}
+                clientSecret={checkoutData?.clientSecret ?? null}
+                mode={checkoutData?.mode ?? "setup"}
                 postcode={postcode}
                 pricing={pricing}
                 onSuccess={handleSuccess}
