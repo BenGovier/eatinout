@@ -11,7 +11,7 @@ export function CoastalHeader() {
     <header className="border-b border-black/5 bg-[var(--cr-pale)]">
       <div className="mx-auto flex min-h-[80px] max-w-6xl flex-col items-center justify-center gap-1.5 px-5 py-3 sm:min-h-[88px]">
         <div className="flex w-full max-w-full items-center justify-center gap-2.5 sm:gap-6">
-          <CoastalWordmark className="shrink-0 text-[20px] sm:text-[32px]" />
+          <CoastalWordmark className="h-7 shrink-0 sm:h-11" />
 
           <span className="shrink-0 text-base font-light text-black/25 sm:text-xl" aria-hidden="true">
             &times;
