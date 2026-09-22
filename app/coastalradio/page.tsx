@@ -49,7 +49,7 @@ export default function CoastalRadioPage() {
 
       <footer className="bg-[var(--cr-deep)] py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 text-center sm:px-6">
-          <CoastalWordmark className="h-8" />
+          <CoastalWordmark onDark className="h-10" />
           <p className="text-xs text-white/60">
             EatinOut partner campaign for Coastal Radio listeners. Participating offers and savings vary by venue.
           </p>
