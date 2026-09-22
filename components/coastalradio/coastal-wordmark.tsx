@@ -2,18 +2,19 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 /**
- * Official Coastal wordmark logo.
- * Full-color gradient mark on a transparent background, so it reads on both
- * the pale header and the dark footer.
+ * Official Coastal Radio DAB wordmark logo.
+ * Full-color gradient mark on a transparent background. The "radioDAB" lettering
+ * is black for light surfaces; pass `onDark` to use the white-lettering variant
+ * so it stays legible on dark backgrounds (e.g. the footer).
  * Isolated to the /coastalradio campaign.
  */
-export function CoastalWordmark({ className }: { className?: string }) {
+export function CoastalWordmark({ className, onDark = false }: { className?: string; onDark?: boolean }) {
   return (
     <Image
-      src="/images/coastalradio/coastal-logo.png"
-      alt="Coastal"
-      width={1033}
-      height={383}
+      src={onDark ? "/images/coastalradio/coastal-logo-ondark.png" : "/images/coastalradio/coastal-logo.png"}
+      alt="Coastal Radio DAB"
+      width={1509}
+      height={546}
       priority
       className={cn("w-auto shrink-0", className)}
     />
