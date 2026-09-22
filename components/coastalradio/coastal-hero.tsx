@@ -38,7 +38,7 @@ export function CoastalHero() {
           </p>
 
           <div className="mt-5">
-            <PrestonCtaButton label="Start my free trial" />
+            <PrestonCtaButton href="https://eatinout.com/sign-up/coastalradio" label="Start my free trial" />
           </div>
 
           <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-white/70">
