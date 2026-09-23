@@ -27,7 +27,12 @@ export function CoastalFinalCta() {
             Start your 30-day free trial and discover local offers across Blackpool, the Fylde Coast and Lancashire.
           </p>
           <div className="mt-8 w-full sm:w-auto">
-            <PrestonCtaButton label="Start my free trial" block className="sm:w-auto" />
+            <PrestonCtaButton
+            href="https://eatinout.com/sign-up/coastalradio"
+            label="Start my free trial"
+            block
+            className="sm:w-auto"
+          />
           </div>
           <p className="mt-5 text-sm text-white/70">No charge today &bull; Cancel anytime &bull; Then £4.99/month</p>
         </Reveal>
