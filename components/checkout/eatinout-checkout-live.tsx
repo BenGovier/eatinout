@@ -15,6 +15,7 @@ import {
 } from "@stripe/react-stripe-js"
 import { LoadReveal, ViewReveal, StaggerGroup, StaggerItem } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
+import { useAuth } from "@/context/auth-context"
 
 // ── DEBUG: confirm the publishable key actually made it into the bundle ──
 // If this logs "MISSING", loadStripe() will never resolve to a usable
@@ -981,6 +982,7 @@ function LiveCheckoutCard({
 /* ── ASSEMBLED LIVE CHECKOUT ────────────────────────────────────────────── */
 export function EatinOutCheckoutLive() {
   const router = useRouter()
+  const { user, authLoading } = useAuth()
   const [checkoutData, setCheckoutData] = useState<{ clientSecret: string; mode: "setup" | "payment" } | null>(null)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Pricing | null>(null)
@@ -988,6 +990,7 @@ export function EatinOutCheckoutLive() {
   const [postcode, setPostcode] = useState<string | undefined>(undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [paymentDone, setPaymentDone] = useState(false)
+  const initStartedRef = useRef(false)
 
   const fetchSubscription = async (userEmail: string, voucherCode?: string) => {
     const priceId = sessionStorage.getItem("selectedPriceId") || undefined
@@ -1009,15 +1012,22 @@ export function EatinOutCheckoutLive() {
   }
 
   useEffect(() => {
-    const storedEmail = sessionStorage.getItem("checkoutEmail")
-    console.log("[checkout][debug][init] checkoutEmail from sessionStorage:", storedEmail)
+    // Wait for auth to resolve so we can fall back to the logged-in user's email
+    if (authLoading) return
+    if (initStartedRef.current) return
+
+    // Sign-up flow sets checkoutEmail; logged-in inactive users use their account email
+    const storedEmail = sessionStorage.getItem("checkoutEmail") || user?.email
+    console.log("[checkout][debug][init] checkout email:", storedEmail)
 
     if (!storedEmail) {
-      console.warn("[checkout][debug][init] no checkoutEmail found — redirecting to /sign-up. " +
-        "If you're opening this checkout page directly (not via the sign-up flow), this is why nothing loads.")
-      router.replace("/sign-up")
+      console.warn("[checkout][debug][init] no checkoutEmail and no logged-in user — redirecting to /sign-in.")
+      router.replace("/sign-in?redirect=/checkout")
       return
     }
+
+    initStartedRef.current = true
+    sessionStorage.setItem("checkoutEmail", storedEmail)
     setEmail(storedEmail)
     setPostcode(sessionStorage.getItem("checkoutPostcode") || undefined)
 
@@ -1038,7 +1048,7 @@ export function EatinOutCheckoutLive() {
         setLoadError(err.message || "Failed to start checkout")
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authLoading, user?.email])
 
   const handleReapply = async (voucherCode: string) => {
     if (!email) return
