@@ -78,6 +78,19 @@ type Pricing = {
   discountLabel: string | null
 }
 
+// Known plan prices (same values as the sign-up page) so the price shows instantly
+// while /api/payment/create-subscription is still running. The real Stripe pricing
+// from the API replaces this as soon as it arrives.
+const KNOWN_PLANS: Record<string, Pricing> = {}
+const registerPlan = (priceId: string | undefined, pricing: Pricing) => {
+  if (priceId) KNOWN_PLANS[priceId] = pricing
+}
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID, { baseAmount: 499, discountedAmount: 499, currency: "gbp", interval: "month", intervalCount: 1, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS, { baseAmount: 2994, discountedAmount: 2994, currency: "gbp", interval: "month", intervalCount: 6, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT, { baseAmount: 2545, discountedAmount: 2545, currency: "gbp", interval: "month", intervalCount: 6, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR, { baseAmount: 5988, discountedAmount: 5988, currency: "gbp", interval: "year", intervalCount: 1, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT, { baseAmount: 4790, discountedAmount: 4790, currency: "gbp", interval: "year", intervalCount: 1, discountLabel: null })
+
 function formatMoney(pence: number, currency: string): string {
   const symbol = currency.toLowerCase() === "gbp" ? "£" : `${currency.toUpperCase()} `
   return `${symbol}${(pence / 100).toFixed(2)}`
@@ -812,7 +825,7 @@ function LiveCheckoutCardInner({
   return (
     <>
       {/* final financial confirmation */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5" style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)" }}>
+      <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 ${pricing ? "" : "animate-pulse"}`} style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)" }}>
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--p-muted)]">Today</p>
           <p className="text-[24px] leading-tight text-[var(--p-red)]" style={{ fontWeight: 850 }}>
@@ -1012,12 +1025,13 @@ export function EatinOutCheckoutLive() {
   }
 
   useEffect(() => {
-    // Wait for auth to resolve so we can fall back to the logged-in user's email
-    if (authLoading) return
+    const cachedEmail = sessionStorage.getItem("checkoutEmail")
+    // Sign-up / sign-in flow already knows the email, so don't wait for auth.
+    // Only wait for auth when we need the logged-in user's email as a fallback.
+    if (!cachedEmail && authLoading) return
     if (initStartedRef.current) return
 
-    // Sign-up flow sets checkoutEmail; logged-in inactive users use their account email
-    const storedEmail = sessionStorage.getItem("checkoutEmail") || user?.email
+    const storedEmail = cachedEmail || user?.email
     console.log("[checkout][debug][init] checkout email:", storedEmail)
 
     if (!storedEmail) {
@@ -1030,6 +1044,10 @@ export function EatinOutCheckoutLive() {
     sessionStorage.setItem("checkoutEmail", storedEmail)
     setEmail(storedEmail)
     setPostcode(sessionStorage.getItem("checkoutPostcode") || undefined)
+
+    // Show the selected plan's known price right away; replaced by real Stripe pricing below
+    const localPriceId = sessionStorage.getItem("selectedPriceId")
+    if (localPriceId && KNOWN_PLANS[localPriceId]) setPricing(KNOWN_PLANS[localPriceId])
 
     fetchSubscription(storedEmail)
       .then((data) => {
