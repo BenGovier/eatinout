@@ -26,6 +26,20 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     return;
   }
 
+  // GUARD: a trial subscription flips to "trialing" the instant it's
+  // created — before the customer has entered any card details, since
+  // create-subscription runs as soon as the checkout page loads. Writing
+  // subscriptionId/isTrialing to the DB at that point marks the user as
+  // subscribed even though they never completed checkout. Only treat a
+  // trialing subscription as real once a payment method has actually been
+  // attached to it — that only happens after confirmCardSetup succeeds
+  // (payment_settings.save_default_payment_method: "on_subscription").
+  const hasPaymentMethod = !!subscription.default_payment_method;
+  if (status === 'trialing' && !hasPaymentMethod) {
+    console.log(`[Webhook] Skipping sync for customer ${customerId} — trialing subscription has no payment method attached yet (checkout not completed)`);
+    return;
+  }
+
   let ourStatus = 'inactive';
   let isTrialing = false;
 
@@ -54,7 +68,6 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     const discount = full.discounts?.[0] ?? full.discount;
     let promo = discount?.promotion_code;
 
-    // If not expanded, it comes back as a string id
     if (typeof promo === 'string') {
       promo = await stripe.promotionCodes.retrieve(promo);
     }
