@@ -829,18 +829,25 @@ function LiveCheckoutCard({
   // without waiting for (or being tied to) our own backend's clientSecret.
   // The actual confirm step below still uses OUR real clientSecret from
   // create-subscription — this only controls what the Express Checkout UI
-  // needs to know to display correctly. Defaults to "setup" (the common
-  // case, £0 trial) until the real mode is known, so no amount is ever
-  // required at first mount; if the real mode differs, the `key` below
-  // forces a clean remount once it's known (near-instant, before the user
-  // can interact with anything).
+  // needs to know to display correctly.
+  //
+  // IMPORTANT: paymentMethodTypes only accepts Stripe's own PaymentMethod
+  // type strings (e.g. "card", "paypal", "link"...) — "apple_pay" and
+  // "google_pay" are NOT valid entries here and will throw an
+  // IntegrationError. Apple Pay / Google Pay are not separate payment
+  // method types: when a customer pays with either, Stripe tokenizes it
+  // as a "card" PaymentMethod (with wallet metadata attached). So
+  // ["card"] alone already covers card, Apple Pay, and Google Pay —
+  // whether the Apple Pay / Google Pay buttons actually appear is
+  // controlled separately, by the `paymentMethods` option passed to
+  // <ExpressCheckoutElement> below.
   const currency = (pricing?.currency ?? "gbp").toLowerCase()
   const amount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
 
- const elementsOptions =
-  mode === "payment"
-    ? { mode: "payment" as const, currency, amount: amount || 1, paymentMethodTypes: ["card", "apple_pay", "google_pay"] }
-    : { mode: "setup" as const, currency, paymentMethodTypes: ["card", "apple_pay", "google_pay"] }
+  const elementsOptions =
+    mode === "payment"
+      ? { mode: "payment" as const, currency, amount: amount || 1, paymentMethodTypes: ["card"] }
+      : { mode: "setup" as const, currency, paymentMethodTypes: ["card"] }
 
   return (
     <ViewReveal
