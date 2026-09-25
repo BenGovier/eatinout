@@ -13,6 +13,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    // Start the voucher lookup right away so it runs in parallel with the DB
+    // work below instead of after it. Errors are captured (not thrown) so an
+    // early return further down never leaves an unhandled rejection behind.
+    const voucherLookup = voucherCode
+      ? stripe.promotionCodes
+          .list({ code: voucherCode, active: true, limit: 1 })
+          .then((result) => ({ promo: result, error: null as unknown }))
+          .catch((error: unknown) => ({ promo: null, error }))
+      : null;
+
     await connectToDatabase();
 
     const user = await User.findOne({ email });
@@ -47,13 +57,10 @@ export async function POST(request: Request) {
     let promotionCodeId: string | undefined;
     let appliedVoucherCode: string | null = null;
     let promoCoupon: Stripe.Coupon | undefined;
-    if (voucherCode) {
-      const promo = await stripe.promotionCodes.list({
-        code: voucherCode,
-        active: true,
-        limit: 1,
-      });
-      if (promo.data.length === 0) {
+    if (voucherLookup) {
+      const { promo, error: voucherError } = await voucherLookup;
+      if (voucherError) throw voucherError;
+      if (!promo || promo.data.length === 0) {
         return NextResponse.json(
           { error: "Invalid or expired voucher code" },
           { status: 400 }

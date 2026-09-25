@@ -231,14 +231,14 @@ export default function SignInPage() {
           console.log("Subscription access check:", subscriptionData);
 
           if (!subscriptionData.hasAccess) {
-            console.log("Access denied, redirecting to restaurants:", subscriptionData.accessReason);
+            console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
             sessionStorage.setItem('triggeredLogin', 'true');
             const checkoutEmail = data.email || email;
             if (checkoutEmail) {
               sessionStorage.setItem('checkoutEmail', checkoutEmail);
             }
             sessionStorage.setItem('redirectUrl', redirectUrl);
-            router.push('/restaurants');
+            router.push('/checkout');
             return;
           }
         }
@@ -253,14 +253,14 @@ export default function SignInPage() {
         console.log("Subscription access check:", subscriptionData);
 
         if (!subscriptionData.hasAccess) {
-          console.log("Access denied, redirecting to sign-up:", subscriptionData.accessReason);
+          console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
           sessionStorage.setItem('triggeredLogin', 'true');
-          // Store email for checkout and redirect to the subscription flow
+          // Store email for checkout and redirect to the checkout page
           const checkoutEmail = data.email || email;
           if (checkoutEmail) {
             sessionStorage.setItem('checkoutEmail', checkoutEmail);
           }
-          router.push('/sign-up');
+          router.push('/checkout');
           return;
         } else {
           console.log("Access granted:", subscriptionData.accessReason);

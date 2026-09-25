@@ -15,6 +15,7 @@ import {
 } from "@stripe/react-stripe-js"
 import { LoadReveal, ViewReveal, StaggerGroup, StaggerItem } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
+import { useAuth } from "@/context/auth-context"
 
 // ── DEBUG: confirm the publishable key actually made it into the bundle ──
 // If this logs "MISSING", loadStripe() will never resolve to a usable
@@ -76,6 +77,19 @@ type Pricing = {
   intervalCount: number
   discountLabel: string | null
 }
+
+// Known plan prices (same values as the sign-up page) so the price shows instantly
+// while /api/payment/create-subscription is still running. The real Stripe pricing
+// from the API replaces this as soon as it arrives.
+const KNOWN_PLANS: Record<string, Pricing> = {}
+const registerPlan = (priceId: string | undefined, pricing: Pricing) => {
+  if (priceId) KNOWN_PLANS[priceId] = pricing
+}
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID, { baseAmount: 499, discountedAmount: 499, currency: "gbp", interval: "month", intervalCount: 1, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS, { baseAmount: 2994, discountedAmount: 2994, currency: "gbp", interval: "month", intervalCount: 6, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT, { baseAmount: 2545, discountedAmount: 2545, currency: "gbp", interval: "month", intervalCount: 6, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR, { baseAmount: 5988, discountedAmount: 5988, currency: "gbp", interval: "year", intervalCount: 1, discountLabel: null })
+registerPlan(process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT, { baseAmount: 4790, discountedAmount: 4790, currency: "gbp", interval: "year", intervalCount: 1, discountLabel: null })
 
 function formatMoney(pence: number, currency: string): string {
   const symbol = currency.toLowerCase() === "gbp" ? "£" : `${currency.toUpperCase()} `
@@ -811,7 +825,7 @@ function LiveCheckoutCardInner({
   return (
     <>
       {/* final financial confirmation */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5" style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)" }}>
+      <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 ${pricing ? "" : "animate-pulse"}`} style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)" }}>
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--p-muted)]">Today</p>
           <p className="text-[24px] leading-tight text-[var(--p-red)]" style={{ fontWeight: 850 }}>
@@ -981,6 +995,7 @@ function LiveCheckoutCard({
 /* ── ASSEMBLED LIVE CHECKOUT ────────────────────────────────────────────── */
 export function EatinOutCheckoutLive() {
   const router = useRouter()
+  const { user, authLoading } = useAuth()
   const [checkoutData, setCheckoutData] = useState<{ clientSecret: string; mode: "setup" | "payment" } | null>(null)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Pricing | null>(null)
@@ -988,6 +1003,7 @@ export function EatinOutCheckoutLive() {
   const [postcode, setPostcode] = useState<string | undefined>(undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [paymentDone, setPaymentDone] = useState(false)
+  const initStartedRef = useRef(false)
 
   const fetchSubscription = async (userEmail: string, voucherCode?: string) => {
     const priceId = sessionStorage.getItem("selectedPriceId") || undefined
@@ -1009,17 +1025,29 @@ export function EatinOutCheckoutLive() {
   }
 
   useEffect(() => {
-    const storedEmail = sessionStorage.getItem("checkoutEmail")
-    console.log("[checkout][debug][init] checkoutEmail from sessionStorage:", storedEmail)
+    const cachedEmail = sessionStorage.getItem("checkoutEmail")
+    // Sign-up / sign-in flow already knows the email, so don't wait for auth.
+    // Only wait for auth when we need the logged-in user's email as a fallback.
+    if (!cachedEmail && authLoading) return
+    if (initStartedRef.current) return
+
+    const storedEmail = cachedEmail || user?.email
+    console.log("[checkout][debug][init] checkout email:", storedEmail)
 
     if (!storedEmail) {
-      console.warn("[checkout][debug][init] no checkoutEmail found — redirecting to /sign-up. " +
-        "If you're opening this checkout page directly (not via the sign-up flow), this is why nothing loads.")
-      router.replace("/sign-up")
+      console.warn("[checkout][debug][init] no checkoutEmail and no logged-in user — redirecting to /sign-in.")
+      router.replace("/sign-in?redirect=/checkout")
       return
     }
+
+    initStartedRef.current = true
+    sessionStorage.setItem("checkoutEmail", storedEmail)
     setEmail(storedEmail)
     setPostcode(sessionStorage.getItem("checkoutPostcode") || undefined)
+
+    // Show the selected plan's known price right away; replaced by real Stripe pricing below
+    const localPriceId = sessionStorage.getItem("selectedPriceId")
+    if (localPriceId && KNOWN_PLANS[localPriceId]) setPricing(KNOWN_PLANS[localPriceId])
 
     fetchSubscription(storedEmail)
       .then((data) => {
@@ -1038,7 +1066,7 @@ export function EatinOutCheckoutLive() {
         setLoadError(err.message || "Failed to start checkout")
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authLoading, user?.email])
 
   const handleReapply = async (voucherCode: string) => {
     if (!email) return
