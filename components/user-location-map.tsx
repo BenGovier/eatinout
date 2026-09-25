@@ -880,7 +880,7 @@ export default function UserLocationMap({
           const zoomedOutDiv = marker.getElement().querySelector('.marker-zoomed-out') as HTMLElement;
           const zoomedInDiv = marker.getElement().querySelector('.marker-zoomed-in') as HTMLElement;
           if (zoomedOutDiv && zoomedInDiv) {
-            const isZoomedOut = currentZoom < 16;
+            const isZoomedOut = currentZoom < 12;
             const outDisplay = isZoomedOut ? 'block' : 'none';
             const inDisplay = isZoomedOut ? 'none' : 'flex';
             if (zoomedOutDiv.style.display !== outDisplay) zoomedOutDiv.style.display = outDisplay;
@@ -912,7 +912,7 @@ export default function UserLocationMap({
           };
         } else {
           const restaurant = JSON.parse(props.restaurantData || "{}");
-          const isZoomedOut = currentZoom < 16;
+          const isZoomedOut = currentZoom < 12;
 
           el.innerHTML = `
             <div class="marker-zoomed-out transition-transform duration-200 hover:scale-110" style="width: 36px; height: 51px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); display: ${isZoomedOut ? 'block' : 'none'};">
