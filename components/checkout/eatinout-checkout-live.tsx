@@ -837,10 +837,10 @@ function LiveCheckoutCard({
   const currency = (pricing?.currency ?? "gbp").toLowerCase()
   const amount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
 
-  const elementsOptions =
-    mode === "payment"
-      ? { mode: "payment" as const, currency, amount: amount || 1, paymentMethodTypes: ["card"] }
-      : { mode: "setup" as const, currency, paymentMethodTypes: ["card"] }
+ const elementsOptions =
+  mode === "payment"
+    ? { mode: "payment" as const, currency, amount: amount || 1, paymentMethodTypes: ["card", "apple_pay", "google_pay"] }
+    : { mode: "setup" as const, currency, paymentMethodTypes: ["card", "apple_pay", "google_pay"] }
 
   return (
     <ViewReveal
