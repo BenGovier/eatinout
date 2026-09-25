@@ -47,13 +47,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 // Instead of hard reloading, we'll just set layout ready, and checkAuth could be called
                 setLayoutReady(true);
               } else {
-                // Inactive & not trialing -> send to checkout (not sign-up)
-                router.push("/checkout");
+                router.push("/sign-up");
               }
             } catch (error) {
-              // API/network error: don't push a logged-in user anywhere
-              console.error("Status verification failed:", error);
-              setLayoutReady(true);
+              router.push("/sign-up");
             } finally {
               setIsVerifyingStatus(false);
             }
