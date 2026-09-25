@@ -10,6 +10,7 @@ import {
   CardNumberElement,
   CardExpiryElement,
   CardCvcElement,
+  ExpressCheckoutElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
@@ -18,10 +19,6 @@ import { CheckoutExitGuard } from "./checkout-exit-guard"
 import { useAuth } from "@/context/auth-context"
 
 // ── DEBUG: confirm the publishable key actually made it into the bundle ──
-// If this logs "MISSING", loadStripe() will never resolve to a usable
-// Stripe instance, `stripe` in useStripe() will stay null forever, and the
-// CTA button will be disabled no matter what — on localhost AND on Vercel,
-// unless you also add the env var to the Vercel project settings.
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 console.log(
   "[checkout][debug] NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:",
@@ -300,272 +297,6 @@ function CheckoutTransition() {
   )
 }
 
-/* ── Wallet-not-supported popup ─────────────────────────────────────────
- * Shown only when the visitor taps a wallet button that this browser /
- * device genuinely can't use (checked via Stripe's canMakePayment()).
- * Doesn't navigate anywhere or touch the card flow.
- * ------------------------------------------------------------------- */
-function WalletUnsupportedNotice({
-  walletLabel,
-  onClose,
-}: {
-  walletLabel: "Apple Pay" | "Google Pay"
-  onClose: () => void
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
-      style={{ background: "rgba(25,23,21,0.55)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-xs rounded-2xl bg-white p-6 text-center"
-        style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-[16px] font-extrabold text-[var(--p-ink)]">{walletLabel} isn&apos;t available</p>
-        <p className="mt-2 text-[13px] text-[var(--p-body)]" style={{ lineHeight: 1.5 }}>
-          Your device or browser doesn&apos;t support this payment method here. Please pay by card below instead.
-        </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 h-11 w-full rounded-xl text-sm font-semibold text-white"
-          style={{ background: "var(--p-red)" }}
-        >
-          Got it
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ── LIVE Apple Pay / Google Pay — always visible ────────────────────────
- * Both buttons render with the exact approved design at all times, on
- * every device. Support is checked in the background via Stripe's
- * canMakePayment(). On click:
- *  - if THIS wallet is actually usable in this browser → the real
- *    Apple Pay / Google Pay sheet opens and completes the SAME
- *    SetupIntent/PaymentIntent flow as the card fields below.
- *  - if it isn't usable → a small popup explains that, nothing else
- *    on the page is affected.
- * ------------------------------------------------------------------- */
-function WalletButtons({
-  clientSecret,
-  mode,
-  pricing,
-  onSuccess,
-  onError,
-  disabled,
-}: {
-  clientSecret: string | null
-  mode: "setup" | "payment"
-  pricing: Pricing | null
-  onSuccess: () => Promise<void>
-  onError: (message: string) => void
-  disabled: boolean
-}) {
-  const stripe = useStripe()
-  const [paymentRequest, setPaymentRequest] = useState<any>(null)
-  const [support, setSupport] = useState<{ applePay: boolean; googlePay: boolean } | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [unsupportedWallet, setUnsupportedWallet] = useState<null | "Apple Pay" | "Google Pay">(null)
-
-  // Voucher apply hone par clientSecret/mode badal jaate hain — the
-  // paymentmethod handler below needs the *latest* value, hence refs.
-  const secretRef = useRef(clientSecret)
-  const modeRef = useRef(mode)
-  const successRef = useRef(onSuccess)
-  useEffect(() => {
-    secretRef.current = clientSecret
-    modeRef.current = mode
-    successRef.current = onSuccess
-  }, [clientSecret, mode, onSuccess])
-
-  const amount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
-  const currency = (pricing?.currency ?? "gbp").toLowerCase()
-  const isTrial = mode === "setup"
-  const label = isTrial ? "EatinOut membership — £0 today, 30 days free" : "EatinOut membership"
-
-  // Build the Payment Request once pricing is known, and check what this
-  // browser/device can actually use.
-  useEffect(() => {
-    if (!stripe || !pricing) return
-
-    const pr = stripe.paymentRequest({
-      country: "GB",
-      currency,
-      // Apple Pay rejects a £0 total, so during the trial we send the
-      // renewal amount marked "pending" — nothing is actually charged
-      // today since this is a SetupIntent, not a payment.
-      total: { label, amount, pending: isTrial },
-      requestPayerName: true,
-      requestPayerEmail: true,
-    })
-
-    let cancelled = false
-    pr.canMakePayment()
-      .then((result: any) => {
-        console.log("[checkout][debug][wallet] canMakePayment result:", result)
-        if (cancelled) return
-        setSupport({
-          applePay: !!result?.applePay,
-          // Stripe only flags Apple Pay explicitly; any other truthy
-          // result on a non-Apple-Pay browser means a Google Pay–style
-          // wallet (Chrome/Android) is available.
-          googlePay: !!result && !result?.applePay,
-        })
-      })
-      .catch((err: any) => {
-        console.error("[checkout][debug][wallet] canMakePayment failed:", err)
-        if (!cancelled) setSupport({ applePay: false, googlePay: false })
-      })
-
-    setPaymentRequest(pr)
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stripe, pricing])
-
-  // Keep the wallet sheet's total in sync (e.g. after a voucher is applied).
-  useEffect(() => {
-    if (!paymentRequest || !pricing) return
-    paymentRequest.update({ currency, total: { label, amount, pending: isTrial } })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentRequest, amount, currency, isTrial, label])
-
-  // Confirm the SetupIntent/PaymentIntent once the wallet returns a payment method.
-  useEffect(() => {
-    if (!paymentRequest || !stripe) return
-
-    const handler = async (ev: any) => {
-      const secret = secretRef.current
-      if (!secret) {
-        ev.complete("fail")
-        onError("Checkout is still loading. Please try again in a moment.")
-        return
-      }
-
-      setIsProcessing(true)
-      try {
-        const result: any =
-          modeRef.current === "setup"
-            ? await stripe.confirmCardSetup(secret, { payment_method: ev.paymentMethod.id }, { handleActions: false })
-            : await stripe.confirmCardPayment(secret, { payment_method: ev.paymentMethod.id }, { handleActions: false })
-
-        if (result.error) {
-          console.error("[checkout][debug][wallet] confirm error:", result.error)
-          ev.complete("fail")
-          setIsProcessing(false)
-          onError(result.error.message || "Payment failed. Please try another card or method.")
-          return
-        }
-
-        // Close the wallet sheet first, then handle any bank verification.
-        ev.complete("success")
-
-        const intent = result.setupIntent ?? result.paymentIntent
-        if (intent?.status === "requires_action") {
-          const action: any =
-            modeRef.current === "setup"
-              ? await stripe.confirmCardSetup(secret)
-              : await stripe.confirmCardPayment(secret)
-
-          if (action.error) {
-            console.error("[checkout][debug][wallet] requires_action follow-up error:", action.error)
-            setIsProcessing(false)
-            onError(action.error.message || "Bank verification failed. Please try again.")
-            return
-          }
-        }
-
-        console.log("[checkout][debug][wallet] success, calling onSuccess()")
-        await successRef.current()
-      } catch (err) {
-        console.error("[checkout][debug][wallet] unexpected error:", err)
-        try {
-          ev.complete("fail")
-        } catch {
-          /* sheet already closed */
-        }
-        setIsProcessing(false)
-        onError("Something went wrong. Please try again.")
-      }
-    }
-
-    paymentRequest.on("paymentmethod", handler)
-    return () => {
-      paymentRequest.off("paymentmethod", handler)
-    }
-  }, [paymentRequest, stripe, onError])
-
-  const handleClick = (wallet: "Apple Pay" | "Google Pay") => {
-    if (disabled || isProcessing || !clientSecret) return
-
-    const supported = wallet === "Apple Pay" ? support?.applePay : support?.googlePay
-
-    if (paymentRequest && supported) {
-      try {
-        // Must be called synchronously inside the click handler — Apple
-        // Pay requires the show() call to happen within a user gesture.
-        paymentRequest.show()
-      } catch (err) {
-        console.error("[checkout][debug][wallet] show() failed:", err)
-        setUnsupportedWallet(wallet)
-      }
-    } else {
-      setUnsupportedWallet(wallet)
-    }
-  }
-
-  const busy = disabled || isProcessing || !clientSecret
-
-  return (
-    <>
-      <div className="flex flex-col gap-3" style={{ opacity: busy ? 0.6 : 1 }}>
-        <button
-          type="button"
-          onClick={() => handleClick("Apple Pay")}
-          disabled={busy}
-          aria-label="Pay with Apple Pay"
-          className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-black text-base font-medium tracking-tight text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-            <path d="M17.543 12.634c-.026-2.63 2.147-3.89 2.245-3.95-1.223-1.787-3.124-2.032-3.8-2.058-1.619-.164-3.16.955-3.98.955-.82 0-2.088-.931-3.434-.905-1.767.026-3.397 1.027-4.307 2.61-1.837 3.183-.469 7.895 1.318 10.48.874 1.266 1.916 2.687 3.281 2.636 1.315-.052 1.814-.852 3.404-.852 1.59 0 2.038.852 3.43.826 1.416-.026 2.313-1.29 3.181-2.559 1.001-1.469 1.414-2.892 1.44-2.965-.031-.013-2.765-1.062-2.792-4.21zM15.14 4.87c.726-.88 1.215-2.104 1.082-3.323-1.046.042-2.312.696-3.062 1.576-.673.78-1.262 2.025-1.104 3.22 1.166.09 2.358-.593 3.084-1.473z" />
-          </svg>
-          <span>Pay</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleClick("Google Pay")}
-          disabled={busy}
-          aria-label="Pay with Google Pay"
-          className="flex h-12 items-center justify-center rounded-xl border border-black/10 bg-white text-base font-medium tracking-tight shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed"
-          style={{ color: "var(--p-ink)" }}
-        >
-          <span className="mr-1.5 font-bold">
-            <span className="text-[#4285F4]">G</span>
-            <span className="text-[#EA4335]">o</span>
-            <span className="text-[#FBBC05]">o</span>
-            <span className="text-[#4285F4]">g</span>
-            <span className="text-[#34A853]">l</span>
-            <span className="text-[#EA4335]">e</span>
-          </span>
-          Pay
-        </button>
-      </div>
-
-      {unsupportedWallet && (
-        <WalletUnsupportedNotice walletLabel={unsupportedWallet} onClose={() => setUnsupportedWallet(null)} />
-      )}
-    </>
-  )
-}
-
 /* ── Static "Country" field — locked to United Kingdom ─────────────────── */
 function StaticCountryField() {
   return (
@@ -724,6 +455,33 @@ function LiveCheckoutCardInner({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // ── Express Checkout Element state ──────────────────────────────────
+  // Stripe alone decides what's available on this browser/device via the
+  // onReady event's `availablePaymentMethods` — we never guess ourselves.
+  // Nothing is rendered until Stripe reports back, and nothing is shown
+  // if no wallet is usable — no static fallback, no "unavailable" popup.
+  const [expressReady, setExpressReady] = useState(false)
+  const [hasAvailableWallet, setHasAvailableWallet] = useState(false)
+
+  // Voucher reapply / async updates can change clientSecret & mode after
+  // ExpressCheckoutElement has already mounted — the onConfirm callback
+  // must always read the latest values, hence refs.
+  const clientSecretRef = useRef(clientSecret)
+  const modeRef = useRef(mode)
+  useEffect(() => {
+    clientSecretRef.current = clientSecret
+    modeRef.current = mode
+  }, [clientSecret, mode])
+
+  // Keep the Express Checkout Element's amount/currency in sync with the
+  // real Stripe pricing (e.g. after a voucher discount is applied), without
+  // remounting Elements — elements.update() is the officially supported
+  // way to do this for a "deferred" Elements instance.
+  useEffect(() => {
+    if (!elements || mode !== "payment" || !pricing) return
+    elements.update({ amount: pricing.discountedAmount ?? pricing.baseAmount })
+  }, [elements, mode, pricing])
+
   // ── DEBUG: this is the exact set of conditions the submit button's
   // `disabled` prop checks. Whichever one logs false/null is your culprit.
   useEffect(() => {
@@ -803,15 +561,51 @@ function LiveCheckoutCardInner({
     await onSuccess()
   }
 
-  // Wallet flow reuses the same "Processing..." button state and same
-  // error box as the card flow, and the same onSuccess()/navigation path.
-  const handleWalletSuccess = async () => {
-    setIsSubmitting(true)
-    await onSuccess()
-  }
+  // ── Express Checkout (Apple Pay / Google Pay / etc.) confirm handler ──
+  // Uses the SAME clientSecret our own backend already created (via
+  // create-subscription), so the entire downstream flow — webhook,
+  // verify-subscription, DB activation, emails — is completely unchanged.
+  // elements.submit() + stripe.confirmSetup/confirmPayment({ elements,
+  // clientSecret, ... }) is Stripe's documented "deferred" pattern for
+  // when you already have your own PaymentIntent/SetupIntent.
+  const handleExpressConfirm = async () => {
+    const secret = clientSecretRef.current
+    const currentMode = modeRef.current
 
-  const handleWalletError = (message: string) => {
-    setError(message)
+    if (!stripe || !elements) {
+      console.warn("[checkout][debug][express] aborting — stripe/elements not ready")
+      return
+    }
+    if (!secret) {
+      setError("Checkout is still loading. Please try again in a moment.")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    const { error: submitError } = await elements.submit()
+    if (submitError) {
+      console.error("[checkout][debug][express] elements.submit() error:", submitError)
+      setIsSubmitting(false)
+      setError(submitError.message || "Payment failed. Please try again.")
+      return
+    }
+
+    const result =
+      currentMode === "setup"
+        ? await stripe.confirmSetup({ elements, clientSecret: secret, redirect: "if_required" })
+        : await stripe.confirmPayment({ elements, clientSecret: secret, redirect: "if_required" })
+
+    if (result.error) {
+      console.error("[checkout][debug][express] confirm error:", result.error)
+      setIsSubmitting(false)
+      setError(result.error.message || "Payment failed. Please try another card or method.")
+      return
+    }
+
+    console.log("[checkout][debug][express] success, calling onSuccess()")
+    await onSuccess()
   }
 
   const isTrialing = mode === "setup"
@@ -851,27 +645,85 @@ function LiveCheckoutCardInner({
         Cancel anytime
       </p>
 
-      {/* express — Apple Pay / Google Pay, always visible */}
-      <div className="mt-6">
-        <h3 className="text-[17px] font-extrabold text-[var(--p-ink)]">Fastest way to join</h3>
-        <p className="mt-0.5 text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
-        <div className="mt-3">
-          <WalletButtons
-            clientSecret={clientSecret}
-            mode={mode}
-            pricing={pricing}
-            onSuccess={handleWalletSuccess}
-            onError={handleWalletError}
-            disabled={isSubmitting}
+      {/* express — Apple Pay / Google Pay via Stripe's own Express Checkout
+          Element. Nothing renders until Stripe's onReady fires, and nothing
+          renders if no wallet is usable on this exact browser/device —
+          Stripe alone decides this, we never guess or fall back to a
+          static button. */}
+      {expressReady && hasAvailableWallet && (
+        <>
+          <div className="mt-6">
+            <h3 className="text-[17px] font-extrabold text-[var(--p-ink)]">Fastest way to join</h3>
+            <p className="mt-0.5 text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
+            <div className="mt-3" style={{ opacity: isSubmitting ? 0.6 : 1, pointerEvents: isSubmitting ? "none" : "auto" }}>
+              <ExpressCheckoutElement
+                onConfirm={handleExpressConfirm}
+                onReady={() => {
+                  /* second onReady after the initial availability check — no-op */
+                }}
+                options={{
+                  paymentMethods: {
+                    applePay: "auto",
+                    googlePay: "auto",
+                    link: "never",
+                    paypal: "never",
+                    amazonPay: "never",
+                    klarna: "never",
+                  },
+                  buttonType: { applePay: "plain", googlePay: "plain" },
+                  buttonTheme: { applePay: "black", googlePay: "white" },
+                  buttonHeight: 48,
+                  layout: { maxColumns: 1, maxRows: 2 },
+                } as any}
+              />
+            </div>
+          </div>
+
+          <div className="my-5 flex items-center gap-3">
+            <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
+            <span className="text-xs font-medium text-[var(--p-muted)]">or pay with card</span>
+            <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
+          </div>
+        </>
+      )}
+
+      {/* This is rendered unconditionally (even before Stripe's onReady
+          fires) purely to receive the initial onReady/onAvailablePaymentMethodsChange
+          event — hidden via height 0 until we know whether to show it, so
+          Stripe can still do its detection work in the background without
+          any layout flash. Once we know the result, the visible block above
+          takes over and this one is skipped (Stripe Elements does not allow
+          two ExpressCheckoutElement instances mounted twice for the same
+          purpose, so this pattern uses a single instance whose visibility
+          is controlled by wrapping height, not by mount/unmount). */}
+      {!expressReady && (
+        <div className="mt-6" style={{ height: 0, overflow: "hidden" }}>
+          <ExpressCheckoutElement
+            onReady={(event: any) => {
+              console.log("[checkout][debug][express] ready. availablePaymentMethods:", event?.availablePaymentMethods)
+              const available = event?.availablePaymentMethods
+              const anyAvailable = !!available && Object.values(available).some(Boolean)
+              setHasAvailableWallet(anyAvailable)
+              setExpressReady(true)
+            }}
+            onConfirm={handleExpressConfirm}
+            options={{
+              paymentMethods: {
+                applePay: "auto",
+                googlePay: "auto",
+                link: "never",
+                paypal: "never",
+                amazonPay: "never",
+                klarna: "never",
+              },
+              buttonType: { applePay: "plain", googlePay: "plain" },
+              buttonTheme: { applePay: "black", googlePay: "white" },
+              buttonHeight: 48,
+              layout: { maxColumns: 1, maxRows: 2 },
+            } as any}
           />
         </div>
-      </div>
-
-      <div className="my-5 flex items-center gap-3">
-        <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
-        <span className="text-xs font-medium text-[var(--p-muted)]">or pay with card</span>
-        <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
-      </div>
+      )}
 
       {/* card fields — split elements, matching client's exact design */}
       <CardFields />
@@ -972,13 +824,31 @@ function LiveCheckoutCard({
   onSuccess: () => Promise<void>
   onReapply: (voucherCode: string) => Promise<void>
 }) {
+  // "Deferred" Elements setup: initialize with mode/currency(/amount) so
+  // ExpressCheckoutElement can render and detect wallets immediately,
+  // without waiting for (or being tied to) our own backend's clientSecret.
+  // The actual confirm step below still uses OUR real clientSecret from
+  // create-subscription — this only controls what the Express Checkout UI
+  // needs to know to display correctly. Defaults to "setup" (the common
+  // case, £0 trial) until the real mode is known, so no amount is ever
+  // required at first mount; if the real mode differs, the `key` below
+  // forces a clean remount once it's known (near-instant, before the user
+  // can interact with anything).
+  const currency = (pricing?.currency ?? "gbp").toLowerCase()
+  const amount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
+
+  const elementsOptions =
+    mode === "payment"
+      ? { mode: "payment" as const, currency, amount: amount || 1, paymentMethodTypes: ["card"] }
+      : { mode: "setup" as const, currency, paymentMethodTypes: ["card"] }
+
   return (
     <ViewReveal
       className="rounded-[26px] bg-[var(--p-surface)] p-5"
       y={12}
       style={{ border: "1px solid rgba(25,23,21,0.07)", boxShadow: "0 22px 60px rgba(40,30,25,0.09)" }}
     >
-      <Elements stripe={stripePromise}>
+      <Elements stripe={stripePromise} options={elementsOptions} key={mode}>
         <LiveCheckoutCardInner
           clientSecret={clientSecret}
           mode={mode}
