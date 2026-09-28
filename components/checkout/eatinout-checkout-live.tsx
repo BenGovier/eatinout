@@ -50,6 +50,9 @@ const palette = {
   "--p-sep": "#BBB4AE",
 } as React.CSSProperties
 
+// Temporary: set to true to render the real Stripe wallet button visibly (phone testing). Keep false otherwise.
+const DEBUG_SHOW_ECE = false
+
 const STRIPE_ELEMENT_STYLE = {
   base: {
     fontSize: "14px",
@@ -499,32 +502,42 @@ function WalletButtons({
       {/* Hidden ExpressCheckoutElement — mounted ONLY so Stripe tells us,
           via onReady, exactly which wallets this browser/device can use.
           Nothing here is ever shown to the user. */}
-      <div aria-hidden="true" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}>
-        {pricing && (
-          <ExpressCheckoutElement
-            options={{
-              paymentMethods: {
-                applePay: "auto",
-                googlePay: "auto",
-                link: "never",
-                paypal: "never",
-                amazonPay: "never",
-              },
-            }}
-            onReady={(event: any) => {
-              console.log("[checkout][debug][ECE] onReady fired. raw availablePaymentMethods:", event?.availablePaymentMethods)
-              const applePay = !!event?.availablePaymentMethods?.applePay
-              const googlePay = !!event?.availablePaymentMethods?.googlePay
-              console.log("[checkout][debug][ECE] resolved support ->", { applePay, googlePay })
-              setSupport({ applePay, googlePay })
-            }}
-            onLoadError={(event: any) => {
-              console.error("[checkout][debug][ECE] onLoadError — treating both wallets as unsupported:", event)
-              setSupport({ applePay: false, googlePay: false })
-            }}
-          />
-        )}
-      </div>
+  {/* Hidden ExpressCheckoutElement — only for Stripe's availability detection.
+    1px + opacity 0 (not 0x0) so Stripe's iframe can initialise properly. */}
+<div
+  aria-hidden="true"
+  style={
+    DEBUG_SHOW_ECE
+      ? { width: "100%", height: "48px" }
+      : { position: "absolute", width: "1px", height: "1px", opacity: 0, overflow: "hidden", pointerEvents: "none" }
+  }
+>
+  {pricing && (
+    <ExpressCheckoutElement
+      options={{
+        paymentMethods: {
+          applePay: "auto",
+          googlePay: "auto",
+          link: "never",
+          paypal: "never",
+          amazonPay: "never",
+        },
+      }}
+      onReady={(event: any) => {
+        console.log("[checkout][debug][ECE] full onReady event:", JSON.stringify(event))
+        console.log("[checkout][debug][ECE] onReady fired. raw availablePaymentMethods:", event?.availablePaymentMethods)
+        const applePay = !!event?.availablePaymentMethods?.applePay
+        const googlePay = !!event?.availablePaymentMethods?.googlePay
+        console.log("[checkout][debug][ECE] resolved support ->", { applePay, googlePay })
+        setSupport({ applePay, googlePay })
+      }}
+      onLoadError={(event: any) => {
+        console.error("[checkout][debug][ECE] onLoadError — treating both wallets as unsupported:", event)
+        setSupport({ applePay: false, googlePay: false })
+      }}
+    />
+  )}
+</div>
 
       {detecting && (
         <p className="text-center text-[12px] text-[var(--p-muted)]">Checking available payment methods…</p>
@@ -971,14 +984,15 @@ function LiveCheckoutCard({
       y={12}
       style={{ border: "1px solid rgba(25,23,21,0.07)", boxShadow: "0 22px 60px rgba(40,30,25,0.09)" }}
     >
-      <Elements
-        stripe={stripePromise}
-        options={{
-          mode: mode === "setup" ? "setup" : "payment",
-          amount: mode === "setup" ? undefined : renewalAmount,
-          currency,
-        }}
-      >
+  <Elements
+  key={`${mode}-${currency}`}
+  stripe={stripePromise}
+  options={{
+    mode: mode === "setup" ? "setup" : "payment",
+    amount: mode === "setup" ? undefined : renewalAmount,
+    currency,
+  }}
+>
         <LiveCheckoutCardInner
           clientSecret={clientSecret}
           mode={mode}
