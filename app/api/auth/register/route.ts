@@ -4,9 +4,11 @@ import User from "@/models/User";
 import Lead from "@/models/Lead";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import Stripe from "stripe";
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       if (mobile) {
         const existingMobile = await User.findOne({ mobile });
         if (existingMobile) {
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
 
       await user.save();
       console.log("User created successfully:", user._id);
-      
+
       // Mark lead as converted if it exists
       try {
         await Lead.findOneAndUpdate(
@@ -139,6 +141,23 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Create a Stripe customer up-front so the checkout page can use
+    // a SetupIntent/PaymentIntent immediately without an extra round trip.
+    try {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        metadata: { userId: user._id.toString() },
+      });
+      user.stripeCustomerId = customer.id;
+      await user.save();
+      console.log("Stripe customer created:", customer.id);
+    } catch (stripeError: any) {
+      // Do not fail registration if Stripe customer creation fails —
+      // the checkout step will retry creating it if missing.
+      console.error("Error creating Stripe customer:", stripeError);
     }
 
     // Create JWT token
