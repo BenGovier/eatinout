@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Reveal } from "./reveal"
 import { ImageWithHotspots, type Hotspot } from "./image-hotspot"
 
@@ -23,7 +23,7 @@ const GOOGLE_PLAY_URL = "https://play.google.com/store/apps/details?id=com.eatin
 const ASSET = "/design/post-signup-success"
 
 export function PostSignupSuccessDemo() {
-  const [webNotice, setWebNotice] = useState(false)
+  const router = useRouter()
 
   // Percentages relative to the download panel image (intrinsic 1378x909),
   // derived by scanning the actual pixels of the tight asset.
@@ -53,7 +53,7 @@ export function PostSignupSuccessDemo() {
       left: 7,
       width: 86,
       height: 15,
-      onClick: () => setWebNotice(true),
+      onClick: () => router.push("/restaurants"),
     },
   ]
 
@@ -142,11 +142,6 @@ export function PostSignupSuccessDemo() {
             sizes="(max-width: 440px) 88vw, 365px"
             hotspots={downloadHotspots}
           />
-          {webNotice ? (
-            <p role="status" aria-live="polite" className="mt-2 text-center text-[13px] font-medium" style={{ color: "#817A74" }}>
-              Demo only — web destination not connected.
-            </p>
-          ) : null}
         </Reveal>
 
         {/* 5 — membership active banner (reassurance only) */}
