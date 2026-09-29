@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Lock, Check, ShieldCheck, ArrowRight, Loader2, CreditCard } from "lucide-react"
+import { Lock, Check, ShieldCheck, ArrowRight, Loader2, CreditCard, ChevronDown } from "lucide-react"
 import { loadStripe, type StripeCardNumberElementChangeEvent, type StripeCardExpiryElementChangeEvent, type StripeCardCvcElementChangeEvent } from "@stripe/stripe-js"
 import {
   Elements,
@@ -122,11 +122,14 @@ function CheckoutHeader() {
 // customers (mode "payment") never see free-trial wording.
 function CheckoutIntro({ isTrial }: { isTrial: boolean | null }) {
   return (
-    <div>
-      <h1 className="text-pretty font-extrabold text-[var(--p-ink)]" style={{ fontSize: "clamp(24px, 6.4vw, 30px)", lineHeight: 1.08, letterSpacing: "-0.03em" }}>
+    <div className="px-1">
+      <p className="mb-1.5 text-[11px] uppercase tracking-[0.14em] text-[var(--p-red)]" style={{ fontWeight: 750 }}>
+        EatinOut membership
+      </p>
+      <h1 className="text-balance font-extrabold text-[var(--p-ink)]" style={{ fontSize: "clamp(24px, 6.4vw, 30px)", lineHeight: 1.08, letterSpacing: "-0.03em" }}>
         Your restaurant savings are <span className="text-[var(--p-red)]">ready.</span>
       </h1>
-      <p className="mt-2 text-[15px] text-[var(--p-body)]" style={{ lineHeight: 1.45 }}>
+      <p className="mt-2 text-pretty text-[14.5px] text-[var(--p-body)]" style={{ lineHeight: 1.45 }}>
         {isTrial ? (
           <>
             Start your <span className="font-bold text-[var(--p-ink)]">30-day free trial</span> and unlock offers at{" "}
@@ -450,27 +453,6 @@ function WalletButtons({
   )
 }
 
-function StaticCountryField() {
-  return (
-    <div>
-      <span className="mb-1.5 block text-[12px] text-[var(--p-body)]" style={{ fontWeight: 650 }}>
-        Country
-      </span>
-      <div
-        aria-hidden="true"
-        className="flex h-[52px] items-center rounded-xl px-3.5 text-sm"
-        style={{
-          background: "var(--p-field)",
-          border: "1px solid rgba(25,23,21,0.12)",
-          color: "var(--p-ink)",
-        }}
-      >
-        United Kingdom
-      </div>
-    </div>
-  )
-}
-
 function CardFields() {
   const elements = useElements()
   const [focusedField, setFocusedField] = useState<"number" | "expiry" | "cvc" | null>(null)
@@ -565,8 +547,6 @@ function CardFields() {
           </div>
         </div>
       </div>
-
-      <StaticCountryField />
     </section>
   )
 }
@@ -592,6 +572,7 @@ function LiveCheckoutCardInner({
   const [voucher, setVoucher] = useState("")
   const [voucherStatus, setVoucherStatus] = useState<null | { valid: boolean; label?: string; message?: string }>(null)
   const [isCheckingVoucher, setIsCheckingVoucher] = useState(false)
+  const [isVoucherOpen, setIsVoucherOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -690,7 +671,7 @@ function LiveCheckoutCardInner({
 
   return (
     <>
-      <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 ${pricing ? "" : "animate-pulse"}`} style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)" }}>
+      <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 ${pricing ? "" : "animate-pulse"}`} style={{ backgroundImage: "linear-gradient(90deg, #FFF8F3 0%, #FFF0F3 100%)", border: "1px solid var(--p-blush-strong)" }}>
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--p-muted)]">Today</p>
           <p className="text-[24px] leading-tight text-[var(--p-red)]" style={{ fontWeight: 850 }}>
@@ -716,9 +697,11 @@ function LiveCheckoutCardInner({
         Cancel anytime
       </p>
 
-      <div className="mt-6">
-        <h3 className="text-[17px] font-extrabold text-[var(--p-ink)]">Fastest way to join</h3>
-        <p className="mt-0.5 text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
+      <div className="mt-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-[16px] font-extrabold text-[var(--p-ink)]" style={{ letterSpacing: "-0.015em" }}>Fastest way to join</h3>
+          <p className="text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
+        </div>
         <div className="mt-3">
           <WalletButtons
             clientSecret={clientSecret}
@@ -731,7 +714,7 @@ function LiveCheckoutCardInner({
         </div>
       </div>
 
-      <div className="my-5 flex items-center gap-3">
+      <div className="my-4 flex items-center gap-3">
         <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
         <span className="text-xs font-medium text-[var(--p-muted)]">or pay with card</span>
         <span className="h-px flex-1" style={{ background: "var(--p-border)" }} />
@@ -739,30 +722,49 @@ function LiveCheckoutCardInner({
 
       <CardFields />
 
-      <div className="mt-4">
-        <label className="mb-1.5 block text-[12px] text-[var(--p-body)]" style={{ fontWeight: 650 }}>
-          Voucher code
-        </label>
-        <div className="flex gap-2">
-          <input
-            value={voucher}
-            onChange={(e) => setVoucher(e.target.value)}
-            placeholder="Voucher code"
-            className="flex-1 h-12 rounded-xl px-3.5 text-sm outline-none"
-            style={{ background: "var(--p-field)", border: "1px solid rgba(25,23,21,0.12)", color: "var(--p-ink)" }}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setIsVoucherOpen((open) => !open)}
+          aria-expanded={isVoucherOpen}
+          aria-controls="checkout-voucher-field"
+          className="flex items-center gap-1 text-[13px] text-[var(--p-body)] underline decoration-[var(--p-sep)] underline-offset-4 transition-colors hover:text-[var(--p-ink)]"
+          style={{ fontWeight: 600 }}
+        >
+          Have a voucher code?
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform duration-150 ${isVoucherOpen ? "rotate-180" : ""}`}
+            aria-hidden="true"
           />
-          <button
-            type="button"
-            onClick={applyVoucher}
-            disabled={isCheckingVoucher || isSubmitting || !voucher.trim()}
-            className="h-12 px-4 rounded-xl text-sm font-semibold disabled:opacity-50"
-            style={{ border: "1px solid rgba(25,23,21,0.12)", color: "var(--p-ink)" }}
-          >
-            {isCheckingVoucher ? "Checking..." : "Apply"}
-          </button>
-        </div>
+        </button>
+
+        {isVoucherOpen && (
+          <div id="checkout-voucher-field" className="mt-2 flex gap-2">
+            <label htmlFor="checkout-voucher-input" className="sr-only">
+              Voucher code
+            </label>
+            <input
+              id="checkout-voucher-input"
+              value={voucher}
+              onChange={(e) => setVoucher(e.target.value)}
+              placeholder="Voucher code"
+              className="flex-1 h-12 rounded-xl px-3.5 text-sm outline-none"
+              style={{ background: "var(--p-field)", border: "1px solid rgba(25,23,21,0.12)", color: "var(--p-ink)" }}
+            />
+            <button
+              type="button"
+              onClick={applyVoucher}
+              disabled={isCheckingVoucher || isSubmitting || !voucher.trim()}
+              className="h-12 px-4 rounded-xl text-sm font-semibold disabled:opacity-50"
+              style={{ border: "1px solid rgba(25,23,21,0.12)", color: "var(--p-ink)" }}
+            >
+              {isCheckingVoucher ? "Checking..." : "Apply"}
+            </button>
+          </div>
+        )}
+
         {voucherStatus && (
-          <p className="mt-1.5 text-xs" style={{ color: voucherStatus.valid ? "var(--p-sage)" : "var(--p-red)" }}>
+          <p className="mt-1.5 text-xs" role="status" style={{ color: voucherStatus.valid ? "var(--p-sage)" : "var(--p-red)" }}>
             {voucherStatus.valid ? `Applied: ${voucherStatus.label}` : voucherStatus.message}
           </p>
         )}
@@ -774,7 +776,7 @@ function LiveCheckoutCardInner({
         </p>
       )}
 
-      <div className="mt-5">
+      <div className="mt-4">
         <button
           type="button"
           onClick={confirm}
