@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Lock, Check, ShieldCheck, Star, ArrowRight, Loader2, CreditCard } from "lucide-react"
+import { Lock, Check, ShieldCheck, ArrowRight, Loader2, CreditCard } from "lucide-react"
 import { loadStripe, type StripeCardNumberElementChangeEvent, type StripeCardExpiryElementChangeEvent, type StripeCardCvcElementChangeEvent } from "@stripe/stripe-js"
 import {
   Elements,
@@ -14,7 +14,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
-import { LoadReveal, ViewReveal, StaggerGroup, StaggerItem } from "@/components/prototypes/eatinout-checkout/motion"
+import { ViewReveal } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
 import { useAuth } from "@/context/auth-context"
 
@@ -117,176 +117,24 @@ function CheckoutHeader() {
   )
 }
 
-/* ── HERO ───────────────────────────────────────────────────────────────── */
-function Hero() {
+/* ── INTRO ──────────────────────────────────────────────────────────────── */
+// `isTrial` is null until create-subscription responds, so returning
+// customers (mode "payment") never see free-trial wording.
+function CheckoutIntro({ isTrial }: { isTrial: boolean | null }) {
   return (
-    <LoadReveal className="relative overflow-hidden rounded-[22px]" y={0} scale={1.02} duration={0.7}>
-      <Image
-        src="/images/prestonblog/moment-grill.png"
-        alt="Friends enjoying a freshly cooked dinner at a warm, characterful local restaurant"
-        width={1024}
-        height={1024}
-        priority
-        className="h-[230px] w-full object-cover object-center sm:h-[260px] lg:h-[360px]"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,10,0.70) 0%, rgba(10,10,10,0.10) 45%, rgba(10,10,10,0) 75%)" }}
-      />
-      <LoadReveal className="absolute bottom-4 left-5 right-5 sm:bottom-5 sm:left-6" y={10} delay={0.12}>
-        <p className="text-white drop-shadow-sm" style={{ fontSize: "clamp(31px, 8.5vw, 40px)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.035em" }}>
-          Eat out more.
-          <br />
-          <span className="relative inline-block" style={{ fontWeight: 850 }}>
-            Pay less.
-            <span aria-hidden="true" className="absolute -bottom-[5px] left-0 h-[3px] w-full rounded-full" style={{ background: "var(--p-red)" }} />
-          </span>
-        </p>
-        <p className="mt-2.5 text-sm sm:text-[15px]" style={{ fontWeight: 600, color: "rgba(255,255,255,0.90)" }}>
-          Save up to 50% at restaurants near you.
-        </p>
-      </LoadReveal>
-      <LoadReveal className="absolute right-4 top-4" y={8} delay={0.26}>
-        <div className="rounded-xl px-3 py-2 text-center backdrop-blur-md" style={{ background: "rgba(255,255,255,0.94)", border: "1px solid rgba(255,255,255,0.5)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
-          <span className="block text-[9px] uppercase text-[var(--p-red)]" style={{ fontWeight: 800, letterSpacing: "0.12em" }}>EatinOut offer</span>
-          <span className="mt-0.5 block text-[15px] font-extrabold leading-none text-[var(--p-ink)]">Up to 50% off</span>
-        </div>
-      </LoadReveal>
-    </LoadReveal>
-  )
-}
-
-function Intro() {
-  return (
-    <ViewReveal className="pt-1">
-      <h1 className="max-w-[380px] text-pretty font-extrabold" style={{ fontSize: "clamp(30px, 7.2vw, 35px)", lineHeight: 1.03, letterSpacing: "-0.035em" }}>
-        <span className="text-[var(--p-ink)]">Your next meal could </span>
-        <span className="text-[var(--p-red)]">pay for your membership.</span>
+    <div>
+      <h1 className="text-pretty font-extrabold text-[var(--p-ink)]" style={{ fontSize: "clamp(24px, 6.4vw, 30px)", lineHeight: 1.08, letterSpacing: "-0.03em" }}>
+        Your restaurant savings are <span className="text-[var(--p-red)]">ready.</span>
       </h1>
-      <p className="mt-3.5 max-w-md text-[17px] text-[var(--p-body)]" style={{ lineHeight: 1.48 }}>
-        Try EatinOut free for <span className="font-bold text-[var(--p-ink)]">30 days</span> and start saving at{" "}
+      <p className="mt-2 text-[15px] text-[var(--p-body)]" style={{ lineHeight: 1.45 }}>
+        {isTrial ? (
+          <>
+            Start your <span className="font-bold text-[var(--p-ink)]">30-day free trial</span> and unlock offers at{" "}
+          </>
+        ) : (
+          <>Unlock offers at </>
+        )}
         <span className="font-bold text-[var(--p-ink)]">500+ restaurants, cafés and bars</span>.
-      </p>
-    </ViewReveal>
-  )
-}
-
-function ProofStrip() {
-  return (
-    <ViewReveal className="grid grid-cols-3 rounded-2xl bg-[var(--p-surface)]" style={{ border: "1px solid rgba(22,23,26,0.07)" }} y={8}>
-      <div className="flex flex-col items-center gap-1 px-2 py-4 text-center">
-        <span className="flex" aria-hidden="true">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className="h-3.5 w-3.5 fill-[var(--p-gold)] text-[var(--p-gold)]" />
-          ))}
-        </span>
-        <span className="text-[21px] font-extrabold leading-none text-[var(--p-ink)]">4.8</span>
-        <span className="text-[11px] font-medium text-[var(--p-muted)]">Members</span>
-      </div>
-      <div className="flex flex-col items-center justify-center gap-1 px-2 py-4 text-center" style={{ borderInline: "1px solid var(--p-border)" }}>
-        <span className="text-[21px] font-extrabold leading-none text-[var(--p-red)]">500+</span>
-        <span className="text-[11px] font-medium text-[var(--p-muted)]">Places to save</span>
-      </div>
-      <div className="flex flex-col items-center gap-1 px-2 py-4 text-center">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: "var(--p-sage-bg)" }} aria-hidden="true">
-          <Check className="h-3.5 w-3.5 text-[var(--p-sage)]" />
-        </span>
-        <span className="text-lg font-extrabold leading-none text-[var(--p-ink)]">Anytime</span>
-        <span className="text-[11px] font-medium text-[var(--p-muted)]">Cancel</span>
-      </div>
-    </ViewReveal>
-  )
-}
-
-function ValuePanel() {
-  return (
-    <div className="relative">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-4"
-        style={{ backgroundImage: "radial-gradient(circle at 85% 25%, rgba(217,4,41,0.045), transparent 35%), radial-gradient(circle at 0% 60%, rgba(194,140,50,0.035), transparent 32%)" }}
-      />
-      <ViewReveal
-        className="relative rounded-[24px] p-6"
-        y={12}
-        style={{ backgroundImage: "linear-gradient(135deg, #FFF8F3 0%, #FFFFFF 52%, #FFF0F3 100%)", border: "1px solid rgba(217,4,41,0.08)", boxShadow: "0 18px 50px rgba(40,30,25,0.07)" }}
-      >
-        <p className="text-[11px] uppercase text-[var(--p-red)]" style={{ fontWeight: 800, letterSpacing: "0.14em" }}>Why it&apos;s worth it</p>
-        <div className="mt-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="leading-[0.9] text-[var(--p-ink)]" style={{ fontSize: "clamp(52px, 15vw, 56px)", fontWeight: 850, letterSpacing: "-0.045em" }}>£0</p>
-            <p className="mt-1.5 text-[11px] uppercase text-[var(--p-red)]" style={{ fontWeight: 800, letterSpacing: "0.1em" }}>Today</p>
-            <p className="mt-2 text-sm font-bold text-[var(--p-ink)]">30 days completely free</p>
-          </div>
-          <div className="flex h-[108px] w-[108px] shrink-0 flex-col items-center justify-center rounded-full text-center" style={{ background: "var(--p-blush-strong)" }}>
-            <span className="text-[10px] uppercase text-[var(--p-red)]" style={{ fontWeight: 800, letterSpacing: "0.06em" }}>Up to</span>
-            <span className="text-[34px] leading-none text-[var(--p-red)]" style={{ fontWeight: 850, letterSpacing: "-0.02em" }}>50%</span>
-            <span className="text-[10px] uppercase text-[var(--p-red)]" style={{ fontWeight: 800, letterSpacing: "0.06em" }}>Off</span>
-          </div>
-        </div>
-        <div className="my-6 h-px" style={{ background: "var(--p-border)" }} />
-        <p className="text-[15px] font-semibold text-[var(--p-ink)]">One dinner can make the membership feel tiny.</p>
-        <StaggerGroup className="mt-4 flex items-center gap-3" stagger={0.09}>
-          <StaggerItem className="flex-1 rounded-xl bg-white px-3 py-3 text-center" style={{ border: "1px solid rgba(25,23,21,0.07)" }}>
-            <span className="block text-[11px] font-medium text-[var(--p-muted)]">£50 dinner</span>
-            <span className="mt-1 block text-[21px] font-extrabold text-[var(--p-ink)]">£50</span>
-          </StaggerItem>
-          <ArrowRight className="h-5 w-5 shrink-0 text-[var(--p-arrow)]" aria-hidden="true" />
-          <StaggerItem className="flex-1 rounded-xl px-3 py-3 text-center" style={{ background: "var(--p-blush)", border: "1px solid rgba(217,4,41,0.12)" }}>
-            <span className="block text-[11px] font-bold text-[var(--p-red)]">Up to saved*</span>
-            <span className="mt-1 block text-[25px] leading-none text-[var(--p-red)]" style={{ fontWeight: 850 }}>£25</span>
-          </StaggerItem>
-        </StaggerGroup>
-        <div className="mt-4 flex items-baseline justify-between">
-          <span className="text-sm text-[var(--p-body)]">Membership after trial</span>
-          <span className="text-[20px] text-[var(--p-ink)]">
-            <span style={{ fontWeight: 850 }}>£4.99</span>
-            <span className="text-[var(--p-body)]" style={{ fontWeight: 600 }}>/month</span>
-          </span>
-        </div>
-        <div className="mt-5 flex items-stretch gap-3">
-          <span aria-hidden="true" className="w-[3px] shrink-0 rounded-full" style={{ background: "var(--p-red)" }} />
-          <p className="text-[13px] text-[var(--p-ink)]" style={{ fontWeight: 650, lineHeight: 1.45 }}>One good saving can cover several months of membership.</p>
-        </div>
-        <p className="mt-4 text-[11px] text-[var(--p-muted)]" style={{ lineHeight: 1.4 }}>*Illustrative example using a participating 50% offer.</p>
-      </ViewReveal>
-    </div>
-  )
-}
-
-function SocialProof() {
-  return (
-    <ViewReveal className="flex items-center gap-4" y={8}>
-      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full shadow-sm" style={{ border: "3px solid #FFF8F3", boxShadow: "0 4px 14px rgba(40,30,25,0.10)" }}>
-        <Image src="/testimonial-emma-davies.webp" alt="EatinOut member" fill sizes="48px" className="object-cover" />
-      </span>
-      <div>
-        <span className="flex items-center gap-2">
-          <span className="flex" aria-hidden="true">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className="h-3.5 w-3.5 fill-[var(--p-gold)] text-[var(--p-gold)]" />
-            ))}
-          </span>
-          <span className="text-[13px] text-[var(--p-body)]">
-            Rated <span className="font-bold text-[var(--p-ink)]">4.8</span> by <span className="font-bold text-[var(--p-ink)]">EatinOut members</span>
-          </span>
-        </span>
-        <p className="mt-1 text-[16px] font-bold text-[var(--p-ink)]">&ldquo;Saved £27 on our first meal.&rdquo;</p>
-      </div>
-    </ViewReveal>
-  )
-}
-
-function CheckoutTransition() {
-  return (
-    <div className="text-center">
-      <h2 className="text-[25px] font-extrabold" style={{ letterSpacing: "-0.025em" }}>
-        <span className="text-[var(--p-ink)]">Ready to start </span>
-        <span className="text-[var(--p-red)]">saving?</span>
-      </h2>
-      <p className="mt-1.5 text-sm text-[var(--p-body)]">
-        Join in seconds. <span className="font-bold text-[var(--p-ink)]">£0 charged today.</span>
       </p>
     </div>
   )
@@ -1125,18 +973,10 @@ export function EatinOutCheckoutLive() {
 
       <CheckoutHeader />
 
-      <main className="mx-auto max-w-[1180px] px-5 py-7 sm:py-9">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
-          <div className="flex flex-col gap-8 lg:w-[56%]">
-            <Hero />
-            <Intro />
-            <ProofStrip />
-            <ValuePanel />
-            <SocialProof />
-          </div>
-
-          <div className="flex flex-col gap-5 lg:w-[40%] lg:shrink-0 lg:sticky lg:top-[88px]">
-            <CheckoutTransition />
+      <main className="mx-auto max-w-[480px] px-4 py-4 sm:px-5 sm:py-8">
+        <div className="flex flex-col">
+          <div className="flex flex-col gap-4">
+            <CheckoutIntro isTrial={checkoutData ? checkoutData.mode === "setup" : null} />
 
             {loadError ? (
               <div className="rounded-[26px] bg-white p-5 text-center" style={{ border: "1px solid rgba(217,4,41,0.2)" }}>
