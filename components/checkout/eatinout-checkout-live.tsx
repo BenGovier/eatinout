@@ -668,6 +668,10 @@ function LiveCheckoutCardInner({
   const suffix = intervalSuffix(pricing)
   const word = intervalWord(pricing)
   const renewalText = pricing ? formatMoney(renewalAmount, currency) : "—"
+  const isEligibilityConfirmed = !!clientSecret
+  const showTrialCopy = isEligibilityConfirmed && isTrialing
+  const showChargedCopy = isEligibilityConfirmed && !isTrialing
+  const todayText = pricing ? formatMoney(todayAmount, currency) : null
 
   return (
     <>
@@ -700,7 +704,9 @@ function LiveCheckoutCardInner({
       <div className="mt-5">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-[16px] font-extrabold text-[var(--p-ink)]" style={{ letterSpacing: "-0.015em" }}>Fastest way to join</h3>
-          <p className="text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>No charge today.</p>
+          <p className="text-[13px] text-[var(--p-red)]" style={{ fontWeight: 650 }}>
+            {showTrialCopy ? "No charge today." : showChargedCopy ? "Charged today." : "\u00A0"}
+          </p>
         </div>
         <div className="mt-3">
           <WalletButtons
@@ -791,19 +797,37 @@ function LiveCheckoutCardInner({
             </>
           ) : (
             <>
-              Start saving &mdash; £0 today
+              {showTrialCopy
+                ? "Start saving \u2014 \u00A30 today"
+                : showChargedCopy && todayText
+                  ? `Start saving \u2014 Pay ${todayText} today`
+                  : "Start saving"}
               <ArrowRight className="h-5 w-5 text-white/90 transition-transform duration-150 motion-safe:group-hover:translate-x-0.5" aria-hidden="true" />
             </>
           )}
         </button>
 
         <p className="mt-3 text-center text-xs">
-          <span className="font-bold text-[var(--p-ink)]">30 days free</span>
-          <span className="text-[var(--p-sep)]"> &bull; </span>
-          <span className="text-[var(--p-body)]">
-            Then {renewalText}/{word}
-          </span>
-          <span className="text-[var(--p-sep)]"> &bull; </span>
+          {showTrialCopy && (
+            <>
+              <span className="font-bold text-[var(--p-ink)]">30 days free</span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+              <span className="text-[var(--p-body)]">
+                Then {renewalText}/{word}
+              </span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+            </>
+          )}
+          {showChargedCopy && (
+            <>
+              <span className="font-bold text-[var(--p-ink)]">
+                {renewalText}/{word}
+              </span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+              <span className="text-[var(--p-body)]">Renews automatically</span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+            </>
+          )}
           <span className="text-[var(--p-sage)]" style={{ fontWeight: 650 }}>Cancel anytime</span>
         </p>
       </div>
