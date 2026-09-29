@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Lock, Check, ShieldCheck, ArrowRight, Loader2, CreditCard, ChevronDown } from "lucide-react"
@@ -180,6 +180,133 @@ function WalletUnsupportedNotice({
   )
 }
 
+/* ── Wallet diagnostics (opt-in via ?walletdebug=1) ──────────────────────
+ * Observation only: nothing here feeds back into wallet detection, button
+ * rendering or payment confirmation. When the query param is absent, every
+ * diagnostic call returns early and the panel is never rendered.
+ * ------------------------------------------------------------------- */
+const WALLET_DEBUG_PARAM = "walletdebug"
+const WALLET_DIAG_TIMEOUT_MS = 10000
+
+function hasWalletDebugParam() {
+  if (typeof window === "undefined") return false
+  try {
+    return new URLSearchParams(window.location.search).has(WALLET_DEBUG_PARAM)
+  } catch {
+    return false
+  }
+}
+
+function safeJson(value: unknown) {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return "[unserialisable]"
+  }
+}
+
+type WalletDiagState = {
+  env: Record<string, unknown> | null
+  stripe: string
+  ece: string
+  eceMethods: unknown
+  eceReadyCount: number
+  eceError: unknown
+  pr: string
+  prResult: unknown
+  prRuns: number
+  prDiscarded: number
+  log: string[]
+}
+
+const INITIAL_WALLET_DIAG: WalletDiagState = {
+  env: null,
+  stripe: "pending — useStripe() not ready",
+  ece: "pending — not mounted (waiting for pricing)",
+  eceMethods: null,
+  eceReadyCount: 0,
+  eceError: null,
+  pr: "pending — waiting for stripe + pricing",
+  prResult: null,
+  prRuns: 0,
+  prDiscarded: 0,
+  log: [],
+}
+
+type WalletSupport = { applePay: boolean; googlePay: boolean } | null
+
+function describeAppleDecision(ece: WalletSupport, pr: WalletSupport, support: WalletSupport) {
+  const eceText = ece === null ? "no answer" : String(ece.applePay)
+  const prText = pr === null ? "no answer" : String(pr.applePay)
+  if (support === null) return "HIDDEN — still detecting (neither ECE nor PR has answered)"
+  if (support.applePay) {
+    const sources = [ece?.applePay ? "ECE" : null, pr?.applePay ? "PR" : null].filter(Boolean).join(" + ")
+    return `DISPLAYED — reported available by ${sources}`
+  }
+  return `HIDDEN — ECE.applePay=${eceText}, PR.applePay=${prText}`
+}
+
+function WalletDiagnosticsPanel({
+  diag,
+  eceSupport,
+  prSupport,
+  support,
+}: {
+  diag: WalletDiagState
+  eceSupport: WalletSupport
+  prSupport: WalletSupport
+  support: WalletSupport
+}) {
+  const env = diag.env ?? {}
+  const rows: Array<[string, string]> = [
+    ["Host", String(env.host ?? "…")],
+    ["In iframe", String(env.inIframe ?? "…")],
+    ["User agent", String(env.ua ?? "…")],
+    ["ApplePaySession exists", String(env.applePaySessionExists ?? "…")],
+    ["ApplePaySession.canMakePayments()", String(env.applePaySessionCanMakePayments ?? "…")],
+    ["PaymentRequest API", String(env.paymentRequestApi ?? "…")],
+    ["Stripe key mode", String(env.keyMode ?? "…")],
+    ["Stripe.js script", String(env.stripeJsSrc ?? "…")],
+    ["Stripe init", diag.stripe],
+    ["ECE status", diag.ece],
+    ["ECE onReady count", String(diag.eceReadyCount)],
+    ["ECE availablePaymentMethods", diag.eceReadyCount > 0 ? safeJson(diag.eceMethods) : "no response yet"],
+    ["ECE load error", diag.eceError ? safeJson(diag.eceError) : "none"],
+    ["ECE result discarded", "never (code does not discard ECE results)"],
+    ["PR status", diag.pr],
+    ["PR canMakePayment() result", diag.prRuns > 0 && diag.pr.startsWith("resolved") ? safeJson(diag.prResult) : "no response yet"],
+    ["PR runs / discarded (pricing update)", `${diag.prRuns} / ${diag.prDiscarded}`],
+    ["eceSupport state", safeJson(eceSupport)],
+    ["prSupport state", safeJson(prSupport)],
+    ["Final support state", safeJson(support)],
+    ["Apple Pay", describeAppleDecision(eceSupport, prSupport, support)],
+    ["Google Pay", support?.googlePay ? "DISPLAYED" : support === null ? "HIDDEN — still detecting" : "HIDDEN"],
+  ]
+
+  return (
+    <section
+      aria-label="Wallet diagnostics"
+      className="mt-4 rounded-lg border border-dashed border-black/30 bg-neutral-50 p-3 font-mono text-[10px] leading-snug text-neutral-800"
+    >
+      <p className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+        Wallet diagnostics (walletdebug)
+      </p>
+      <dl className="flex flex-col gap-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex flex-col">
+            <dt className="text-neutral-500">{label}</dt>
+            <dd className="break-all">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mb-1 mt-3 font-sans text-[11px] font-semibold uppercase tracking-wide text-neutral-600">Event log</p>
+      <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all rounded bg-black p-2 text-[10px] text-green-300">
+        {diag.log.length ? diag.log.join("\n") : "(no events yet)"}
+      </pre>
+    </section>
+  )
+}
+
 /* ── LIVE Apple Pay / Google Pay ──────────────────────────────────────────
  * CHANGED: wallet support is now the OR of TWO official Stripe checks:
  *   1) ExpressCheckoutElement onReady -> availablePaymentMethods
@@ -218,6 +345,94 @@ function WalletButtons({
           googlePay: !!(eceSupport?.googlePay || prSupport?.googlePay),
         }
 
+  const walletDebugRef = useRef(hasWalletDebugParam())
+  const [walletDebugVisible, setWalletDebugVisible] = useState(false)
+  const [diag, setDiag] = useState<WalletDiagState>(INITIAL_WALLET_DIAG)
+  const diagRef = useRef(diag)
+  diagRef.current = diag
+
+  const recordDiag = useCallback(
+    (message: string, data?: unknown, patch?: (prev: WalletDiagState) => Partial<WalletDiagState>) => {
+      if (!walletDebugRef.current) return
+      const line = `${new Date().toISOString().slice(11, 23)} ${message}${data === undefined ? "" : " " + safeJson(data)}`
+      console.log("[checkout][walletdiag]", line)
+      setDiag((prev) => ({ ...prev, ...(patch ? patch(prev) : {}), log: [...prev.log, line].slice(-40) }))
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!walletDebugRef.current) return
+    setWalletDebugVisible(true)
+    const applePaySession = (window as any).ApplePaySession
+    let applePaySessionCanMakePayments: unknown = "n/a (ApplePaySession undefined)"
+    if (applePaySession) {
+      try {
+        applePaySessionCanMakePayments = applePaySession.canMakePayments()
+      } catch (err) {
+        applePaySessionCanMakePayments = `threw: ${String(err)}`
+      }
+    }
+    let inIframe: boolean | string
+    try {
+      inIframe = window.self !== window.top
+    } catch {
+      inIframe = "true (cross-origin parent)"
+    }
+    const env = {
+      host: window.location.hostname,
+      inIframe,
+      ua: navigator.userAgent,
+      applePaySessionExists: !!applePaySession,
+      applePaySessionCanMakePayments,
+      paymentRequestApi: typeof (window as any).PaymentRequest,
+      stripeJsSrc: document.querySelector('script[src*="js.stripe.com"]')?.getAttribute("src") ?? "not found",
+      keyMode: STRIPE_PUBLISHABLE_KEY?.startsWith("pk_live") ? "live" : STRIPE_PUBLISHABLE_KEY ? "test" : "missing",
+    }
+    recordDiag("env", env, () => ({ env }))
+  }, [recordDiag])
+
+  useEffect(() => {
+    recordDiag("useStripe()", { ready: !!stripe }, () =>
+      stripe ? { stripe: "ready — Stripe.js initialised" } : {}
+    )
+    if (stripe || !walletDebugRef.current) return
+    const timer = setTimeout(() => {
+      if (diagRef.current.stripe.startsWith("pending")) {
+        recordDiag("Stripe.js did not initialise within 10s", undefined, () => ({
+          stripe: "NO RESPONSE — useStripe() still null after 10s",
+        }))
+      }
+    }, WALLET_DIAG_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [stripe, recordDiag])
+
+  const hasPricing = !!pricing
+  useEffect(() => {
+    if (!hasPricing || !walletDebugRef.current) return
+    recordDiag("ECE mounted (pricing available)", undefined, (prev) =>
+      prev.ece.startsWith("pending") ? { ece: "pending — mounted, awaiting onReady/onLoadError" } : {}
+    )
+    const timer = setTimeout(() => {
+      if (diagRef.current.ece.startsWith("pending")) {
+        recordDiag("ECE: neither onReady nor onLoadError fired within 10s", undefined, () => ({
+          ece: "NO RESPONSE — neither onReady nor onLoadError fired within 10s",
+        }))
+      }
+    }, WALLET_DIAG_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [hasPricing, recordDiag])
+
+  useEffect(() => {
+    recordDiag("decision", {
+      eceSupport,
+      prSupport,
+      support,
+      apple: describeAppleDecision(eceSupport, prSupport, support),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eceSupport, prSupport])
+
   const [isProcessing, setIsProcessing] = useState(false)
   const [unsupportedWallet, setUnsupportedWallet] = useState<null | "Apple Pay" | "Google Pay">(null)
 
@@ -253,15 +468,32 @@ function WalletButtons({
       requestPayerEmail: true,
     })
 
+    recordDiag("PR built, calling canMakePayment()", { amount, currency, isTrial }, (prev) => ({
+      pr: "pending — awaiting canMakePayment()",
+      prRuns: prev.prRuns + 1,
+    }))
+
     let cancelled = false
     pr.canMakePayment()
       .then((result: any) => {
         console.log("[checkout][debug][PR] canMakePayment result:", result)
-        if (cancelled) return
+        if (cancelled) {
+          recordDiag("PR result DISCARDED (pricing changed before it resolved)", { result }, (prev) => ({
+            prDiscarded: prev.prDiscarded + 1,
+          }))
+          return
+        }
+        recordDiag("PR canMakePayment() resolved", { result }, () => ({
+          pr: result === null ? "resolved — null (no wallet available)" : "resolved",
+          prResult: result,
+        }))
         setPrSupport({ applePay: !!result?.applePay, googlePay: !!result && !result?.applePay })
       })
       .catch((err: any) => {
         console.error("[checkout][debug][PR] canMakePayment failed:", err)
+        recordDiag("PR canMakePayment() threw", { error: String(err), discarded: cancelled }, () =>
+          cancelled ? {} : { pr: `threw — ${String(err)}` }
+        )
         if (!cancelled) setPrSupport({ applePay: false, googlePay: false })
       })
 
@@ -394,10 +626,18 @@ function WalletButtons({
               const applePay = !!event?.availablePaymentMethods?.applePay
               const googlePay = !!event?.availablePaymentMethods?.googlePay
               console.log("[checkout][debug][ECE] resolved support ->", { applePay, googlePay })
+              const availablePaymentMethods = event?.availablePaymentMethods ?? null
+              recordDiag("ECE onReady", { availablePaymentMethods }, (prev) => ({
+                ece: availablePaymentMethods ? "onReady fired" : "onReady fired — availablePaymentMethods missing/undefined",
+                eceMethods: availablePaymentMethods,
+                eceReadyCount: prev.eceReadyCount + 1,
+              }))
               setEceSupport({ applePay, googlePay })
             }}
             onLoadError={(event: any) => {
               console.error("[checkout][debug][ECE] onLoadError — ECE treats both wallets as unsupported:", event)
+              const error = { type: event?.error?.type ?? null, message: event?.error?.message ?? null }
+              recordDiag("ECE onLoadError", error, () => ({ ece: "onLoadError fired", eceError: error }))
               setEceSupport({ applePay: false, googlePay: false })
             }}
           />
@@ -445,6 +685,10 @@ function WalletButtons({
           </button>
         )}
       </div>
+
+      {walletDebugVisible && (
+        <WalletDiagnosticsPanel diag={diag} eceSupport={eceSupport} prSupport={prSupport} support={support} />
+      )}
 
       {unsupportedWallet && (
         <WalletUnsupportedNotice walletLabel={unsupportedWallet} onClose={() => setUnsupportedWallet(null)} />
