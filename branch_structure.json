@@ -1,0 +1,24 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "main",
+    "nktest",
+    "ns-feature",
+    "origin",
+    "vercel-build-test"
+  ],
+  "parent": {
+    "main": null,
+    "nktest": "main",
+    "ns-feature": "main",
+    "origin": "main",
+    "vercel-build-test": "main"
+  },
+  "order": [
+    "main",
+    "nktest",
+    "ns-feature",
+    "origin",
+    "vercel-build-test"
+  ]
+}
