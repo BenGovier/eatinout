@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { X } from "lucide-react";
 import {
   USER_LAT_LNG_SESSION_KEY,
@@ -16,11 +16,19 @@ type LatLng = { lat: number; lng: number };
 
 export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const requestIdRef = useRef(0); // CHANGE: pending request track karne ke liye
 
   const storeLatLng = useCallback((coords: LatLng) => {
     sessionStorage.setItem(USER_LAT_LNG_SESSION_KEY, JSON.stringify(coords));
     notifyUserLocationStorageChanged();
   }, []);
+
+  // CHANGE: close kabhi bhi kaam karega, pending request ignore ho jayegi
+  const handleClose = useCallback(() => {
+    requestIdRef.current += 1;
+    setIsRequestingLocation(false);
+    onClose();
+  }, [onClose]);
 
   const handleUseMyLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
@@ -28,10 +36,12 @@ export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
       return;
     }
 
+    const myRequestId = ++requestIdRef.current; // CHANGE
     setIsRequestingLocation(true);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (myRequestId !== requestIdRef.current) return; // CHANGE: user ne close kar diya
         const coords = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -41,6 +51,7 @@ export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
         onClose();
       },
       () => {
+        if (myRequestId !== requestIdRef.current) return; // CHANGE
         setIsRequestingLocation(false);
         onClose();
       },
@@ -58,7 +69,7 @@ export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
     <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        onClick={handleClose} // CHANGE
         aria-hidden="true"
       />
 
@@ -69,10 +80,10 @@ export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
         aria-labelledby="map-location-title"
       >
         <button
-          onClick={onClose}
+          onClick={handleClose} // CHANGE
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           aria-label="Close"
-          disabled={isRequestingLocation}
+          // CHANGE: disabled={isRequestingLocation} hata diya
         >
           <X className="h-4 w-4" />
         </button>
@@ -101,7 +112,7 @@ export function MapLocationModal({ isOpen, onClose }: MapLocationModalProps) {
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose} // CHANGE
             disabled={isRequestingLocation}
             className="w-full rounded-xl border border-gray-200 hover:border-gray-300 bg-white px-4 py-3 text-gray-800 font-semibold transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
