@@ -1,14 +1,151 @@
 import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import Carousel from "@/models/Carousel";
-import Offer from "@/models/Offer";
-import { Category } from "@/models/Categories";
-import Tag from "@/models/Tag";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+// Mongo serialized Dates as ISO (...000Z); keep the same format
+const toIso = (v: any) => (v ? new Date(v).toISOString() : v);
+
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&");
+
+// keeps `.in()` URLs short
+function chunk<T>(arr: T[], size = 100): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// Supabase returns max 1000 rows per request, so page through
+async function fetchAll(build: (from: number, to: number) => PromiseLike<any>, maxRows = Infinity): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; out.length < maxRows; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out.length > maxRows ? out.slice(0, maxRows) : out;
+}
+
+// replacement for Offer.bulkWrite
+async function applyOfferUpdates(
+  statusUpdates: { id: string; status: string }[],
+  resetIds: string[] = [],
+  now: Date = new Date()
+) {
+  const jobs: PromiseLike<any>[] = [];
+  const byStatus = new Map<string, string[]>();
+  for (const u of statusUpdates) {
+    if (!byStatus.has(u.status)) byStatus.set(u.status, []);
+    byStatus.get(u.status)!.push(u.id);
+  }
+  byStatus.forEach((ids, status) => {
+    for (const part of chunk(ids)) {
+      jobs.push(supabaseAdmin.from("offers").update({ status }).in("id", part));
+    }
+  });
+  for (const part of chunk(resetIds)) {
+    jobs.push(
+      supabaseAdmin
+        .from("offers")
+        .update({ current_period_count: 0, last_reset_date: now.toISOString() })
+        .in("id", part)
+    );
+  }
+  const results = await Promise.all(jobs);
+  for (const r of results) {
+    if (r?.error) throw new Error(r.error.message);
+  }
+}
+
+const CAROUSEL_SELECT =
+  "*, carousel_areas(area_id, display_order), carousel_restaurants(restaurant_id, display_order)";
+
+// "*" so optional columns (cuisine, rating, price_range ...) come through if they exist in Supabase
+const RESTAURANT_SELECT =
+  "*, restaurant_areas(area_id), restaurant_categories(category_id), restaurant_images(image_url, display_order), restaurant_tags(tag_id), restaurant_area_pins(area_id, is_pinned, priority, pinned_at)";
+
+const OFFER_SELECT =
+  "id, restaurant_id, title, start_date, expiry_date, status, is_deactivated, max_redemption_limit, redeem_count, is_unlimited, valid_days, valid_hours, is_pinned, pinned_at, created_at, offer_tags(tag_id)";
+
+/* ---------------- row mappers (Supabase -> old Mongo shape) ---------------- */
+
+function mapCarouselRow(c: any) {
+  return {
+    _id: c.id as string,
+    name: c.name as string,
+    isGlobal: c.is_global as boolean,
+    globalOrder: c.global_order as number,
+    areaOrders: (c.carousel_areas ?? []).map((a: any) => ({
+      areaId: a.area_id as string,
+      order: a.display_order as number,
+    })),
+    restaurants: (c.carousel_restaurants ?? [])
+      .map((r: any) => ({
+        restaurantId: r.restaurant_id as string,
+        order: r.display_order as number,
+      }))
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)),
+  };
+}
+
+function mapRestaurantRow(r: any) {
+  const images = (r.restaurant_images ?? [])
+    .slice()
+    .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .map((i: any) => i.image_url);
+
+  return {
+    _id: r.id as string,
+    name: r.name,
+    images,
+    area: (r.restaurant_areas ?? []).map((x: any) => x.area_id),
+    cuisine: r.cuisine,
+    rating: r.rating,
+    dineIn: r.dine_in,
+    dineOut: r.dine_out,
+    priceRange: r.price_range,
+    category: (r.restaurant_categories ?? []).map((x: any) => x.category_id),
+    searchTags: (r.restaurant_tags ?? []).map((x: any) => x.tag_id),
+    zipCode: r.zip_code,
+    city: r.city,
+    homePin: {
+      isPinned: r.home_is_pinned,
+      priority: r.home_pin_priority,
+      pinnedAt: r.home_pinned_at,
+    },
+    areaPins: (r.restaurant_area_pins ?? []).map((p: any) => ({
+      areaId: p.area_id,
+      isPinned: p.is_pinned,
+      priority: p.priority,
+      areaPinnedAt: p.pinned_at,
+    })),
+    createdAt: r.created_at,
+  };
+}
+
+function mapOfferRow(o: any) {
+  return {
+    _id: o.id as string,
+    restaurantId: o.restaurant_id as string,
+    title: o.title,
+    tags: (o.offer_tags ?? []).map((t: any) => t.tag_id),
+    startDate: o.start_date,
+    expiryDate: o.expiry_date,
+    status: o.status,
+    deactivated: o.is_deactivated,
+    maxRedemptionLimit: o.max_redemption_limit,
+    redeemCount: o.redeem_count,
+    isUnlimited: o.is_unlimited,
+    validDays: o.valid_days,
+    validHours: o.valid_hours,
+    isPinned: o.is_pinned,
+    pinnedAt: o.pinned_at,
+    createdAt: o.created_at,
+  };
+}
 
 export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
-
     const { searchParams } = new URL(req.url);
 
     const areaId = searchParams.get("areaId");
@@ -25,13 +162,7 @@ export async function GET(req: NextRequest) {
 
     const now = new Date();
 
-    const query: any = { isActive: true };
-
-    if (areaId && areaId !== "all") {
-      query.$or = [{ isGlobal: true }, { areaIds: areaId }];
-    } else {
-      query.isGlobal = true;
-    }
+    const hasAreaFilter = !!areaId && areaId !== "all";
 
     const selectedCategoryIds = categoryId
       ? categoryId.split(",").map((id) => id.trim()).filter(Boolean)
@@ -42,73 +173,121 @@ export async function GET(req: NextRequest) {
     let searchTagIds: string[] = [];
 
     if (search) {
-      const [categoriesMatchingSearch, tagsMatchingSearch] =
-        await Promise.all([
-          Category.find({
-            name: { $regex: search, $options: "i" },
-          })
-            .select("_id")
-            .lean(),
+      const pattern = `%${escapeLike(search)}%`;
+      const [categoriesRes, tagsRes] = await Promise.all([
+        supabaseAdmin.from("categories").select("id").ilike("name", pattern),
+        supabaseAdmin.from("tags").select("id").ilike("name", pattern),
+      ]);
+      if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+      if (tagsRes.error) throw new Error(tagsRes.error.message);
 
-          Tag.find({
-            name: { $regex: search, $options: "i" },
-          })
-            .select("_id")
-            .lean(),
-        ]);
-
-      searchCategoryIds = categoriesMatchingSearch.map((c: any) =>
-        c._id.toString()
-      );
-      searchTagIds = tagsMatchingSearch.map((t: any) =>
-        t._id.toString()
-      );
+      searchCategoryIds = (categoriesRes.data || []).map((c: any) => c.id);
+      searchTagIds = (tagsRes.data || []).map((t: any) => t.id);
     }
 
     /* ---------------- FETCH CAROUSELS ---------------- */
+    const carouselRows = await fetchAll((from, to) =>
+      supabaseAdmin
+        .from("carousels")
+        .select(CAROUSEL_SELECT)
+        .eq("is_active", true)
+        .order("global_order", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
-    const [carousels, total] = await Promise.all([
-      Carousel.find(query)
-        .sort(
-          areaId && areaId !== "all"
-            ? { "areaOrders.order": 1, globalOrder: 1 }
-            : { globalOrder: 1 }
+    let allCarousels = carouselRows.map(mapCarouselRow);
+
+    // isGlobal OR assigned to area  (same as { $or: [{ isGlobal: true }, { areaIds: areaId }] })
+    allCarousels = allCarousels.filter((c: any) => {
+      if (hasAreaFilter) {
+        return (
+          c.isGlobal ||
+          c.areaOrders.some((ao: any) => ao.areaId === areaId)
+        );
+      }
+      return c.isGlobal;
+    });
+
+    // Same ordering as before: with an area filter Mongo sorted by the lowest value
+    // in areaOrders.order, then globalOrder.
+    if (hasAreaFilter) {
+      const minAreaOrder = (c: any) =>
+        c.areaOrders.length
+          ? Math.min(...c.areaOrders.map((a: any) => a.order))
+          : -Infinity;
+      allCarousels.sort(
+        (a: any, b: any) =>
+          minAreaOrder(a) - minAreaOrder(b) ||
+          (a.globalOrder ?? 0) - (b.globalOrder ?? 0)
+      );
+    } else {
+      allCarousels.sort(
+        (a: any, b: any) => (a.globalOrder ?? 0) - (b.globalOrder ?? 0)
+      );
+    }
+
+    const total = allCarousels.length;
+    const carousels = allCarousels.slice(skip, skip + limit);
+
+    /* ---------------- FETCH RESTAURANTS (populate) ---------------- */
+    const populateIds = Array.from(
+      new Set(
+        carousels.flatMap((c: any) =>
+          c.restaurants.map((r: any) => r.restaurantId)
         )
-        .skip(skip)
-        .limit(limit)
-        .populate({
-          path: "restaurants.restaurantId",
-          select:
-            "name images area cuisine rating dineIn dineOut priceRange category searchTags zipCode city homePin areaPins createdAt",
-        })
-        .lean(),
+      )
+    ) as string[];
 
-      Carousel.countDocuments(query),
-    ]);
+    const restaurantMap = new Map<string, any>();
+    if (populateIds.length > 0) {
+      const parts = await Promise.all(
+        chunk(populateIds).map(async (ids) => {
+          const { data, error } = await supabaseAdmin
+            .from("restaurants")
+            .select(RESTAURANT_SELECT)
+            .in("id", ids);
+          if (error) throw new Error(error.message);
+          return data || [];
+        })
+      );
+      parts.flat().forEach((row: any) => {
+        restaurantMap.set(row.id, mapRestaurantRow(row));
+      });
+    }
 
     /* ---------------- COLLECT RESTAURANT IDS ---------------- */
     const restaurantIds = new Set<string>();
 
     carousels.forEach((c: any) => {
       c.restaurants?.forEach((r: any) => {
-        if (r.restaurantId?._id) {
-          restaurantIds.add(r.restaurantId._id.toString());
+        if (restaurantMap.has(r.restaurantId)) {
+          restaurantIds.add(r.restaurantId);
         }
       });
     });
 
-    /* ---------------- FETCH OFFERS IN SINGLE QUERY ---------------- */
-    const offersRaw = await Offer.find({
-      restaurantId: { $in: Array.from(restaurantIds) },
-    })
-      .select(
-        "restaurantId title tags startDate expiryDate status deactivated maxRedemptionLimit redeemCount isUnlimited validDays validHours isPinned pinnedAt createdAt"
-      )
-      .lean();
+    /* ---------------- FETCH OFFERS ---------------- */
+    let offersRaw: any[] = [];
+    if (restaurantIds.size > 0) {
+      const parts = await Promise.all(
+        chunk(Array.from(restaurantIds)).map((ids) =>
+          fetchAll((from, to) =>
+            supabaseAdmin
+              .from("offers")
+              .select(OFFER_SELECT)
+              .in("restaurant_id", ids)
+              .order("id", { ascending: true })
+              .range(from, to)
+          )
+        )
+      );
+      offersRaw = parts.flat().map(mapOfferRow);
+    }
 
     /* group offers */
     const offersMap = new Map<string, any[]>();
-    const bulkUpdates: any[] = [];
+    const statusUpdates: { id: string; status: string }[] = [];
 
     offersRaw.forEach((offer: any) => {
       const restId = offer.restaurantId.toString();
@@ -135,12 +314,7 @@ export async function GET(req: NextRequest) {
         else if (!expiryDate) adjustedStatus = "active";
 
         if (adjustedStatus !== offer.status) {
-          bulkUpdates.push({
-            updateOne: {
-              filter: { _id: offer._id },
-              update: { status: adjustedStatus },
-            },
-          });
+          statusUpdates.push({ id: offer._id, status: adjustedStatus });
         }
       }
 
@@ -154,14 +328,15 @@ export async function GET(req: NextRequest) {
     });
 
     /* bulk update */
-    if (bulkUpdates.length > 0) {
-      await Offer.bulkWrite(bulkUpdates);
+    if (statusUpdates.length > 0) {
+      await applyOfferUpdates(statusUpdates, [], now);
     }
 
     /* ---------------- FORMAT RESPONSE ---------------- */
 
     const formattedCarousels = carousels.map((carousel: any) => {
       const preparedRestaurants = carousel.restaurants
+        .map((r: any) => ({ ...r, restaurantId: restaurantMap.get(r.restaurantId) }))
         .filter((r: any) => r.restaurantId)
         .map((r: any) => {
           const restaurant = r.restaurantId;
@@ -184,17 +359,17 @@ export async function GET(req: NextRequest) {
             restaurant.name
               ?.toLowerCase()
               .includes(search.toLowerCase()) ||
-            restaurantCategoryIds.some((id) =>
+            restaurantCategoryIds.some((id: string) =>
               searchCategoryIds.includes(id)
             ) ||
-            restaurantTagIds.some((id) =>
+            restaurantTagIds.some((id: string) =>
               searchTagIds.includes(id)
             );
 
           if (!matchesSearch) return null;
 
           if (selectedCategoryIds.length > 0) {
-            const hasCategory = restaurantCategoryIds.some((id) =>
+            const hasCategory = restaurantCategoryIds.some((id: string) =>
               selectedCategoryIds.includes(id)
             );
             if (!hasCategory) return null;
@@ -222,13 +397,13 @@ export async function GET(req: NextRequest) {
                 id: o._id.toString(),
                 title: o.title,
                 tags: o.tags || [],
-                startDate: o.startDate,
-                expiryDate: o.expiryDate,
+                startDate: toIso(o.startDate),
+                expiryDate: toIso(o.expiryDate),
                 status: o.status,
                 totalCodes: o.maxRedemptionLimit,
                 codesRedeemed: o.redeemCount,
                 isUnlimited: o.isUnlimited,
-                expiresAt: o.expiryDate,
+                expiresAt: toIso(o.expiryDate),
               })),
             },
           };
@@ -319,8 +494,8 @@ function getRestaurantPinMeta(restaurant: any, areaId?: string | null) {
 }
 
 function sortOffersByPinning(offers: any[]) {
-  const pinned = [];
-  const normal = [];
+  const pinned: any[] = [];
+  const normal: any[] = [];
 
   offers.forEach((o) => {
     if (o.isPinned) pinned.push(o);

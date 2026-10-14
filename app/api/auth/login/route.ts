@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
-import Restaurant from "@/models/Restaurant";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs"; // Ensure bcrypt is installed
@@ -168,7 +166,6 @@ export async function POST(req: any) {
       }
     }
     // Connect to database
-    await connectToDatabase();
 
     // Parse request body
     const { email, password } = await req.json();
@@ -176,7 +173,22 @@ export async function POST(req: any) {
     console.log(`Login attempt for email: ${email}`);
 
     // Find user
-    const user = await User.findOne({ email });
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("email", typeof email === "string" ? email.toLowerCase() : email)
+      .maybeSingle();
+    if (userError) throw userError;
+    // same field names the rest of this route already uses
+    const user = userRow && {
+      ...userRow,
+      _id: userRow.id,
+      password: userRow.password_hash,
+      firstName: userRow.first_name,
+      lastName: userRow.last_name,
+      subscriptionStatus: userRow.subscription_status,
+      isTrialing: userRow.is_trialing,
+    };
     if (!user) {
       console.log(`User not found: ${email}`);
       return NextResponse.json(
@@ -203,13 +215,19 @@ export async function POST(req: any) {
       console.log(`Checking restaurant approval for user: ${user._id}`);
 
       // Find restaurant by userId - convert to string to ensure proper matching
-      const restaurant = await Restaurant.findOne({
-        $or: [
-          { userId: user._id.toString() },
-          { userId: user._id },
-          { email: user.email },
-        ],
-      });
+      const { data: restaurantRow, error: restaurantError } = await supabaseAdmin
+        .from("restaurants")
+        .select("*")
+        .or(`user_id.eq.${user._id.toString()},email.eq."${String(user.email).replace(/"/g, '\\"')}"`)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (restaurantError) throw restaurantError;
+      const restaurant = restaurantRow && {
+        ...restaurantRow,
+        _id: restaurantRow.id,
+        userId: restaurantRow.user_id,
+      };
 
       if (!restaurant) {
         console.log(`No restaurant found for user: ${user._id}`);
@@ -240,7 +258,11 @@ export async function POST(req: any) {
       if (restaurant.userId !== user._id.toString()) {
         console.log(`Fixing userId mismatch for restaurant: ${restaurant._id}`);
         restaurant.userId = user._id.toString();
-        await restaurant.save();
+        const { error: saveError } = await supabaseAdmin
+          .from("restaurants")
+          .update({ user_id: restaurant.userId })
+          .eq("id", restaurant._id);
+        if (saveError) throw saveError;
       }
 
       console.log(`Restaurant is approved, proceeding with login`);

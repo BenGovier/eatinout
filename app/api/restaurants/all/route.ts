@@ -1,38 +1,85 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import {
   DEFAULT_MAP_CENTER_LAT_LNG,
   DEFAULT_RESTAURANT_DISTANCE_FILTER_MILES,
   isRestaurantDistanceFilterMiles,
 } from "@/lib/constants";
-import connectToDatabase from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   parseMealTimeRange,
   parseValidHours,
   timeRangesOverlap,
 } from "@/lib/restaurant-offer-time-filters";
-import Restaurant from "@/models/Restaurant";
-import Offer from "@/models/Offer";
-import { Category } from "@/models/Categories";
-import Area from "@/models/Area";
-import Tag from "@/models/Tag";
 
-function escapeRegex(str: string) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Mongo serialized Dates as ISO (...000Z); keep the same format
+const toIso = (v: any) => (v ? new Date(v).toISOString() : v);
+
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&");
+
+// keeps `.in()` URLs short
+function chunk<T>(arr: T[], size = 100): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
-/** `/map` list only — narrower Mongo projections + smaller JSON (see `mapList` query param). */
-const RESTAURANT_SELECT_MAP_LIST =
-  "name slug lat lng city zipCode images area category dineIn dineOut";
+// Supabase returns max 1000 rows per request, so page through
+async function fetchAll(build: (from: number, to: number) => PromiseLike<any>, maxRows = Infinity): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; out.length < maxRows; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out.length > maxRows ? out.slice(0, maxRows) : out;
+}
 
-const RESTAURANT_SELECT_FULL =
-  "name slug cuisine address city state zipCode lat lng area category images dineIn dineOut priceRange openingHours deliveryAvailable addressLink homePin areaPins createdAt";
+// replacement for Offer.bulkWrite
+async function applyOfferUpdates(
+  statusUpdates: { id: string; status: string }[],
+  resetIds: string[] = [],
+  now: Date = new Date()
+) {
+  const jobs: PromiseLike<any>[] = [];
+  const byStatus = new Map<string, string[]>();
+  for (const u of statusUpdates) {
+    if (!byStatus.has(u.status)) byStatus.set(u.status, []);
+    byStatus.get(u.status)!.push(u.id);
+  }
+  byStatus.forEach((ids, status) => {
+    for (const part of chunk(ids)) {
+      jobs.push(supabaseAdmin.from("offers").update({ status }).in("id", part));
+    }
+  });
+  for (const part of chunk(resetIds)) {
+    jobs.push(
+      supabaseAdmin
+        .from("offers")
+        .update({ current_period_count: 0, last_reset_date: now.toISOString() })
+        .in("id", part)
+    );
+  }
+  const results = await Promise.all(jobs);
+  for (const r of results) {
+    if (r?.error) throw new Error(r.error.message);
+  }
+}
 
-const OFFER_SELECT_MAP_LIST =
-  "title validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id currentPeriodCount recurringType recurringStartDate lastResetDate";
+/** `/map` list only — narrower projection + smaller JSON (see `mapList` query param). */
+const RESTAURANT_COLUMNS_MAP_LIST =
+  "id, name, slug, lat, lng, city, zip_code, dine_in, dine_out, created_at";
 
-const OFFER_SELECT_FULL =
-  "title associatedId validDays validHours startDate expiryDate status deactivated restaurantId redeemCount maxRedemptionLimit isUnlimited isPinned pinnedAt createdAt _id currentPeriodCount recurringType recurringStartDate lastResetDate";
+const RESTAURANT_EMBEDS_MAP_LIST =
+  "restaurant_areas(area_id), restaurant_categories(category_id), restaurant_images(image_url, display_order)";
+
+const RESTAURANT_EMBEDS_FULL = `${RESTAURANT_EMBEDS_MAP_LIST}, restaurant_area_pins(area_id, is_pinned, priority, pinned_at)`;
+
+const OFFER_COLUMNS_MAP_LIST =
+  "id, title, valid_days, valid_hours, start_date, expiry_date, status, is_deactivated, restaurant_id, redeem_count, max_redemption_limit, is_unlimited, is_pinned, pinned_at, created_at, current_period_count, recurring_type, recurring_start_date, last_reset_date";
+
+const OFFER_COLUMNS_FULL = `${OFFER_COLUMNS_MAP_LIST}, associated_id`;
 
 const EARTH_RADIUS_MILES = 3958.8;
 
@@ -55,10 +102,118 @@ function haversineDistanceMiles(
   return EARTH_RADIUS_MILES * c;
 }
 
+/* ---------------- row mappers (Supabase -> old Mongo shape) ---------------- */
+
+function mapRestaurantRow(r: any) {
+  const images = (r.restaurant_images ?? [])
+    .slice()
+    .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .map((i: any) => i.image_url);
+
+  return {
+    _id: r.id as string,
+    name: r.name,
+    slug: r.slug,
+    // cuisine / state / price_range / opening_hours are read only if those columns exist (select "*")
+    cuisine: r.cuisine,
+    address: r.address,
+    city: r.city,
+    state: r.state,
+    zipCode: r.zip_code,
+    lat: r.lat,
+    lng: r.lng,
+    area: (r.restaurant_areas ?? []).map((x: any) => x.area_id),
+    category: (r.restaurant_categories ?? []).map((x: any) => x.category_id),
+    images,
+    dineIn: r.dine_in,
+    dineOut: r.dine_out,
+    priceRange: r.price_range,
+    openingHours: r.opening_hours,
+    deliveryAvailable: r.delivery_available,
+    addressLink: r.address_link,
+    homePin: {
+      isPinned: r.home_is_pinned,
+      priority: r.home_pin_priority,
+      pinnedAt: r.home_pinned_at,
+    },
+    areaPins: (r.restaurant_area_pins ?? []).map((p: any) => ({
+      areaId: p.area_id,
+      isPinned: p.is_pinned,
+      priority: p.priority,
+      areaPinnedAt: p.pinned_at,
+    })),
+    createdAt: r.created_at,
+  };
+}
+
+function mapOfferRow(o: any) {
+  return {
+    _id: o.id as string,
+    title: o.title,
+    validDays: o.valid_days,
+    validHours: o.valid_hours,
+    startDate: o.start_date,
+    expiryDate: o.expiry_date,
+    status: o.status,
+    deactivated: o.is_deactivated,
+    restaurantId: o.restaurant_id as string,
+    redeemCount: o.redeem_count,
+    maxRedemptionLimit: o.max_redemption_limit,
+    isUnlimited: o.is_unlimited,
+    isPinned: o.is_pinned,
+    pinnedAt: o.pinned_at,
+    createdAt: o.created_at,
+    currentPeriodCount: o.current_period_count,
+    recurringType: o.recurring_type,
+    recurringStartDate: o.recurring_start_date,
+    lastResetDate: o.last_reset_date,
+    associatedId: o.associated_id,
+  };
+}
+
+/** search -> matching category ids + restaurant ids that have an offer with a matching tag */
+async function resolveSearch(search: string) {
+  const pattern = `%${escapeLike(search)}%`;
+
+  const [categoriesRes, tagsRes] = await Promise.all([
+    supabaseAdmin.from("categories").select("id").ilike("name", pattern),
+    supabaseAdmin.from("tags").select("id").ilike("name", pattern),
+  ]);
+  if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+  if (tagsRes.error) throw new Error(tagsRes.error.message);
+
+  const categoryIds = new Set<string>(
+    (categoriesRes.data || []).map((c: any) => c.id),
+  );
+  const tagIds: string[] = (tagsRes.data || []).map((t: any) => t.id);
+
+  const restaurantIdsFromOffers = new Set<string>();
+  if (tagIds.length > 0) {
+    const parts = await Promise.all(
+      chunk(tagIds).map((ids) =>
+        fetchAll((from, to) =>
+          supabaseAdmin
+            .from("offer_tags")
+            .select("offer_id, tag_id, offers!inner(restaurant_id, is_deactivated)")
+            .in("tag_id", ids)
+            .eq("offers.is_deactivated", false)
+            .order("offer_id", { ascending: true })
+            .order("tag_id", { ascending: true })
+            .range(from, to),
+        ),
+      ),
+    );
+    parts.flat().forEach((row: any) => {
+      const offer = Array.isArray(row.offers) ? row.offers[0] : row.offers;
+      if (offer?.restaurant_id) restaurantIdsFromOffers.add(offer.restaurant_id);
+    });
+  }
+
+  return { categoryIds, restaurantIdsFromOffers };
+}
+
 export async function GET(request: Request) {
   try {
-    await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
     const sortBy = searchParams.get("sortBy")?.trim() || "closest";
     /** Marketing welcome listing: no default Blackpool radius; area/search filters only. */
@@ -102,18 +257,40 @@ export async function GET(request: Request) {
     const hasUserCoords = Number.isFinite(ulat) && Number.isFinite(ulng);
     /**
      * Browse-by-area (home /restaurants, carousels): no map pin — only `area` should constrain
-     * geography. Default $geoWithin around Blackpool would intersect away every other region.
+     * geography. Default radius around Blackpool would intersect away every other region.
      * Map view sends `maxDistanceMiles=all` to skip radius; otherwise userLat/userLng set the origin.
      */
     const isAreaListingWithoutPin =
       Boolean(areaFilter && areaFilter !== "all") && !hasUserCoords;
     const skipGeoFilter = isWelcomeList || isAreaListingWithoutPin;
 
-    const query: any = { status: "approved", hidden: { $ne: true } };
+    /* ---------------- FETCH RESTAURANTS (approved + not hidden) ---------------- */
+    // "*" is used whenever a column that may not exist in the slim list is needed (price_range filter).
+    const columns =
+      isMapList && !priceRange ? RESTAURANT_COLUMNS_MAP_LIST : "*";
+    const embeds = isMapList
+      ? RESTAURANT_EMBEDS_MAP_LIST
+      : RESTAURANT_EMBEDS_FULL;
 
-    // Handle area filter - supports both string and array of area IDs
+    const restaurantRows = await fetchAll((from, to) => {
+      let q: any = supabaseAdmin
+        .from("restaurants")
+        .select(`${columns}, ${embeds}`)
+        .eq("status", "approved")
+        .eq("is_hidden", false);
+      if (dineIn) q = q.eq("dine_in", true);
+      if (dineOut) q = q.eq("dine_out", true);
+      return q
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to);
+    });
+
+    let restaurants: any[] = restaurantRows.map(mapRestaurantRow);
+
+    // Handle area filter
     if (areaFilter && areaFilter !== "all") {
-      query.area = { $in: [areaFilter] };
+      restaurants = restaurants.filter((r) => r.area.includes(areaFilter));
     }
 
     // Handle category filter - supports multiple categories
@@ -124,101 +301,93 @@ export async function GET(request: Request) {
         .filter((id) => id);
 
       if (categoryIds.length > 0) {
-        query.category = { $in: categoryIds };
+        restaurants = restaurants.filter((r) =>
+          r.category.some((id: string) => categoryIds.includes(id)),
+        );
       }
     }
 
     if (search) {
-      const escapedSearch = escapeRegex(search);
+      const { categoryIds, restaurantIdsFromOffers } =
+        await resolveSearch(search);
+      const lowerSearch = search.toLowerCase();
 
-      const categoriesMatchingSearch = await Category.find({
-        name: { $regex: escapedSearch, $options: "i" },
-      })
-        .select("_id")
-        .lean();
-
-      const categoryIds = categoriesMatchingSearch.map((c) => c._id);
-
-      const tagsMatchingSearch = await Tag.find({
-        name: { $regex: escapedSearch, $options: "i" },
-      })
-        .select("_id")
-        .lean();
-
-      const tagIds = tagsMatchingSearch.map((t) => t._id);
-
-      const offersWithMatchingTags = await Offer.find({
-        tags: { $in: tagIds },
-        deactivated: { $ne: true },
-      })
-        .select("restaurantId")
-        .lean();
-
-      const restaurantIdsFromOffers = [
-        ...new Set(
-          offersWithMatchingTags.map((o) => o.restaurantId.toString()),
-        ),
-      ];
-
-      query.$or = [
-        { name: { $regex: escapedSearch, $options: "i" } },
-        { category: { $in: categoryIds } },
-        { _id: { $in: restaurantIdsFromOffers } },
-      ];
+      restaurants = restaurants.filter(
+        (r) =>
+          (r.name ?? "").toLowerCase().includes(lowerSearch) ||
+          r.category.some((id: string) => categoryIds.has(id)) ||
+          restaurantIdsFromOffers.has(r._id),
+      );
     }
-    if (priceRange && priceRange !== "all") query.priceRange = priceRange;
-    if (dineIn) query.dineIn = true;
-    if (dineOut) query.dineOut = true;
 
-    // Distance filter at DB level (2dsphere + $centerSphere; radius in radians).
+    if (priceRange && priceRange !== "all") {
+      restaurants = restaurants.filter((r) => r.priceRange === priceRange);
+    }
+
+    // Distance filter (lat/lng + haversine; same radius logic as the old 2dsphere $centerSphere).
     // Welcome / area browse omit user coords — do not apply default radius (see skipGeoFilter).
     // `maxDistanceMiles=all` skips radius only; response still includes distances from origin for sort/UI.
     if (!skipGeoFilter && !distanceFilterAll) {
-      const radiusRadians = maxDistanceMiles / EARTH_RADIUS_MILES;
-      query.location = {
-        $geoWithin: {
-          $centerSphere: [[originLng, originLat], radiusRadians],
-        },
-      };
+      restaurants = restaurants.filter(
+        (r) =>
+          typeof r.lat === "number" &&
+          typeof r.lng === "number" &&
+          Number.isFinite(r.lat) &&
+          Number.isFinite(r.lng) &&
+          haversineDistanceMiles(originLat, originLng, r.lat, r.lng) <=
+            maxDistanceMiles,
+      );
     }
 
-    const restaurants = await Restaurant.find(query)
-      .select(isMapList ? RESTAURANT_SELECT_MAP_LIST : RESTAURANT_SELECT_FULL)
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const allAreaIds = restaurants.flatMap((r) =>
-      Array.isArray(r.area) ? r.area : [],
+    /* ---------------- AREAS + CATEGORIES LOOKUP ---------------- */
+    const areasRes = await supabaseAdmin
+      .from("areas")
+      .select("id, name, hide_restaurant");
+    if (areasRes.error) throw new Error(areasRes.error.message);
+    const areaMap = new Map(
+      (areasRes.data || []).map((a: any) => [
+        a.id as string,
+        { _id: a.id as string, name: a.name, hideRestaurant: a.hide_restaurant },
+      ]),
     );
-    const uniqueAreaIds = [...new Set(allAreaIds.map(String))];
-    const areas = await Area.find({ _id: { $in: uniqueAreaIds } }).lean();
-    const areaMap = new Map(areas.map((a: any) => [a._id.toString(), a]));
 
     const categoryMap = new Map<string, any>();
     if (!isMapList) {
-      const allCategoryIds = restaurants.flatMap((r: any) =>
-        Array.isArray(r.category) ? r.category : [r.category],
-      );
-      const uniqueCategoryIds = [
-        ...new Set(allCategoryIds.filter(Boolean).map(String)),
-      ];
-      if (uniqueCategoryIds.length > 0) {
-        const categories = await Category.find({
-          _id: { $in: uniqueCategoryIds },
-        }).lean();
-        for (const c of categories) {
-          categoryMap.set((c as any)._id.toString(), c);
-        }
+      const categoriesRes = await supabaseAdmin
+        .from("categories")
+        .select("id, name");
+      if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+      for (const c of categoriesRes.data || []) {
+        categoryMap.set((c as any).id, c);
       }
     }
 
+    /* ---------------- OFFERS ---------------- */
     const restaurantIds = restaurants.map((r: any) => r._id.toString());
-    const offersRaw = await Offer.find({ restaurantId: { $in: restaurantIds } })
-      .select(isMapList ? OFFER_SELECT_MAP_LIST : OFFER_SELECT_FULL)
-      .lean();
+
+    let offersRaw: any[] = [];
+    if (restaurantIds.length > 0) {
+      const offerColumns = isMapList
+        ? OFFER_COLUMNS_MAP_LIST
+        : OFFER_COLUMNS_FULL;
+      const parts = await Promise.all(
+        chunk(restaurantIds).map((ids) =>
+          fetchAll((from, to) =>
+            supabaseAdmin
+              .from("offers")
+              .select(offerColumns)
+              .in("restaurant_id", ids)
+              .order("id", { ascending: true })
+              .range(from, to),
+          ),
+        ),
+      );
+      offersRaw = parts.flat().map(mapOfferRow);
+    }
 
     const now = new Date();
-    const bulkUpdates: any[] = [];
+    const statusUpdates: { id: string; status: string }[] = [];
+    const resetIds: string[] = [];
 
     const offersGroupedByRestaurant = offersRaw.reduce(
       (acc: any, offer: any) => {
@@ -241,12 +410,7 @@ export async function GET(request: Request) {
 
           // Track offers that need database updates (when status changed)
           if (adjustedStatus !== offer.status) {
-            bulkUpdates.push({
-              updateOne: {
-                filter: { _id: offer._id },
-                update: { $set: { status: adjustedStatus } },
-              },
-            });
+            statusUpdates.push({ id: offer._id, status: adjustedStatus });
           }
         }
 
@@ -254,7 +418,7 @@ export async function GET(request: Request) {
         if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
           const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
           let shouldReset = false;
-          
+
           if (offer.recurringType === "weekly") {
             const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
             shouldReset = daysSinceReset >= 7;
@@ -265,12 +429,7 @@ export async function GET(request: Request) {
 
           if (shouldReset) {
             currentPeriodCount = 0;
-            bulkUpdates.push({
-              updateOne: {
-                filter: { _id: offer._id },
-                update: { $set: { currentPeriodCount: 0, lastResetDate: now } },
-              },
-            });
+            resetIds.push(offer._id);
           }
         }
 
@@ -283,10 +442,10 @@ export async function GET(request: Request) {
         if (adjustedStatus === "active") {
           // Hide offers that have reached their redemption limit
           if (!offer.isUnlimited && offer.maxRedemptionLimit) {
-            const currentCount = (offer.recurringType && offer.recurringType !== "never") 
+            const currentCount = (offer.recurringType && offer.recurringType !== "never")
               ? currentPeriodCount
               : (offer.redeemCount || 0);
-              
+
             const remaining = offer.maxRedemptionLimit - currentCount;
             if (remaining <= 0) return acc;
           }
@@ -305,8 +464,8 @@ export async function GET(request: Request) {
       {} as Record<string, any[]>,
     );
 
-    if (bulkUpdates.length > 0) {
-      await Offer.bulkWrite(bulkUpdates);
+    if (statusUpdates.length > 0 || resetIds.length > 0) {
+      await applyOfferUpdates(statusUpdates, resetIds, now);
     }
 
     const formattedRestaurants = restaurants
@@ -325,7 +484,7 @@ export async function GET(request: Request) {
         const activeOffersRaw = (
           offersGroupedByRestaurant[restaurantId] || []
         ).filter((o: any) => o.status === "active");
-        
+
         // Only live active restaurants should be showing (must have at least 1 active offer)
         if (activeOffersRaw.length === 0) return null;
 
@@ -438,15 +597,15 @@ export async function GET(request: Request) {
                 ? offer.validDays
                 : offer.validDays?.split(",").map((d: string) => d.trim()) ||
                 [],
-              startDate: offer.startDate,
-              expiryDate: offer.expiryDate,
+              startDate: toIso(offer.startDate),
+              expiryDate: toIso(offer.expiryDate),
               status: offer.status,
               totalCodes: offer.maxRedemptionLimit
                 ? offer.maxRedemptionLimit
                 : null,
               codesRedeemed: (offer.recurringType && offer.recurringType !== "never") ? (offer.currentPeriodCount || 0) : (offer.redeemCount || 0),
               isUnlimited: offer.isUnlimited || false,
-              expiresAt: offer.expiryDate,
+              expiresAt: toIso(offer.expiryDate),
             };
           }),
           imageUrl:
