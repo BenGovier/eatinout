@@ -2,8 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import connectToDatabase from '@/lib/mongodb';
-import User from '@/models/User';
+import supabaseAdmin from '@/lib/supabase/admin';
 import { activateSubscription } from '@/lib/activate-subscription';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
@@ -20,7 +19,22 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string;
   const status = subscription.status;
 
-  const user = await User.findOne({ stripeCustomerId: customerId });
+  const { data: userRow, error: userError } = await supabaseAdmin
+    .from('users')
+    .select('id, email, subscription_status, is_trialing, subscription_id, used_voucher_code, stripe_customer_id')
+    .eq('stripe_customer_id', customerId)
+    .limit(1)
+    .maybeSingle();
+  if (userError) throw new Error(userError.message);
+  const user = userRow && {
+    _id: userRow.id,
+    email: userRow.email,
+    subscriptionStatus: userRow.subscription_status,
+    isTrialing: userRow.is_trialing,
+    subscriptionId: userRow.subscription_id,
+    usedVoucherCode: userRow.used_voucher_code,
+    stripeCustomerId: userRow.stripe_customer_id,
+  };
   if (!user) {
     console.warn(`[Webhook] No user found for customer ${customerId}`);
     return;
@@ -84,7 +98,17 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     user.usedVoucherCode = usedVoucherCode;
   }
   user.stripeCustomerId = customerId;
-  await user.save();
+  const { error: saveError } = await supabaseAdmin
+    .from('users')
+    .update({
+      subscription_status: user.subscriptionStatus,
+      is_trialing: user.isTrialing,
+      subscription_id: user.subscriptionId,
+      used_voucher_code: user.usedVoucherCode,
+      stripe_customer_id: user.stripeCustomerId,
+    })
+    .eq('id', user._id);
+  if (saveError) throw new Error(saveError.message);
 
   console.log(`[Webhook] Synced user ${user.email} — status: ${ourStatus}, trialing: ${isTrialing}, voucher: ${user.usedVoucherCode ?? "none"}`);
 }
@@ -112,8 +136,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
     }
 
-    await connectToDatabase();
-
     switch (event.type) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
@@ -127,10 +149,11 @@ export async function POST(req: Request) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         console.log(`[Webhook] Subscription deleted for customer ${customerId}`);
-        await User.updateOne(
-          { stripeCustomerId: customerId },
-          { $set: { subscriptionStatus: 'cancelled', isTrialing: false } }
-        );
+        const { error: deleteSyncError } = await supabaseAdmin
+          .from('users')
+          .update({ subscription_status: 'cancelled', is_trialing: false })
+          .eq('stripe_customer_id', customerId);
+        if (deleteSyncError) throw new Error(deleteSyncError.message);
         break;
       }
 

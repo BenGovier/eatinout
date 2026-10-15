@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 import sendEmail from "@/lib/sendEmail";
 import { render } from "@react-email/render";
 import { SubscriptionConfirmationEmail } from "@/utils/email-templates/subscription-confirmation";
@@ -16,6 +16,20 @@ const PLANS = [
   { name: "Annual", price: "£47.90", period: "/year", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT },
   { name: "18 Months", price: "£89.82", period: "", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_18MONTHS },
 ];
+
+// Supabase: columns returned to callers + mapping to the camelCase user shape they use
+const USER_COLUMNS = "id, email, role, first_name, subscription_status, is_trialing";
+const mapUser = (row: any) =>
+  row
+    ? {
+        _id: row.id,
+        email: row.email,
+        role: row.role,
+        firstName: row.first_name,
+        subscriptionStatus: row.subscription_status,
+        isTrialing: row.is_trialing,
+      }
+    : null;
 
 /**
  * Same job the old verify-checkout-session did: update status, voucher,
@@ -50,27 +64,36 @@ export async function activateSubscription(subscriptionId: string, expectedCusto
 
   const isTrialing = subscription.status === "trialing";
   const update: any = {
-    subscriptionStatus: isTrialing ? "inactive" : "active",
-    isTrialing,
-    subscriptionId: subscription.id,
-    hasSubscribedBefore: true,
-    selectedPriceId: null,
+    subscription_status: isTrialing ? "inactive" : "active",
+    is_trialing: isTrialing,
+    subscription_id: subscription.id,
+    has_subscribed_before: true,
+    selected_price_id: null,
   };
-  if (usedVoucherCode !== undefined) update.usedVoucherCode = usedVoucherCode;
+  if (usedVoucherCode !== undefined) update.used_voucher_code = usedVoucherCode;
 
   // Atomic claim: only ONE caller gets the user back and sends the emails.
-  const claimed = await User.findOneAndUpdate(
-    {
-      stripeCustomerId: customerId,
-      $or: [{ welcomeEmailSent: { $ne: true } }, { subscriptionId: { $ne: subscription.id } }],
-    },
-    { $set: { ...update, welcomeEmailSent: true } },
-    { new: true }
-  );
+  // (A single UPDATE ... WHERE is atomic in Postgres: a concurrent caller re-checks the
+  // WHERE after the first commit and no longer matches. NULL subscription_id counts as "not equal".)
+  const { data: claimedRows, error: claimError } = await supabaseAdmin
+    .from("users")
+    .update({ ...update, welcome_email_sent: true })
+    .eq("stripe_customer_id", customerId)
+    .or(`welcome_email_sent.eq.false,subscription_id.is.null,subscription_id.neq.${subscription.id}`)
+    .select(USER_COLUMNS);
+  if (claimError) throw new Error(claimError.message);
+  const claimed = mapUser(claimedRows?.[0]);
 
   if (!claimed) {
     // Already activated + emailed (by webhook or an earlier call)
-    const existing = await User.findOne({ stripeCustomerId: customerId });
+    const { data: existingRow, error: existingError } = await supabaseAdmin
+      .from("users")
+      .select(USER_COLUMNS)
+      .eq("stripe_customer_id", customerId)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    const existing = mapUser(existingRow);
     return { ok: true as const, user: existing, emailsSent: false };
   }
 
@@ -128,7 +151,11 @@ export async function activateSubscription(subscriptionId: string, expectedCusto
 
   // If both emails failed, release the claim so a retry (webhook) can resend.
   if (!welcomeOk && !confirmOk) {
-    await User.updateOne({ _id: user._id }, { $set: { welcomeEmailSent: false } });
+    const { error: releaseError } = await supabaseAdmin
+      .from("users")
+      .update({ welcome_email_sent: false })
+      .eq("id", user._id);
+    if (releaseError) throw new Error(releaseError.message);
   }
 
   return { ok: true as const, user, emailsSent: welcomeOk || confirmOk };
