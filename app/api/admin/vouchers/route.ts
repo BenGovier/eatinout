@@ -1,11 +1,45 @@
+// app/api/admin/vouchers/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import connectToDatabase from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
+import { randomBytes } from "crypto";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
 import { resolveStripeCouponCheckoutName } from "@/lib/stripe-coupon-display-name";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// Supabase row -> same shape the Mongoose voucher had (so the code below stays unchanged)
+function toLegacyVoucher(r: any) {
+  if (!r) return r;
+  const iso = (v: any) => (v ? new Date(v).toISOString() : v);
+  const expiryDate = iso(r.expiry_date);
+  return {
+    _id: r.id,
+    code: r.code,
+    discountType: r.discount_type,
+    discountValue: r.discount_value,
+    maxUses: r.max_uses,
+    currentUses: r.current_uses,
+    expiryDate,
+    validityDays: r.validity_days,
+    isActive: r.is_active,
+    description: r.description,
+    stripeCouponId: r.stripe_coupon_id,
+    stripeCouponName: r.stripe_coupon_name,
+    stripePromotionCodeId: r.stripe_promotion_code_id,
+    duration: r.duration,
+    durationInMonths: r.duration_in_months,
+    calculatedPercentOff: r.calculated_percent_off,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+    // virtual: expiryDate if set, otherwise createdAt + validityDays days, otherwise null
+    resolvedExpiry: expiryDate
+      ? expiryDate
+      : r.validity_days
+        ? new Date(new Date(r.created_at).getTime() + r.validity_days * 24 * 60 * 60 * 1000).toISOString()
+        : null,
+  };
+}
 
 type ValidatedCouponDuration =
   | { ok: true; duration: "once" | "repeating" | "forever"; durationInMonths?: number }
@@ -88,6 +122,27 @@ function buildVoucherFieldsFromAdminPayload(
   };
 }
 
+// fields above -> Supabase column names
+function toVoucherRow(f: ReturnType<typeof buildVoucherFieldsFromAdminPayload>) {
+  return {
+    code: f.code,
+    discount_type: f.discountType,
+    discount_value: f.discountValue,
+    max_uses: f.maxUses,
+    current_uses: f.currentUses,
+    expiry_date: f.expiryDate ? f.expiryDate.toISOString() : null,
+    validity_days: f.validityDays,
+    is_active: f.isActive,
+    description: f.description,
+    stripe_coupon_id: f.stripeCouponId,
+    stripe_promotion_code_id: f.stripePromotionCodeId,
+    stripe_coupon_name: f.stripeCouponName,
+    calculated_percent_off: f.calculatedPercentOff,
+    duration: f.duration,
+    duration_in_months: f.durationInMonths,
+  };
+}
+
 // GET: Fetch all vouchers
 export async function GET(req: Request) {
   try {
@@ -99,8 +154,6 @@ export async function GET(req: Request) {
       );
     }
 
-    await connectToDatabase();
-
     // Get pagination params from query
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -109,23 +162,27 @@ export async function GET(req: Request) {
     const searchQuery = searchParams.get('search') || '';
 
     // Build search filter
-    const searchFilter: any = {};
-    if (searchQuery.trim()) {
-      searchFilter.$or = [
-        { code: { $regex: searchQuery, $options: 'i' } },
-        { description: { $regex: searchQuery, $options: 'i' } }
-      ];
-    }
+    const applySearchFilter = (q: any) => {
+      if (!searchQuery.trim()) return q;
+      const like = `%${searchQuery.replace(/[\\%_]/g, "\\$&")}%`.replace(/[\\"]/g, "\\$&");
+      return q.or(`code.ilike."${like}",description.ilike."${like}"`);
+    };
 
     // Get total count with search filter
-    const totalVouchers = await Voucher.countDocuments(searchFilter);
+    const { count: totalVouchersCount, error: countError } = await applySearchFilter(
+      supabaseAdmin.from("vouchers").select("id", { count: "exact", head: true })
+    );
+    if (countError) throw new Error(countError.message);
+    const totalVouchers = totalVouchersCount || 0;
 
     // Get paginated vouchers with search filter
-    const vouchers = await Voucher.find(searchFilter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean({ virtuals: true }); // Include resolvedExpiry virtual + all schema paths
+    const { data: voucherRows, error: voucherError } = await applySearchFilter(
+      supabaseAdmin.from("vouchers").select("*")
+    )
+      .order("created_at", { ascending: false })
+      .range(skip, skip + limit - 1);
+    if (voucherError) throw new Error(voucherError.message);
+    const vouchers = (voucherRows || []).map(toLegacyVoucher); // Include resolvedExpiry virtual + all schema paths
 
     // Fetch Stripe promo codes (all of them for now, can optimize later)
     const stripePromoCodes = await stripe.promotionCodes.list({ limit: 100 });
@@ -231,13 +288,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: adminCheck.message }, { status: 401 });
     }
 
-    await connectToDatabase();
     const data = await req.json();
 
     // Check DB first
-    const existingVoucher = await Voucher.findOne({
-      code: data.code.toUpperCase(),
-    });
+    const { data: existingVoucher, error: existingError } = await supabaseAdmin
+      .from("vouchers")
+      .select("id")
+      .eq("code", data.code.toUpperCase())
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
     if (existingVoucher) {
       return NextResponse.json(
         { success: false, message: "Voucher code already exists in database" },
@@ -326,9 +385,13 @@ export async function POST(req: Request) {
         stripeCouponName: null,
       },
     );
-    const voucher = new Voucher(fields);
-
-    await voucher.save();
+    const { data: savedRow, error: saveError } = await supabaseAdmin
+      .from("vouchers")
+      .insert({ id: randomBytes(12).toString("hex"), ...toVoucherRow(fields) })
+      .select()
+      .single();
+    if (saveError) throw new Error(saveError.message);
+    const voucher = toLegacyVoucher(savedRow);
 
     return NextResponse.json(
       { success: true, message: "Voucher created successfully", voucher },
@@ -353,10 +416,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: adminCheck.message }, { status: 401 });
     }
 
-    await connectToDatabase();
     const data = await req.json();
 
-    const voucher = await Voucher.findById(data._id);
+    const { data: voucherRow, error: voucherError } = await supabaseAdmin
+      .from("vouchers")
+      .select("*")
+      .eq("id", data._id)
+      .maybeSingle();
+    if (voucherError) throw new Error(voucherError.message);
+    const voucher = toLegacyVoucher(voucherRow);
     if (!voucher) {
       return NextResponse.json(
         { success: false, message: "Voucher not found" },
@@ -441,9 +509,14 @@ export async function PUT(req: Request) {
         stripeCouponName: null,
       },
     );
-    Object.assign(voucher, fields);
-
-    await voucher.save();
+    const { data: savedRow, error: saveError } = await supabaseAdmin
+      .from("vouchers")
+      .update(toVoucherRow(fields))
+      .eq("id", voucher._id)
+      .select()
+      .single();
+    if (saveError) throw new Error(saveError.message);
+    Object.assign(voucher, toLegacyVoucher(savedRow));
 
     return NextResponse.json({
       success: true,
@@ -458,4 +531,3 @@ export async function PUT(req: Request) {
     );
   }
 }
-
