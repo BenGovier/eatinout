@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import User from "@/models/User";
-import connectToDatabase from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,15 +21,32 @@ export async function GET(request: NextRequest) {
       process.env.JWT_SECRET as string
     ) as { userId: string };
 
-    await connectToDatabase();
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("id, first_name, last_name, email, role, mobile, zip_code, subscription_status, created_at, updated_at")
+      .eq("id", decodedToken.userId)
+      .maybeSingle();
 
-    const user = await User.findById(decodedToken.userId).select("-password");
-
-    if (!user || user.role !== "restaurant") {
+    if (error || !user || user.role !== "restaurant") {
       return NextResponse.json({ error: "Restaurant profile not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, restaurant: user });
+    // Format for frontend camelCase expectations
+    const formattedUser = {
+      _id: user.id,
+      id: user.id,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email,
+      role: user.role,
+      mobile: user.mobile,
+      zipCode: user.zip_code,
+      subscriptionStatus: user.subscription_status,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
+
+    return NextResponse.json({ success: true, restaurant: formattedUser });
   } catch (error) {
     console.error("Error fetching restaurant profile:", error);
     return NextResponse.json(

@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
-import Restaurant from "@/models/Restaurant"; // Add this import at the top
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-import dotenv from "dotenv";
-import { Wallet } from "@/models/Wallet";
+import crypto from "crypto";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { render } from "@react-email/render";
 import NewOfferSubmissionEmail from "@/utils/email-templates/NewOfferSubmissionEmail";
 import sendEmail from "@/lib/sendEmail";
-import { generateSlug } from "@/lib/utils";
 
-dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 /**
  * Calculate offer status based on dates and manual deactivation
@@ -101,9 +96,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    await connectToDatabase();
+    // 1. Resolve restaurant IDs owned by this user
+    let targetRestaurantIds: string[] = [];
+    if (restaurantId) targetRestaurantIds.push(restaurantId);
 
-    const now = new Date();
+    if (userId) {
+      const { data: userRest } = await supabaseAdmin
+        .from("restaurants")
+        .select("id, subscription_status")
+        .eq("user_id", userId);
+
+      (userRest || []).forEach((r: any) => {
+        if (!targetRestaurantIds.includes(r.id)) targetRestaurantIds.push(r.id);
+      });
+    }
 
     // Pagination
     const url = new URL(request.url);
@@ -111,191 +117,128 @@ export async function GET(request: Request) {
     const limit = parseInt(url.searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const total = await Offer.countDocuments({
-      $or: [{ restaurantId }, { associatedId: userId }],
-    });
-
-    // Fetch and sort offers by createdAt descending (newest first)
-    // Using MongoDB sort for better performance
-    const allOffers = await Offer.find({
-      $or: [{ restaurantId }, { associatedId: userId }],
-    })
-      .sort({ createdAt: -1 }) // Sort by creation date descending (newest first)
-      .lean();
-
-    // Sort offers: pinned first by pinnedAt DESC (most recently pinned first), then unpinned by createdAt descending
-    const sortedOffers = allOffers.sort((a: any, b: any) => {
-      // If both are pinned, sort by pinnedAt descending (most recent first)
-      if (a.isPinned && b.isPinned) {
-        const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-        const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-        return bTime - aTime; // DESC order
-      }
-      // Pinned offers come first
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      // Both unpinned: sort by createdAt descending (already sorted by MongoDB, but ensure consistency)
-      const aCreated = new Date(a.createdAt).getTime();
-      const bCreated = new Date(b.createdAt).getTime();
-      return bCreated - aCreated; // DESC order - newest first
-    });
-
-    // Apply pagination after sorting
-    const offers = sortedOffers.slice(skip, skip + limit);
-
-    // Early return if no offers
-    if (offers.length === 0) {
+    if (targetRestaurantIds.length === 0) {
       return NextResponse.json({
         success: true,
         offers: [],
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-        subscription: {
-          status: "inactive",
-          hasActiveSubscription: false,
-        },
+        pagination: { total: 0, page, limit, totalPages: 0 },
+        subscription: { status: "inactive", hasActiveSubscription: false },
       });
     }
 
-    const offerIds = offers.map((offer: any) => offer._id);
+    // Count total offers
+    const { count: totalOffersCount } = await supabaseAdmin
+      .from("offers")
+      .select("id", { count: "exact", head: true })
+      .in("restaurant_id", targetRestaurantIds);
 
-    // Performance optimization: Batch fetch redemption counts for all offers at once
-    const redemptionCounts = offerIds.length > 0 ? await Wallet.aggregate([
-      {
-        $match: {
-          offerId: { $in: offerIds },
-          offerStatus: "redeemed"
-        }
-      },
-      {
-        $group: {
-          _id: "$offerId",
-          count: { $sum: 1 }
-        }
+    const total = totalOffersCount || 0;
+
+    // Fetch offers
+    const { data: offersData, error: offersErr } = await supabaseAdmin
+      .from("offers")
+      .select("*")
+      .in("restaurant_id", targetRestaurantIds)
+      .order("created_at", { ascending: false });
+
+    if (offersErr) {
+      console.error("Supabase fetch offers error:", offersErr);
+      return NextResponse.json({ message: "Failed to fetch offers", error: offersErr.message }, { status: 500 });
+    }
+
+    const allOffers = offersData || [];
+
+    // Sort: Pinned first, then creation date desc
+    const sortedOffers = allOffers.sort((a: any, b: any) => {
+      if (a.is_pinned && b.is_pinned) {
+        const aTime = a.pinned_at ? new Date(a.pinned_at).getTime() : 0;
+        const bTime = b.pinned_at ? new Date(b.pinned_at).getTime() : 0;
+        return bTime - aTime;
       }
-    ]) : [];
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      const aCreated = new Date(a.created_at).getTime();
+      const bCreated = new Date(b.created_at).getTime();
+      return bCreated - aCreated;
+    });
 
-    // Create a map for quick lookup of redemption counts
+    const paginatedOffers = sortedOffers.slice(skip, skip + limit);
+
+    if (paginatedOffers.length === 0) {
+      return NextResponse.json({
+        success: true,
+        offers: [],
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        subscription: { status: "inactive", hasActiveSubscription: false },
+      });
+    }
+
+    const offerIds = paginatedOffers.map((o: any) => o.id);
+    const uniqueRestIds = Array.from(new Set(paginatedOffers.map((o: any) => o.restaurant_id).filter(Boolean)));
+
+    // Parallel fetch restaurants and redemption counts
+    const [restaurantsRes, walletsRes] = await Promise.all([
+      supabaseAdmin.from("restaurants").select("*").in("id", uniqueRestIds),
+      supabaseAdmin
+        .from("wallets")
+        .select("offer_id")
+        .in("offer_id", offerIds)
+        .or("redeem_status.eq.true,offer_status.eq.redeemed"),
+    ]);
+
+    // Redemptions count map
     const redemptionMap = new Map<string, number>();
-    redemptionCounts.forEach((item: any) => {
-      redemptionMap.set(item._id.toString(), item.count);
+    (walletsRes.data || []).forEach((w: any) => {
+      redemptionMap.set(w.offer_id, (redemptionMap.get(w.offer_id) || 0) + 1);
     });
 
-    // Performance optimization: Batch fetch all restaurants at once
-    const restaurantIds = [...new Set(offers.map((offer: any) => offer.restaurantId.toString()))];
-    const restaurants = await Restaurant.find({
-      _id: { $in: restaurantIds }
-    }).lean();
-
-    // Create a map for quick lookup of restaurants
+    // Restaurant lookup map
     const restaurantMap = new Map<string, any>();
-    restaurants.forEach((restaurant: any) => {
-      restaurantMap.set(restaurant._id.toString(), restaurant);
-    });
+    (restaurantsRes.data || []).forEach((r: any) => restaurantMap.set(r.id, r));
 
-    // Get the first restaurant to check subscription status (reuse from map if available)
-    let firstRestaurant = restaurantMap.get(restaurantId) ||
-      await Restaurant.findOne({
-        $or: [{ _id: restaurantId }, { associatedId: userId }],
-      }).lean();
-
-    const subscriptionStatus = firstRestaurant?.subscriptionStatus || "inactive";
+    const firstRest = restaurantMap.get(targetRestaurantIds[0]) || null;
+    const subscriptionStatus = firstRest?.subscription_status || "inactive";
     const hasActiveSubscription = subscriptionStatus === "active";
 
-    // Map offers with redemption counts and restaurant data
-    const offersWithRedemptions = offers.map((offer: any) => {
-      const offerIdStr = offer._id.toString();
-      const restaurant = restaurantMap.get(offer.restaurantId.toString());
-      const restaurantIdStr = restaurant?._id.toString() || "";
-      const redeemCount = redemptionMap.get(offerIdStr) || 0;
+    // Format offers
+    const offersWithRedemptions = paginatedOffers.map((offer: any) => {
+      const restaurant = restaurantMap.get(offer.restaurant_id);
+      const redeemCount = redemptionMap.get(offer.id) || offer.redeem_count || 0;
 
-      // Calculate status based on dates and manual deactivation
-      // Map pending to inactive - no pending status
       const statusForCalc = offer.status === "pending" ? "inactive" : offer.status;
       const calculatedStatus = calculateOfferStatus(
-        offer.startDate,
-        offer.expiryDate,
-        offer.runUntilFurther || false,
-        offer.deactivated || false,
+        offer.start_date,
+        offer.expiry_date,
+        offer.run_until_further || false,
+        offer.is_deactivated || false,
         statusForCalc
       );
 
-      let currentPeriodCount = offer.currentPeriodCount || 0;
-      let shouldResetPeriod = false;
-      let newLastResetDate = offer.lastResetDate;
-
-      if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
-        const now = new Date();
-        const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
-        
-        if (offer.recurringType === "weekly") {
-          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
-          shouldResetPeriod = daysSinceReset >= 7;
-        } else if (offer.recurringType === "monthly") {
-          const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
-          shouldResetPeriod = daysSinceReset >= 30;
-        }
-        
-        if (shouldResetPeriod) {
-          currentPeriodCount = 0;
-          newLastResetDate = now;
-        }
-      }
-
-      const updateFields: any = {};
-      let needsUpdate = false;
-
-      if ((calculatedStatus !== offer.status && offer.status !== "rejected") || offer.status === "pending") {
-        updateFields.status = calculatedStatus;
-        needsUpdate = true;
-      }
-
-      if (shouldResetPeriod) {
-        updateFields.currentPeriodCount = 0;
-        updateFields.lastResetDate = newLastResetDate;
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        Offer.findByIdAndUpdate(offer._id, updateFields, { new: true }).catch((err) => {
-          console.error(`Failed to update offer ${offerIdStr}:`, err);
-        });
-      }
-
-      const displayRedeemCount = (offer.recurringType && offer.recurringType !== "never") 
-        ? currentPeriodCount 
-        : (redeemCount || offer.redeemCount || 0);
-
       return {
-        id: offerIdStr,
+        _id: offer.id,
+        id: offer.id,
         title: offer.title,
         description: offer.description,
-        validDays: offer.validDays,
-        validHours: offer.validHours,
-        startDate: offer.startDate,
-        expiryDate: offer.expiryDate,
-        status: calculatedStatus, // Use calculated status
-        offerType: offer.offerType,
-        discountPercentage: offer.discountPercentage ?? null,
-        freeItemName: offer.freeItemName ?? null,
-        otherOfferDescription: offer.otherOfferDescription ?? null,
+        validDays: offer.valid_days,
+        validHours: offer.valid_hours,
+        startDate: offer.start_date,
+        expiryDate: offer.expiry_date,
+        status: calculatedStatus,
+        offerType: offer.offer_type,
+        discountPercentage: offer.discount_percentage ?? null,
+        freeItemName: offer.free_item_name ?? null,
+        otherOfferDescription: offer.other_offer_description ?? null,
         terms: offer.terms,
-        dineIn: offer.dineIn,
-        dineOut: offer.dineOut,
-        createdAt: offer.createdAt,
-        areas: offer.areas,
-        restaurantId: offer.restaurantId,
+        dineIn: offer.dine_in,
+        dineOut: offer.dine_out,
+        createdAt: offer.created_at,
+        areas: [],
+        restaurantId: offer.restaurant_id,
         restaurantName: restaurant?.name || null,
-        restaurantSlug: restaurant?.name ? generateSlug(restaurant.name, restaurantIdStr) : null,
-        offerSlug: generateSlug(offer.title, offerIdStr),
-        associatedId: offer.associatedId,
-        maxRedemptionLimit: offer.maxRedemptionLimit ?? null,
-        isUnlimited: offer.isUnlimited ?? false,
-        redeemCount: displayRedeemCount,
+        associatedId: offer.associated_id,
+        maxRedemptionLimit: offer.max_redemption_limit ?? null,
+        isUnlimited: offer.is_unlimited ?? false,
+        redeemCount,
       };
     });
 
@@ -354,12 +297,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    await connectToDatabase();
-
-    // Check restaurant status
-
-
-    // Parse request body
     const {
       title,
       description,
@@ -383,13 +320,22 @@ export async function POST(req: Request) {
       recurringStartDate,
       tags,
     } = await req.json();
-    const restaurant = await Restaurant.findById(reqRestaurantId ? reqRestaurantId : restaurantId);
-    if (!restaurant) {
+
+    const targetRestId = reqRestaurantId || restaurantId;
+
+    const { data: restaurant, error: restError } = await supabaseAdmin
+      .from("restaurants")
+      .select("id, name")
+      .eq("id", targetRestId)
+      .maybeSingle();
+
+    if (restError || !restaurant) {
       return NextResponse.json(
         { message: "Restaurant not found" },
         { status: 404 }
       );
     }
+
     // Validate required fields
     if (
       !title ||
@@ -410,7 +356,6 @@ export async function POST(req: Request) {
     }
 
     // Calculate initial status based on dates (no pending status)
-    // If restaurant is pending, still use date-based logic - offer will be inactive until restaurant is approved
     const initialStatus = calculateOfferStatus(
       startDate,
       expiryDate,
@@ -419,54 +364,76 @@ export async function POST(req: Request) {
       undefined // No current status
     );
 
-    // Create new offer with status based on restaurant status and dates
-    const offer = new Offer({
-      restaurantId: reqRestaurantId ? reqRestaurantId : restaurantId,
-      title,
-      description,
-      offerType,
-      discountPercentage: discountPercentage ?? null,
-      freeItemName: freeItemName ?? null,
-      otherOfferDescription: otherOfferDescription ?? null,
-      validDays,
-      validHours,
-      startDate,
-      expiryDate,
-      terms: terms || "",
-      dineIn,
-      dineOut,
-      status: initialStatus,
-      associatedId: userId,
-      runUntilFurther,
-      maxRedemptionLimit,
-      isUnlimited,
-      bookingRequirement,
-      recurringType: recurringType || null,
-      recurringStartDate: recurringStartDate || null,
-      tags: Array.isArray(tags) ? tags : [],
-      currentPeriodCount: 0,
-      lastResetDate: null,
-      deactivated: false,
-    });
+    const newOfferId = crypto.randomBytes(12).toString("hex");
 
-    await offer.save();
+    const { data: insertedOffer, error: insertError } = await supabaseAdmin
+      .from("offers")
+      .insert({
+        id: newOfferId,
+        restaurant_id: targetRestId,
+        title,
+        description,
+        offer_type: offerType,
+        discount_percentage: discountPercentage ?? null,
+        free_item_name: freeItemName ?? null,
+        other_offer_description: otherOfferDescription ?? null,
+        valid_days: validDays,
+        valid_hours: validHours,
+        start_date: startDate ? new Date(startDate).toISOString() : null,
+        expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
+        terms: terms || "",
+        dine_in: !!dineIn,
+        dine_out: !!dineOut,
+        status: initialStatus,
+        associated_id: userId,
+        run_until_further: !!runUntilFurther,
+        max_redemption_limit: maxRedemptionLimit ?? null,
+        is_unlimited: !!isUnlimited,
+        booking_requirement: bookingRequirement,
+        recurring_type: recurringType || null,
+        recurring_start_date: recurringStartDate ? new Date(recurringStartDate).toISOString() : null,
+        current_period_count: 0,
+        last_reset_date: null,
+        is_deactivated: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (insertError || !insertedOffer) {
+      console.error("Error inserting offer:", insertError);
+      return NextResponse.json(
+        { message: "Failed to create offer", error: insertError?.message },
+        { status: 500 }
+      );
+    }
+
+    // If tags are provided, insert them into offer_tags
+    if (Array.isArray(tags) && tags.length > 0) {
+      const tagRows = tags.map((tagId: string) => ({
+        offer_id: newOfferId,
+        tag_id: tagId,
+      }));
+      await supabaseAdmin.from("offer_tags").insert(tagRows);
+    }
 
     // Send new offer submission email notification
     try {
       const emailHtml = await render(
         NewOfferSubmissionEmail({
-          venueName: restaurant.name || restaurant.restaurantName || "Unknown Restaurant",
-          offerTitle: offer.title,
-          offerDescription: offer.description,
-          offerType: offer.offerType,
-          validDays: offer.validDays,
-          validHours: offer.validHours,
-          startDate: offer.startDate,
-          expiryDate: offer.expiryDate,
-          termsAndConditions: offer.terms || "No terms and conditions specified",
-          dineIn: offer.dineIn || false,
-          dineOut: offer.dineOut || false,
-          runUntilFurther: offer.runUntilFurther || false,
+          venueName: restaurant.name || "Unknown Restaurant",
+          offerTitle: insertedOffer.title,
+          offerDescription: insertedOffer.description,
+          offerType: insertedOffer.offer_type,
+          validDays: insertedOffer.valid_days,
+          validHours: insertedOffer.valid_hours,
+          startDate: insertedOffer.start_date,
+          expiryDate: insertedOffer.expiry_date,
+          termsAndConditions: insertedOffer.terms || "No terms and conditions specified",
+          dineIn: insertedOffer.dine_in || false,
+          dineOut: insertedOffer.dine_out || false,
+          runUntilFurther: insertedOffer.run_until_further || false,
           submissionDate: new Date().toISOString(),
         })
       );
@@ -480,7 +447,6 @@ export async function POST(req: Request) {
       console.log("✅ New offer submission email sent successfully");
     } catch (emailError: any) {
       console.error("❌ Error sending new offer submission email:", emailError);
-      // Don't fail the API if email sending fails - just log the error
     }
 
     return NextResponse.json(
@@ -488,20 +454,20 @@ export async function POST(req: Request) {
         success: true,
         message: "Offer created successfully",
         offer: {
-          id: offer._id.toString(),
-          title: offer.title,
-          validDays: offer.validDays,
-          startDate: offer.startDate,
-          expiryDate: offer.expiryDate,
-          offerType: offer.offerType,
-          status: offer.status,
+          id: insertedOffer.id,
+          title: insertedOffer.title,
+          validDays: insertedOffer.valid_days,
+          startDate: insertedOffer.start_date,
+          expiryDate: insertedOffer.expiry_date,
+          offerType: insertedOffer.offer_type,
+          status: insertedOffer.status,
           associatedId: userId,
-          runUntilFurther,
-          maxRedemptionLimit,
-          isUnlimited,
-          bookingRequirement,
-          recurringType: offer.recurringType,
-          recurringStartDate: offer.recurringStartDate,
+          runUntilFurther: insertedOffer.run_until_further,
+          maxRedemptionLimit: insertedOffer.max_redemption_limit,
+          isUnlimited: insertedOffer.is_unlimited,
+          bookingRequirement: insertedOffer.booking_requirement,
+          recurringType: insertedOffer.recurring_type,
+          recurringStartDate: insertedOffer.recurring_start_date,
         },
       },
       { status: 201 }
@@ -551,8 +517,6 @@ export async function PUT(req: Request) {
     // } catch (error) {
     //   return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     // }
-
-    await connectToDatabase();
 
     // Parse request body
     const {
@@ -604,8 +568,13 @@ export async function PUT(req: Request) {
     }
 
     // Get current offer to check deactivated status
-    const currentOffer = await Offer.findById(id);
-    if (!currentOffer) {
+    const { data: currentOffer, error: fetchErr } = await supabaseAdmin
+      .from("offers")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchErr || !currentOffer) {
       return NextResponse.json(
         { message: "Offer not found or unauthorized" },
         { status: 404 }
@@ -615,7 +584,7 @@ export async function PUT(req: Request) {
     // Calculate status based on dates and manual deactivation
     // If status is explicitly set to inactive, preserve it by setting deactivated flag
     const isManuallyInactive = status === "inactive" && currentOffer.status === "inactive";
-    const finalDeactivated = isManuallyInactive || currentOffer.deactivated || false;
+    const finalDeactivated = isManuallyInactive || currentOffer.is_deactivated || false;
 
     // Map pending to inactive - no pending status
     const currentStatusForCalc = currentOffer.status === "pending" ? "inactive" : currentOffer.status;
@@ -631,59 +600,76 @@ export async function PUT(req: Request) {
         currentStatusForCalc // Preserve rejected only
       );
 
-    // Update offer
-    const updatedOffer = await Offer.findOneAndUpdate(
-      { _id: id }, // Use the restaurant ID 
-      {
-        title,
-        description,
-        offerType,
-        discountPercentage: discountPercentage ?? null,
-        freeItemName: freeItemName ?? null,
-        otherOfferDescription: otherOfferDescription ?? null,
-        validDays,
-        validHours,
-        startDate,
-        expiryDate,
-        terms: terms || "",
-        dineIn,
-        dineOut,
-        status: calculatedStatus, // Use calculated status
-        associatedId,
-        restaurantId,
-        runUntilFurther,
-        maxRedemptionLimit,
-        isUnlimited,
-        bookingRequirement,
-        recurringType: recurringType || null,
-        recurringStartDate: recurringStartDate || null,
-        tags: Array.isArray(tags) ? tags : [],
-        deactivated: finalDeactivated, // Preserve manual deactivation
-      },
-      { new: true }
-    );
+    // Update offer in Supabase
+    const updatePayload: any = {
+      title,
+      description,
+      offer_type: offerType,
+      discount_percentage: discountPercentage ?? null,
+      free_item_name: freeItemName ?? null,
+      other_offer_description: otherOfferDescription ?? null,
+      valid_days: validDays,
+      valid_hours: validHours,
+      start_date: startDate ? new Date(startDate).toISOString() : null,
+      expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
+      terms: terms || "",
+      dine_in: !!dineIn,
+      dine_out: !!dineOut,
+      status: calculatedStatus,
+      run_until_further: !!runUntilFurther,
+      max_redemption_limit: maxRedemptionLimit ?? null,
+      is_unlimited: !!isUnlimited,
+      booking_requirement: bookingRequirement,
+      recurring_type: recurringType || null,
+      recurring_start_date: recurringStartDate ? new Date(recurringStartDate).toISOString() : null,
+      is_deactivated: finalDeactivated,
+      updated_at: new Date().toISOString(),
+    };
 
-    if (!updatedOffer) {
+    if (associatedId) updatePayload.associated_id = associatedId;
+    if (restaurantId) updatePayload.restaurant_id = restaurantId;
+
+    const { data: updatedOffer, error: updateErr } = await supabaseAdmin
+      .from("offers")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateErr || !updatedOffer) {
+      console.error("Update offer error:", updateErr);
       return NextResponse.json(
-        { message: "Offer not found or unauthorized" },
+        { message: "Offer not found or unauthorized", error: updateErr?.message },
         { status: 404 }
       );
+    }
+
+    // Sync tags if provided
+    if (Array.isArray(tags)) {
+      await supabaseAdmin.from("offer_tags").delete().eq("offer_id", id);
+      if (tags.length > 0) {
+        const tagRows = tags.map((tagId: string) => ({
+          offer_id: id,
+          tag_id: tagId,
+        }));
+        await supabaseAdmin.from("offer_tags").insert(tagRows);
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: "Offer updated successfully",
       offer: {
-        id: updatedOffer._id.toString(),
-        validDays: updatedOffer.validDays,
-        expiryDate: updatedOffer.expiryDate,
+        id: updatedOffer.id,
+        validDays: updatedOffer.valid_days,
+        expiryDate: updatedOffer.expiry_date,
         status: updatedOffer.status,
-        runUntilFurther: updatedOffer.runUntilFurther,
-        bookingRequirement: updatedOffer.bookingRequirement,
-        maxRedemptionLimit: updatedOffer.maxRedemptionLimit,
-        isUnlimited: updatedOffer.isUnlimited,
-        recurringType: updatedOffer.recurringType,
-        recurringStartDate: updatedOffer.recurringStartDate,
+        runUntilFurther: updatedOffer.run_until_further,
+        bookingRequirement: updatedOffer.booking_requirement,
+        maxRedemptionLimit: updatedOffer.max_redemption_limit,
+        isUnlimited: updatedOffer.is_unlimited,
+        recurringType: updatedOffer.recurring_type,
+        recurringStartDate: updatedOffer.recurring_start_date,
       },
     });
 

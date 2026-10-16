@@ -2,23 +2,20 @@
   "default_branch": "main",
   "branches": [
     "main",
-    "nktest",
-    "ns-feature",
-    "origin",
-    "vercel-build-test"
+    "nk-sup",
+    "ns-dev",
+    "origin"
   ],
   "parent": {
     "main": null,
-    "nktest": "main",
-    "ns-feature": "main",
-    "origin": "main",
-    "vercel-build-test": "main"
+    "nk-sup": "main",
+    "ns-dev": "main",
+    "origin": "main"
   },
   "order": [
     "main",
-    "nktest",
-    "ns-feature",
-    "origin",
-    "vercel-build-test"
+    "nk-sup",
+    "ns-dev",
+    "origin"
   ]
 }

@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "postinstall": "patch-package",
-    "dev": "next dev",
-    "build": "next build",
-    "start": "node server.js",
+    "dev": "node api.js && next dev",
+    "build": "node api.js && next build",
+    "start": "node api.js && node server.js",
     "lint": "next lint",
     "fill-geo-db": "node scripts/restaurant-postcodes-from-db.mjs",
     "export-restaurants": "node scripts/export-restaurants-to-json.mjs"

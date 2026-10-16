@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
-import dotenv from "dotenv";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export async function PUT(
@@ -13,7 +10,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get auth token from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -21,15 +17,13 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify token
-    let restaurantId: string | null | any = null;
+    let restaurantId: string | null = null;
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as {
         restaurantId?: string;
         role: string;
       };
 
-      // Check if the role is either "restaurant" or "admin"
       if (decoded.role !== "restaurant" && decoded.role !== "admin") {
         return NextResponse.json(
           { message: "Unauthorized - Not a restaurant or admin" },
@@ -37,30 +31,16 @@ export async function PUT(
         );
       }
 
-      // Only set restaurantId if the role is "restaurant"
       if (decoded.role === "restaurant") {
-        restaurantId = decoded.restaurantId;
-
-        if (!restaurantId) {
-          return NextResponse.json(
-            { message: "Restaurant ID not found in token" },
-            { status: 400 }
-          );
-        }
+        restaurantId = decoded.restaurantId || null;
       }
     } catch (error) {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    await connectToDatabase();
-
-    // Get the offer ID from the URL - await params first
     const { id } = await params;
-
-    // Parse request body
     const { status } = await req.json();
 
-    // Validate status value
     if (!["active", "inactive", "expired", "pending", "rejected"].includes(status)) {
       return NextResponse.json(
         { message: "Invalid status value" },
@@ -68,82 +48,70 @@ export async function PUT(
       );
     }
 
-    // Build query based on role
-    const query = { _id: id }; // Admin can update any offer
+    // Fetch current offer from Supabase
+    const { data: offer, error: fetchErr } = await supabaseAdmin
+      .from("offers")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-    // Find the offer
-    const offer = await Offer.findOne(query);
-
-    if (!offer) {
+    if (fetchErr || !offer) {
       return NextResponse.json({ message: "Offer not found" }, { status: 404 });
     }
 
-    // Handle status logic
     let updatedStatus = status;
-    
-    // If manually setting to inactive, set deactivated flag
+    let isDeactivated = offer.is_deactivated;
+
     if (status === "inactive") {
-      offer.deactivated = true;
+      isDeactivated = true;
       updatedStatus = "inactive";
     } else if (status === "active") {
-      // If reactivating, clear deactivated flag
-      offer.deactivated = false;
-      
-      const now = new Date(); // Keep full date/time for accurate comparison
-      
-      // Check if start date/time is in the future
-      if (offer.startDate) {
-        const start = new Date(offer.startDate); // Keep full date/time including hours/minutes
-        
-        // If start date/time is in the future, cannot activate
+      isDeactivated = false;
+      const now = new Date();
+
+      if (offer.start_date) {
+        const start = new Date(offer.start_date);
         if (start > now) {
           return NextResponse.json(
-            { 
-              message: "Cannot activate offer with future start date/time. The offer will be automatically activated on the start date/time.",
-              success: false 
+            {
+              message:
+                "Cannot activate offer with future start date/time. The offer will be automatically activated on the start date/time.",
+              success: false,
             },
             { status: 400 }
           );
         }
       }
-      
-      // Check if expiry date/time is in the past - cannot activate expired offers
-      if (offer.expiryDate && !offer.runUntilFurther) {
-        const expiry = new Date(offer.expiryDate); // Keep full date/time including hours/minutes
-        
+
+      if (offer.expiry_date && !offer.run_until_further) {
+        const expiry = new Date(offer.expiry_date);
         if (expiry < now) {
           return NextResponse.json(
-            { 
+            {
               message: "This offer has expired. Please update the end date to activate it.",
-              success: false 
+              success: false,
             },
             { status: 400 }
           );
         }
       }
-      
-      // All checks passed - can activate
+
       updatedStatus = "active";
     }
 
-    // Allow admin to directly set the status to "rejected"
     if (status === "rejected" && !restaurantId) {
       updatedStatus = "rejected";
     }
 
-    // No pending status - map pending to inactive and recalculate based on dates
     if (offer.status === "pending" && status !== "rejected") {
-      // Recalculate status based on dates/times instead of keeping pending
-      const now = new Date(); // Keep full date/time for accurate comparison
-      
-      if (offer.startDate) {
-        const start = new Date(offer.startDate); // Keep full date/time including hours/minutes
-        
+      const now = new Date();
+      if (offer.start_date) {
+        const start = new Date(offer.start_date);
         if (start > now) {
           updatedStatus = "inactive";
         } else {
-          if (offer.expiryDate && !offer.runUntilFurther) {
-            const expiry = new Date(offer.expiryDate); // Keep full date/time including hours/minutes
+          if (offer.expiry_date && !offer.run_until_further) {
+            const expiry = new Date(offer.expiry_date);
             updatedStatus = expiry < now ? "expired" : "active";
           } else {
             updatedStatus = "active";
@@ -154,17 +122,31 @@ export async function PUT(
       }
     }
 
-    // Update the offer status
-    offer.status = updatedStatus;
-    
-    await offer.save();
+    // Update in Supabase
+    const { data: updatedOffer, error: updateErr } = await supabaseAdmin
+      .from("offers")
+      .update({
+        status: updatedStatus,
+        is_deactivated: isDeactivated,
+      })
+      .eq("id", id)
+      .select("id, status")
+      .single();
+
+    if (updateErr) {
+      console.error("Supabase error updating offer status:", updateErr);
+      return NextResponse.json(
+        { message: "Failed to update offer status", error: updateErr.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: `Offer status updated to ${updatedStatus} successfully`,
       offer: {
-        id: offer._id.toString(),
-        status: offer.status,
+        id: updatedOffer.id,
+        status: updatedOffer.status,
       },
     });
   } catch (error: any) {
