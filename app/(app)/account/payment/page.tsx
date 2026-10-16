@@ -146,20 +146,35 @@ export default function SubscriptionPage() {
             }
         }
 
-        try {
-            const response = await fetch('/api/payment/create-checkout-session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-            const data = await response.json();
-            // Refresh auth before redirecting to checkout.
-            await checkAuth();
-            window.location.href = data.url;
-        } catch {
-            toast.error('Subscription failed');
+        const checkoutEmail = email || user?.email;
+        if (!checkoutEmail) {
+            toast.error('Unable to start checkout. Please sign in again.');
+            return;
         }
-    }, [subscription, email, checkAuth]);
+
+        try {
+            // Auth refresh pehle, taaki checkout page par stale status na ho
+            await checkAuth();
+
+            // Purane checkout ki leftover values hata do
+            sessionStorage.removeItem('checkoutReferral');
+
+            sessionStorage.setItem('checkoutEmail', checkoutEmail);
+
+            // Agar user ka pichla plan pata ho to wahi preselect karo,
+            // warna checkout default price use karega
+            const previousPriceId = (subscription as any)?.priceId;
+            if (previousPriceId) {
+                sessionStorage.setItem('selectedPriceId', previousPriceId);
+            } else {
+                sessionStorage.removeItem('selectedPriceId');
+            }
+
+            router.push('/checkout');
+        } catch {
+            toast.error('Could not start checkout. Please try again.');
+        }
+    }, [subscription, email, user?.email, checkAuth, router]);
 
     const handleDeleteAccount = async () => {
         // Active members must cancel before deleting their account.
@@ -510,15 +525,17 @@ const CardUpdateForm = ({
             },
         });
 
-        if (error) {
+            if (error) {
             console.error("Error updating card:", error.message);
-            alert("Failed to update card");
-        } else {
-            alert("Card updated successfully!");
-            setClientSecret(null);
+            setIsUpdating(false);
+            toast.error(error.message || "Failed to update card. Please try again.");
+            return;
         }
-        await getSubscriptions();
+
         setIsUpdating(false);
+        toast.success("Your payment method has been updated successfully.");
+        setClientSecret(null);
+        getSubscriptions();
     };
 
     return (

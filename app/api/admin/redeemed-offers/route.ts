@@ -1,13 +1,31 @@
 import { NextResponse } from "next/server"
 import { NextRequest } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
 import { verifyAdminToken } from "@/lib/auth-admin"
 
 // Import models in order to ensure they're registered
-import User from "@/models/User"
-import Offer from "@/models/Offer"
-import Restaurant from "@/models/Restaurant"
-import { Wallet } from "@/models/Wallet"
+import supabaseAdmin from "@/lib/supabase/admin"
+
+// Supabase (PostgREST) returns max 1000 rows per request by default
+const SUPABASE_PAGE_SIZE = 1000
+// Max ids per .in() request (keeps the request URL short)
+const ID_CHUNK = 100
+
+// Fetch rows of a table by id list, in parallel chunks
+const fetchByIds = async (table: string, columns: string, ids: string[]) => {
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    chunks.push(ids.slice(i, i + ID_CHUNK))
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) => supabaseAdmin.from(table).select(columns).in("id", chunk))
+  )
+  const rows: any[] = []
+  for (const res of results) {
+    if (res.error) throw new Error(res.error.message)
+    rows.push(...(res.data || []))
+  }
+  return rows
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,8 +34,6 @@ export async function GET(req: NextRequest) {
     if (!adminCheck.success) {
       return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     }
-
-    await connectToDatabase()
 
     // Parse query parameters
     const { searchParams } = new URL(req.url)
@@ -36,9 +52,32 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch ALL wallet entries first (we'll filter and paginate after)
-    const walletEntries = await Wallet.find(query)
-      .sort({ createdAt: -1 }) // Sort by createdAt to match restaurant API
-      .lean()
+    const walletRows: any[] = []
+    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+      const { data, error } = await supabaseAdmin
+        .from("wallets")
+        .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, created_at, updated_at")
+        .eq("offer_status", query.offerStatus)
+        .order("created_at", { ascending: false }) // Sort by createdAt to match restaurant API
+        .order("id", { ascending: true })
+        .range(from, from + SUPABASE_PAGE_SIZE - 1)
+      if (error) throw new Error(error.message)
+      walletRows.push(...(data || []))
+      if ((data || []).length < SUPABASE_PAGE_SIZE) break
+    }
+    const walletEntries = walletRows.map((w: any) => ({
+      _id: w.id,
+      userId: w.user_id,
+      offerId: w.offer_id,
+      offerRestaurantId: w.restaurant_id,
+      offerStatus: w.offer_status,
+      redeemCode: w.redeem_code,
+      // redeem_code_expiry is a timestamptz now; the code below compares it as epoch ms
+      redeemCodeExpiry: w.redeem_code_expiry ? new Date(w.redeem_code_expiry).getTime() : undefined,
+      redeemStatus: w.redeem_status,
+      createdAt: w.created_at,
+      updatedAt: w.updated_at,
+    }))
 
     // Manually fetch related data
     const userIds = [...new Set(walletEntries.map((w: any) => w.userId?.toString()).filter(Boolean))]
@@ -46,11 +85,23 @@ export async function GET(req: NextRequest) {
 
     // First fetch users and offers
     const [users, offers] = await Promise.all([
-      User.find({ _id: { $in: userIds } }).select('firstName lastName email phone').lean(),
+      fetchByIds("users", "id, first_name, last_name, email", userIds).then((rows) =>
+        rows.map((u: any) => ({
+          _id: u.id,
+          firstName: u.first_name,
+          lastName: u.last_name,
+          email: u.email,
+        }))
+      ),
       // Offer.find({ _id: { $in: offerIds } }).select('title code associatedId').lean()
-      Offer.find({ _id: { $in: offerIds } })
-        .select("title code associatedId restaurantId")
-        .lean()
+      fetchByIds("offers", "id, title, associated_id, restaurant_id", offerIds).then((rows) =>
+        rows.map((o: any) => ({
+          _id: o.id,
+          title: o.title,
+          associatedId: o.associated_id,
+          restaurantId: o.restaurant_id,
+        }))
+      )
     ])
 
     // Get unique associatedIds from offers to fetch restaurants
@@ -82,11 +133,19 @@ export async function GET(req: NextRequest) {
     // })
     //   .select('name email phone address associatedId userId')
     //   .lean()
-    const restaurants = await Restaurant.find({
-      _id: { $in: restaurantIds }
-    })
-      .select("name email phone address associatedId userId")
-      .lean()
+    const restaurants = (await fetchByIds(
+      "restaurants",
+      "id, name, email, phone, address, associated_id, user_id",
+      restaurantIds
+    )).map((r: any) => ({
+      _id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      address: r.address,
+      associatedId: r.associated_id,
+      userId: r.user_id,
+    }))
     // Create lookup maps
     const userMap = new Map(users.map((u: any) => [u._id.toString(), u]))
     const offerMap = new Map(offers.map((o: any) => [o._id.toString(), o]))
@@ -487,5 +546,3 @@ export async function GET(req: NextRequest) {
 //     )
 //   }
 // }
-
-
