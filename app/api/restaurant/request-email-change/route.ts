@@ -1,40 +1,46 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import User from "@/models/User";
-import connectToDatabase from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { setOtpDb } from "@/lib/otp-store";
 
 export async function POST(req: Request) {
-    try {
-        await connectToDatabase();
-        const { newEmail, userId } = await req.json();
+  try {
+    const { newEmail, userId } = await req.json();
 
-        if (!newEmail) {
-            return NextResponse.json({ success: false, message: "newEmail missing" }, { status: 400 });
-        }
+    if (!newEmail) {
+      return NextResponse.json({ success: false, message: "newEmail missing" }, { status: 400 });
+    }
 
-        const existing = await User.findOne({ email: newEmail });
-        if (existing) return NextResponse.json({ success: false, message: "Email already exists" }, { status: 400 });
+    // Check if email already exists
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", newEmail)
+      .maybeSingle();
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiry = Date.now() + 5 * 60 * 1000;
+    if (existing) {
+      return NextResponse.json({ success: false, message: "Email already exists" }, { status: 400 });
+    }
 
-        // Save OTP in MongoDB
-        await setOtpDb({ email: newEmail, otp, expiry });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 5 * 60 * 1000;
 
-        const transporter = nodemailer.createTransport({
-            host: "smtp.office365.com",
-            port: 587,
-            secure: false,
-            auth: { user: "Info@eatinout.com", pass: "ChopsY123!" },
-            tls: { ciphers: "SSLv3" },
-        });
+    // Save OTP in Supabase
+    await setOtpDb({ email: newEmail, otp, expiry });
 
-        await transporter.sendMail({
-            from: '"EatinOut Info" <Info@eatinout.com>',
-            to: newEmail,
-            subject: "OTP Verification",
-            html: `
+    const transporter = nodemailer.createTransport({
+      host: "smtp.office365.com",
+      port: 587,
+      secure: false,
+      auth: { user: "Info@eatinout.com", pass: "ChopsY123!" },
+      tls: { ciphers: "SSLv3" },
+    });
+
+    await transporter.sendMail({
+      from: '"EatinOut Info" <Info@eatinout.com>',
+      to: newEmail,
+      subject: "OTP Verification",
+      html: `
   <div style="font-family: 'Arial', sans-serif; background-color: #f9fafb; padding: 20px;">
     <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 10px; padding: 30px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
       <h2 style="color: #111827; margin-bottom: 10px;">Verify Your Email</h2>
@@ -55,11 +61,11 @@ export async function POST(req: Request) {
     </div>
   </div>
   `,
-        });
+    });
 
-        return NextResponse.json({ success: true, message: "OTP sent" });
-    } catch (err: any) {
-        console.error("🔥 SERVER ERROR:", err);
-        return NextResponse.json({ success: false, message: err.message || "Server error" }, { status: 500 });
-    }
+    return NextResponse.json({ success: true, message: "OTP sent" });
+  } catch (err: any) {
+    console.error("🔥 SERVER ERROR:", err);
+    return NextResponse.json({ success: false, message: err.message || "Server error" }, { status: 500 });
+  }
 }
