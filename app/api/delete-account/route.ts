@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { render } from "@react-email/render";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import sendEmail from "@/lib/sendEmail";
 import AccountDeletionRequestEmail from "@/utils/email-templates/AccountDeletionRequestEmail";
 
@@ -35,19 +34,30 @@ export async function POST() {
       );
     }
 
-    await connectToDatabase();
+    let user: any = null;
 
-    let user = null;
     if (userId) {
-      user = await User.findById(userId).select(
-        "firstName lastName email _id"
-      );
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        user = data;
+      }
     }
 
     if (!user && emailFromToken) {
-      user = await User.findOne({ email: emailFromToken }).select(
-        "firstName lastName email _id"
-      );
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .eq("email", emailFromToken)
+        .maybeSingle();
+
+      if (!error && data) {
+        user = data;
+      }
     }
 
     if (!user) {
@@ -59,11 +69,11 @@ export async function POST() {
 
     const html = await render(
       AccountDeletionRequestEmail({
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user.first_name || "",
+        lastName: user.last_name || "",
         email: user.email,
         requestDate: new Date().toISOString(),
-        userId: user._id.toString(),
+        userId: user.id,
       })
     );
 
