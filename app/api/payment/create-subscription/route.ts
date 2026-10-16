@@ -170,9 +170,33 @@ export async function POST(request: Request) {
         }),
     ]);
 
+       // Newer Stripe API versions no longer return invoice.payment_intent;
+    // the invoice's confirmation_secret holds the client secret instead.
+    let invoiceConfirmationSecret: string | undefined;
+    if (
+      !subscription.pending_setup_intent &&
+      !(subscription.latest_invoice as any)?.payment_intent
+    ) {
+      const invoiceId =
+        typeof subscription.latest_invoice === "string"
+          ? subscription.latest_invoice
+          : (subscription.latest_invoice as any)?.id;
+      if (invoiceId) {
+        try {
+          const inv: any = await stripe.invoices.retrieve(invoiceId, {
+            expand: ["confirmation_secret"],
+          });
+          invoiceConfirmationSecret = inv?.confirmation_secret?.client_secret;
+        } catch (e) {
+          console.error("Could not load invoice confirmation_secret:", e);
+        }
+      }
+    }
+
     const clientSecret =
       (subscription.pending_setup_intent as any)?.client_secret ??
-      (subscription.latest_invoice as any)?.payment_intent?.client_secret;
+      (subscription.latest_invoice as any)?.payment_intent?.client_secret ??
+      invoiceConfirmationSecret;
 
     if (!clientSecret) {
       console.error("No client secret returned from subscription:", subscription.id);

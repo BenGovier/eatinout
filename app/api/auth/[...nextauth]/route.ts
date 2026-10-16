@@ -1,12 +1,25 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
-import connectToDatabase from "@/lib/mongodb"; // Import your database connection
-import User from "@/models/User"; // Import your User model
+import supabaseAdmin from "@/lib/supabase/admin";
+import { randomBytes } from "crypto";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 
 dotenv.config();
+
+// Supabase: columns read + mapping of the snake_case row to the camelCase shape used below
+const USER_COLUMNS = "id, role, subscription_status, is_trialing";
+const mapUser = (row: any) =>
+  row
+    ? {
+        _id: row.id,
+        role: row.role,
+        subscriptionStatus: row.subscription_status,
+        isTrialing: row.is_trialing,
+      }
+    : null;
 
 export const authOptions = {
   providers: [
@@ -23,31 +36,41 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }: any) {
       try {
-        // Connect to the database
-        await connectToDatabase();
-
         // Check if the user already exists in the database
-        let existingUser = await User.findOne({ email: user.email });
+        // (emails are stored lowercase, as the old User model did)
+        const normalizedEmail = user.email?.toLowerCase();
+        const { data: existingUserRow, error: existingUserError } = await supabaseAdmin
+          .from("users")
+          .select(USER_COLUMNS)
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+        if (existingUserError) throw new Error(existingUserError.message);
+        let existingUser: any = mapUser(existingUserRow);
 
         if (!existingUser) {
           // Create a new user if not found
           const randomPassword = Math.random().toString(36).slice(-8);
           const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-          existingUser = new User({
-            firstName:
-              profile?.given_name || user.name?.split(" ")[0] || "",
-            lastName:
-              profile?.family_name || user.name?.split(" ")[1] || "",
-            email: user.email,
-            role: "user", // Default role
-            provider: account?.provider,
-            password: hashedPassword,
-            subscriptionStatus: "inactive", // Default subscription status
-            isTrialing: false,
-          });
-
-          await existingUser.save();
+          const { data: createdUserRow, error: createError } = await supabaseAdmin
+            .from("users")
+            .insert({
+              // 24-char hex id, same format as the migrated MongoDB ObjectId ids
+              id: randomBytes(12).toString("hex"),
+              first_name:
+                profile?.given_name || user.name?.split(" ")[0] || "",
+              last_name:
+                profile?.family_name || user.name?.split(" ")[1] || "",
+              email: normalizedEmail,
+              role: "user", // Default role
+              password_hash: hashedPassword,
+              subscription_status: "inactive", // Default subscription status
+              is_trialing: false,
+            })
+            .select(USER_COLUMNS)
+            .single();
+          if (createError) throw new Error(createError.message);
+          existingUser = mapUser(createdUserRow);
         }
 
         // Attach the user's role and subscription status to the session
