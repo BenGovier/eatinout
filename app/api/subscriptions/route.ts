@@ -6,10 +6,43 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
-import User from "@/models/User";
 import type { NormalizedSubscription } from "@/lib/subscription";
 import { resolveMembershipFromStripe } from "@/lib/subscription";
-import connectToDatabase from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+// Helper to fetch user by id from Supabase
+async function getSupabaseUser(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    ...data,
+    _id: data.id,
+    firstName: data.first_name,
+    lastName: data.last_name,
+    stripeCustomerId: data.stripe_customer_id,
+    subscriptionId: data.subscription_id,
+    subscriptionStatus: data.subscription_status,
+    isTrialing: data.is_trialing,
+    save: async function () {
+      const { error: saveErr } = await supabaseAdmin
+        .from("users")
+        .update({
+          stripe_customer_id: this.stripeCustomerId,
+          subscription_id: this.subscriptionId,
+          subscription_status: this.subscriptionStatus,
+          is_trialing: this.isTrialing,
+        })
+        .eq("id", this.id);
+      if (saveErr) console.error("Error saving user to Supabase:", saveErr);
+    },
+  };
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // The installed stripe@18.5.0 types only permit the latest API version literal
@@ -237,8 +270,6 @@ function stripeUnavailable() {
 // Create subscription
 export async function POST(req: Request) {
   try {
-    await connectToDatabase();
-    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -259,7 +290,7 @@ export async function POST(req: Request) {
 
     const userId = decodedToken.userId;
 
-    const user = await User.findById(userId);
+    const user = await getSupabaseUser(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -310,8 +341,6 @@ export async function POST(req: Request) {
 //     cancel_at_period_end: true, retaining access until current_period_end.
 export async function DELETE(req: Request) {
   try {
-    await connectToDatabase();
-    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -331,7 +360,7 @@ export async function DELETE(req: Request) {
 
     const userId = decodedToken.userId;
 
-    const user = await User.findById(userId);
+    const user = await getSupabaseUser(userId);
     if (!user || !user.subscriptionId) {
       return NextResponse.json(
         { error: "Subscription not found" },
@@ -533,8 +562,6 @@ export async function DELETE(req: Request) {
 // Get subscription status
 export async function GET(req: Request) {
   try {
-    await connectToDatabase();
-    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -554,7 +581,7 @@ export async function GET(req: Request) {
 
     const userId = decodedToken.userId;
 
-    const user = await User.findById(userId);
+    const user = await getSupabaseUser(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -730,8 +757,6 @@ export async function GET(req: Request) {
 //   pause / resume           — legacy actions, retained for compatibility
 export async function PATCH(req: Request) {
   try {
-    await connectToDatabase();
-    
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -751,7 +776,7 @@ export async function PATCH(req: Request) {
 
     const userId = decodedToken.userId;
 
-    const user = await User.findById(userId);
+    const user = await getSupabaseUser(userId);
     if (!user || !user.subscriptionId) {
       return NextResponse.json(
         { error: "Subscription not found" },
