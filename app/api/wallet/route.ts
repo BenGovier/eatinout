@@ -1,15 +1,12 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
 import crypto from "crypto";
-import connectToDatabase from "@/lib/mongodb";
-import { Wallet } from "@/models/Wallet";
 import jwt from "jsonwebtoken";
-import Offer from "@/models/Offer";
-import Restaurant from "@/models/Restaurant";
-import User from "@/models/User";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
+// POST: Add offer to user's wallet
 export async function POST(req: NextRequest) {
   try {
     const cookieStore: any = await cookies();
@@ -22,7 +19,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Decode token to get userId
     const decodedToken = jwt.verify(
       token,
       process.env.JWT_SECRET as string
@@ -32,8 +28,8 @@ export async function POST(req: NextRequest) {
       role: string;
       firstName: string;
       lastName: string;
-      restaurantId: string;
-      subscriptionStatus: string;
+      restaurantId?: string;
+      subscriptionStatus?: string;
     };
 
     const { offerId, offerStatus, offerRestaurantId } = await req.json();
@@ -51,75 +47,83 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. Fetch offer details from Supabase
+    const { data: offer, error: offerError } = await supabaseAdmin
+      .from("offers")
+      .select("*")
+      .eq("id", offerId)
+      .maybeSingle();
 
-    await connectToDatabase();
-    
-    // Fetch offer details first to check limits
-    const offer = await Offer.findById(offerId);
-    if (!offer) {
+    if (offerError || !offer) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
-    // Check and handle recurring limit reset
-    if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0 && offer.recurringType && offer.recurringType !== "never") {
+    // 2. Check and handle recurring limit reset
+    let currentPeriodCount = offer.current_period_count || 0;
+    const maxRedemptionLimit = offer.max_redemption_limit;
+    const recurringType = offer.recurring_type;
+
+    if (
+      maxRedemptionLimit &&
+      maxRedemptionLimit > 0 &&
+      recurringType &&
+      recurringType !== "never"
+    ) {
       const now = new Date();
-      const lastReset = offer.lastResetDate || offer.recurringStartDate || offer.createdAt;
-      
+      const lastReset =
+        offer.last_reset_date || offer.recurring_start_date || offer.created_at;
+
       let shouldReset = false;
-      
-      if (offer.recurringType === "weekly") {
-        // Check if 7 days have passed
-        const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+      if (recurringType === "weekly") {
+        const daysSinceReset = Math.floor(
+          (now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24)
+        );
         shouldReset = daysSinceReset >= 7;
-      } else if (offer.recurringType === "monthly") {
-        // Check if a month has passed (30 days)
-        const daysSinceReset = Math.floor((now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24));
+      } else if (recurringType === "monthly") {
+        const daysSinceReset = Math.floor(
+          (now.getTime() - new Date(lastReset).getTime()) / (1000 * 60 * 60 * 24)
+        );
         shouldReset = daysSinceReset >= 30;
       }
-      
+
       if (shouldReset) {
-        // Reset the counter
-        await Offer.findByIdAndUpdate(
-          offerId,
-          { 
-            currentPeriodCount: 0,
-            lastResetDate: now 
-          },
-          { new: true }
-        );
-        // Refresh offer data
-        const updatedOffer = await Offer.findById(offerId);
-        if (updatedOffer) {
-          Object.assign(offer, updatedOffer);
-        }
+        currentPeriodCount = 0;
+        await supabaseAdmin
+          .from("offers")
+          .update({
+            current_period_count: 0,
+            last_reset_date: now.toISOString(),
+          })
+          .eq("id", offerId);
       }
     }
 
-    // Check if offer has a redemption limit and if it's been reached
-    if (offer.maxRedemptionLimit && offer.maxRedemptionLimit > 0) {
-      // Use currentPeriodCount for recurring offers, redeemCount for non-recurring
-      const currentCount = (offer.recurringType && offer.recurringType !== "never") 
-        ? (offer.currentPeriodCount || 0) 
-        : (offer.redeemCount || 0);
-      
-      if (currentCount >= offer.maxRedemptionLimit) {
-        const resetMessage = offer.recurringType === "weekly" 
-          ? "This offer will reset weekly." 
-          : offer.recurringType === "monthly" 
+    // 3. Check if offer has reached redemption limit
+    if (maxRedemptionLimit && maxRedemptionLimit > 0) {
+      const currentCount =
+        recurringType && recurringType !== "never"
+          ? currentPeriodCount
+          : offer.redeem_count || 0;
+
+      if (currentCount >= maxRedemptionLimit) {
+        const resetMessage =
+          recurringType === "weekly"
+            ? "This offer will reset weekly."
+            : recurringType === "monthly"
             ? "This offer will reset monthly."
             : "Please check back later or explore other offers.";
-            
+
         return NextResponse.json(
-          { 
-            error: "Offer fully claimed", 
-            message: `This offer has reached its redemption limit. ${resetMessage}` 
+          {
+            error: "Offer fully claimed",
+            message: `This offer has reached its redemption limit. ${resetMessage}`,
           },
-          { status: 410 } // 410 Gone - resource no longer available
+          { status: 410 }
         );
       }
     }
 
-    // Generate a unique redeem code
+    // 4. Generate a unique redeem code
     const redeemCode = crypto
       .createHash("sha256")
       .update(offerId + Date.now().toString())
@@ -127,44 +131,46 @@ export async function POST(req: NextRequest) {
       .substring(0, 8)
       .toUpperCase();
 
-    const wallet = new Wallet({
-      userId: decodedToken.userId,
-      offerId,
-      offerStatus,
-      redeemCode,
-      offerRestaurantId: offerRestaurantId || offer.restaurantId,
-    });
+    // Generate unique ID for wallet
+    const walletId = crypto.randomUUID().replace(/-/g, "").substring(0, 24);
+    const targetRestaurantId = offerRestaurantId || offer.restaurant_id;
 
-    try {
-      await wallet.save();
-    } catch (saveError: any) {
-      if (saveError.code === 11000 && saveError.keyPattern?.offerId) {
-        return NextResponse.json(
-          { error: "This offer has already been redeemed" },
-          { status: 409 }
-        );
-      }
-      throw saveError; // Re-throw other errors
+    const { data: newWallet, error: insertError } = await supabaseAdmin
+      .from("wallets")
+      .insert({
+        id: walletId,
+        user_id: decodedToken.userId,
+        offer_id: offerId,
+        restaurant_id: targetRestaurantId,
+        offer_status: offerStatus,
+        redeem_code: redeemCode,
+        redeem_status: false,
+      })
+      .select("id, redeem_code")
+      .single();
+
+    if (insertError) {
+      console.error("Error creating wallet entry:", insertError);
+      return NextResponse.json(
+        { error: "Failed to add offer to wallet: " + insertError.message },
+        { status: 500 }
+      );
     }
 
-    // Increment the appropriate counter for the offer
-    const updateFields: any = { $inc: { redeemCount: 1 } };
-    
-    // Also increment currentPeriodCount for recurring offers
-    if (offer.recurringType && offer.recurringType !== "never") {
-      updateFields.$inc.currentPeriodCount = 1;
+    // 5. Increment redeem_count and current_period_count on offer
+    const newRedeemCount = (offer.redeem_count || 0) + 1;
+    const updatePayload: any = { redeem_count: newRedeemCount };
+
+    if (recurringType && recurringType !== "never") {
+      updatePayload.current_period_count = currentPeriodCount + 1;
     }
-    
-    await Offer.findByIdAndUpdate(
-      offerId,
-      updateFields,
-      { new: true }
-    );
+
+    await supabaseAdmin.from("offers").update(updatePayload).eq("id", offerId);
 
     return NextResponse.json(
       {
         message: "Wallet entry created successfully",
-        redeemCode: wallet.redeemCode,
+        redeemCode: newWallet.redeem_code,
       },
       { status: 201 }
     );
@@ -177,95 +183,202 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// GET: Fetch user's active and redeemed offers in wallet
 export async function GET(req: Request) {
   try {
     const cookieStore: any = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
     if (!token) {
-      return NextResponse.json({ error: "Authentication token required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication token required" },
+        { status: 401 }
+      );
     }
 
-    let decodedToken;
+    let decodedToken: { userId: string; role: string };
     try {
-      decodedToken = jwt.verify(token, process.env.JWT_SECRET as string) as {
+      decodedToken = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as {
         userId: string;
         role: string;
       };
     } catch (err) {
-      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid authentication token" },
+        { status: 401 }
+      );
     }
-
-    await connectToDatabase();
 
     const url = new URL(req.url);
     const page = parseInt(url.searchParams.get("page") || "1", 10);
     const limit = parseInt(url.searchParams.get("limit") || "10", 10);
     const skip = (page - 1) * limit;
 
-    // Fetch wallet entries with populated offer and restaurant in **one query**
-    const walletEntries = await Wallet.find({ userId: decodedToken.userId })
-      .sort({ createdAt: -1 }).populate({
-        path: "offerId",
-        populate: {
-          path: "restaurantId",
-          select: "name address city zipCode addressLink dineIn dineOut category images phone email website deliveryAvailable"
-        }
-      })
-      .populate({ path: "userId", select: "mobile" })
-      .lean(); // convert to plain JS object for faster access
+    // 1. Fetch wallet entries for the user
+    const { data: walletEntriesData, error: walletError } = await supabaseAdmin
+      .from("wallets")
+      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, created_at, updated_at")
+      .eq("user_id", decodedToken.userId)
+      .order("created_at", { ascending: false });
+
+    if (walletError) {
+      console.error("Error fetching wallet entries:", walletError);
+      return NextResponse.json(
+        { error: "Database error fetching wallet" },
+        { status: 500 }
+      );
+    }
+
+    const walletEntries = walletEntriesData || [];
+    if (walletEntries.length === 0) {
+      return NextResponse.json(
+        {
+          redeemed: [],
+          active: [],
+          pagination: {
+            redeemed: { total: 0, page, limit, totalPages: 0 },
+            active: { total: 0, page, limit, totalPages: 0 },
+          },
+        },
+        { status: 200 }
+      );
+    }
+
+    // 2. Fetch user phone
+    const { data: userData } = await supabaseAdmin
+      .from("users")
+      .select("mobile")
+      .eq("id", decodedToken.userId)
+      .maybeSingle();
+
+    const userPhone = userData?.mobile || null;
+
+    // 3. Collect offer IDs and restaurant IDs
+    const offerIds = Array.from(new Set(walletEntries.map((w: any) => w.offer_id).filter(Boolean)));
+    const restaurantIds = Array.from(
+      new Set(walletEntries.map((w: any) => w.restaurant_id).filter(Boolean))
+    );
+
+    // 4. Fetch offers, restaurants, categories, and images in parallel
+    const [offersRes, restaurantsRes, imagesRes, categoriesRes] = await Promise.all([
+      offerIds.length > 0
+        ? supabaseAdmin.from("offers").select("*").in("id", offerIds)
+        : { data: [] },
+      restaurantIds.length > 0
+        ? supabaseAdmin.from("restaurants").select("*").in("id", restaurantIds)
+        : { data: [] },
+      restaurantIds.length > 0
+        ? supabaseAdmin
+            .from("restaurant_images")
+            .select("restaurant_id, image_url, display_order")
+            .in("restaurant_id", restaurantIds)
+            .order("display_order", { ascending: true })
+        : { data: [] },
+      restaurantIds.length > 0
+        ? supabaseAdmin
+            .from("restaurant_categories")
+            .select("restaurant_id, category_id, categories(id, name)")
+            .in("restaurant_id", restaurantIds)
+        : { data: [] },
+    ]);
+
+    // Map offers by ID
+    const offersMap = new Map<string, any>();
+    (offersRes.data || []).forEach((o: any) => offersMap.set(o.id, o));
+
+    // Map images by restaurant ID
+    const imagesByRest = new Map<string, string[]>();
+    (imagesRes.data || []).forEach((img: any) => {
+      if (!imagesByRest.has(img.restaurant_id)) {
+        imagesByRest.set(img.restaurant_id, []);
+      }
+      imagesByRest.get(img.restaurant_id)!.push(img.image_url);
+    });
+
+    // Map categories by restaurant ID
+    const categoriesByRest = new Map<string, any[]>();
+    (categoriesRes.data || []).forEach((rc: any) => {
+      if (!categoriesByRest.has(rc.restaurant_id)) {
+        categoriesByRest.set(rc.restaurant_id, []);
+      }
+      if (rc.categories) {
+        categoriesByRest.get(rc.restaurant_id)!.push(rc.categories);
+      }
+    });
+
+    // Map restaurants by ID
+    const restaurantsMap = new Map<string, any>();
+    (restaurantsRes.data || []).forEach((r: any) => {
+      restaurantsMap.set(r.id, {
+        _id: r.id,
+        id: r.id,
+        name: r.name,
+        address: r.address,
+        city: r.city,
+        zipCode: r.zip_code ? r.zip_code.toUpperCase() : "",
+        addressLink: r.address_link,
+        dineIn: r.dine_in,
+        dineOut: r.dine_out,
+        category: categoriesByRest.get(r.id) || [],
+        images: imagesByRest.get(r.id) || [],
+        phone: r.phone,
+        email: r.email,
+        website: r.website,
+        deliveryAvailable: r.delivery_available,
+      });
+    });
 
     const now = new Date();
     const redeemedOffersAll: any[] = [];
     const activeOffersAll: any[] = [];
 
     for (const walletEntry of walletEntries) {
-      const offer = walletEntry.offerId;
+      const offer = offersMap.get(walletEntry.offer_id);
       if (!offer) continue;
 
-      const expiryDate = offer.expiryDate ? new Date(offer.expiryDate) : null;
+      const expiryDate = offer.expiry_date ? new Date(offer.expiry_date) : null;
       const isExpired = expiryDate && expiryDate <= now;
 
       if (expiryDate && isExpired) continue; // skip fully expired offers
 
-      const redeemCodeExpiry = walletEntry.redeemCodeExpiry ? new Date(walletEntry.redeemCodeExpiry) : null;
+      const redeemCodeExpiry = walletEntry.redeem_code_expiry
+        ? new Date(walletEntry.redeem_code_expiry)
+        : null;
       const isRedeemCodeExpired = redeemCodeExpiry && redeemCodeExpiry <= now;
 
-      const restaurant = offer.restaurantId; // already populated
-      const user = walletEntry.userId; // already populated
+      const restId = walletEntry.restaurant_id || offer.restaurant_id;
+      const restaurant = restaurantsMap.get(restId) || null;
 
       const offerData = {
-        ...offer,
+        _id: offer.id,
+        id: offer.id,
+        title: offer.title,
+        description: offer.description,
+        startDate: offer.start_date,
+        expiryDate: offer.expiry_date,
+        validDays: offer.valid_days,
+        validHours: offer.valid_hours,
+        discountPercentage: offer.discount_percentage,
+        offerType: offer.offer_type,
+        redeemCount: offer.redeem_count,
+        maxRedemptionLimit: offer.max_redemption_limit,
+        isUnlimited: offer.is_unlimited,
+        bookingRequirement: offer.booking_requirement || "mandatory",
         redeemed: true,
-        redeemCode: walletEntry.redeemCode,
-        redeemStatus: walletEntry.redeemStatus,
-        redeemCodeExpiry: walletEntry.redeemCodeExpiry,
-        walletId: walletEntry._id,
+        redeemCode: walletEntry.redeem_code,
+        redeemStatus: walletEntry.redeem_status,
+        redeemCodeExpiry: walletEntry.redeem_code_expiry,
+        walletId: walletEntry.id,
         isRedeemCodeExpired,
-        bookingRequirement: offer.bookingRequirement || "mandatory",
         phone: restaurant?.phone || null,
-        userPhone: user?.mobile || null,
-        restaurant: restaurant
-          ? {
-            _id: restaurant._id,
-            name: restaurant.name,
-            address: restaurant.address,
-            city: restaurant.city,
-            zipCode: restaurant.zipCode?.toUpperCase(),
-            addressLink: restaurant.addressLink,
-            dineIn: restaurant.dineIn,
-            dineOut: restaurant.dineOut,
-            category: restaurant.category,
-            images: restaurant.images,
-            phone: restaurant.phone,
-            email: restaurant.email,
-            website: restaurant.website,
-            deliveryAvailable: restaurant.deliveryAvailable,
-          }
-          : null,
+        userPhone: userPhone,
+        restaurant: restaurant,
       };
 
-      if (walletEntry.redeemStatus === true && isRedeemCodeExpired) {
+      if (walletEntry.redeem_status === true && isRedeemCodeExpired) {
         redeemedOffersAll.push(offerData);
       } else {
         activeOffersAll.push(offerData);
@@ -299,6 +412,9 @@ export async function GET(req: Request) {
     );
   } catch (error: any) {
     console.error("Error fetching wallet data:", error);
-    return NextResponse.json({ error: "Internal server error", message: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error", message: error.message },
+      { status: 500 }
+    );
   }
 }
