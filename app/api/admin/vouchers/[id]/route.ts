@@ -1,6 +1,6 @@
+// app/api/admin/vouchers/[id]/route.ts
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
 import Stripe from "stripe";
 import dotenv from "dotenv";
@@ -8,6 +8,39 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// Supabase row -> same shape the Mongoose voucher had (so the code below stays unchanged)
+function toLegacyVoucher(r: any) {
+  if (!r) return r;
+  const iso = (v: any) => (v ? new Date(v).toISOString() : v);
+  const expiryDate = iso(r.expiry_date);
+  return {
+    _id: r.id,
+    code: r.code,
+    discountType: r.discount_type,
+    discountValue: r.discount_value,
+    maxUses: r.max_uses,
+    currentUses: r.current_uses,
+    expiryDate,
+    validityDays: r.validity_days,
+    isActive: r.is_active,
+    description: r.description,
+    stripeCouponId: r.stripe_coupon_id,
+    stripeCouponName: r.stripe_coupon_name,
+    stripePromotionCodeId: r.stripe_promotion_code_id,
+    duration: r.duration,
+    durationInMonths: r.duration_in_months,
+    calculatedPercentOff: r.calculated_percent_off,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+    // virtual: expiryDate if set, otherwise createdAt + validityDays days, otherwise null
+    resolvedExpiry: expiryDate
+      ? expiryDate
+      : r.validity_days
+        ? new Date(new Date(r.created_at).getTime() + r.validity_days * 24 * 60 * 60 * 1000).toISOString()
+        : null,
+  };
+}
 
 export async function PATCH(
   req: Request,
@@ -22,12 +55,16 @@ export async function PATCH(
       );
     }
 
-    await connectToDatabase();
-
     const body = await req.json();
     const { isActive } = body;
 
-    const voucher = await Voucher.findById(params.id);
+    const { data: voucherRow, error: voucherError } = await supabaseAdmin
+      .from("vouchers")
+      .select("*")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (voucherError) throw new Error(voucherError.message);
+    const voucher = toLegacyVoucher(voucherRow);
     if (!voucher) {
       return NextResponse.json(
         { success: false, message: "Voucher not found" },
@@ -47,11 +84,14 @@ export async function PATCH(
       }
     }
 
-    const updatedVoucher = await Voucher.findByIdAndUpdate(
-      params.id,
-      { isActive },
-      { new: true }
-    );
+    const { data: updatedRow, error: updateError } = await supabaseAdmin
+      .from("vouchers")
+      .update({ is_active: isActive })
+      .eq("id", params.id)
+      .select()
+      .single();
+    if (updateError) throw new Error(updateError.message);
+    const updatedVoucher = toLegacyVoucher(updatedRow);
 
     return NextResponse.json({ success: true, voucher: updatedVoucher });
   } catch (error: any) {
@@ -76,9 +116,13 @@ export async function DELETE(
       );
     }
 
-    await connectToDatabase();
-
-    const voucher = await Voucher.findById(params.id);
+    const { data: voucherRow, error: voucherError } = await supabaseAdmin
+      .from("vouchers")
+      .select("*")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (voucherError) throw new Error(voucherError.message);
+    const voucher = toLegacyVoucher(voucherRow);
     if (!voucher) {
       return NextResponse.json(
         { success: false, message: "Voucher not found" },
@@ -119,7 +163,11 @@ export async function DELETE(
     }
 
     // Delete from database
-    await Voucher.findByIdAndDelete(params.id);
+    const { error: deleteError } = await supabaseAdmin
+      .from("vouchers")
+      .delete()
+      .eq("id", params.id);
+    if (deleteError) throw new Error(deleteError.message);
     console.log(`✅ Voucher removed from database`);
 
     // Return with warning if Stripe had issues

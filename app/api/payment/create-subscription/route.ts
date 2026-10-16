@@ -1,7 +1,7 @@
+// api/payment/create-subscription/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -23,9 +23,25 @@ export async function POST(request: Request) {
           .catch((error: unknown) => ({ promo: null, error }))
       : null;
 
-    await connectToDatabase();
+    // Emails are stored lowercase (old User model used lowercase: true)
+    const normalizedEmail = String(email).toLowerCase();
 
-    const user = await User.findOne({ email });
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, email, first_name, last_name, stripe_customer_id, has_subscribed_before, rewardful_referral, selected_price_id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
+    const user = userRow && {
+      _id: userRow.id,
+      email: userRow.email,
+      firstName: userRow.first_name,
+      lastName: userRow.last_name,
+      stripeCustomerId: userRow.stripe_customer_id,
+      hasSubscribedBefore: userRow.has_subscribed_before,
+      rewardfulReferral: userRow.rewardful_referral,
+      selectedPriceId: userRow.selected_price_id,
+    };
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -41,7 +57,11 @@ export async function POST(request: Request) {
       });
       stripeCustomerId = customer.id;
       user.stripeCustomerId = stripeCustomerId;
-      await user.save();
+      const { error: customerSaveError } = await supabaseAdmin
+        .from("users")
+        .update({ stripe_customer_id: stripeCustomerId })
+        .eq("id", user._id);
+      if (customerSaveError) throw new Error(customerSaveError.message);
     }
 
     const hasSubscribedBefore = user.hasSubscribedBefore ?? false;
@@ -137,14 +157,17 @@ export async function POST(request: Request) {
             payment_method_types: ["card"],
           })
         : Promise.resolve(),
-      User.updateOne(
-        { email },
-        {
-          selectedPriceId,
-          rewardfulReferral: rewardfulReferral || null,
-          usedVoucherCode: appliedVoucherCode,
-        }
-      ),
+      supabaseAdmin
+        .from("users")
+        .update({
+          selected_price_id: selectedPriceId,
+          rewardful_referral: rewardfulReferral || null,
+          used_voucher_code: appliedVoucherCode,
+        })
+        .eq("email", normalizedEmail)
+        .then((res) => {
+          if (res.error) throw new Error(res.error.message);
+        }),
     ]);
 
     const clientSecret =

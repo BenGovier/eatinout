@@ -1,8 +1,8 @@
+// api/payment/verify-subscription/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 import { activateSubscription } from "@/lib/activate-subscription";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -27,8 +27,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    await connectToDatabase();
-    const current = await User.findById(decoded.userId);
+    const { data: currentRow, error: currentError } = await supabaseAdmin
+      .from("users")
+      .select("stripe_customer_id")
+      .eq("id", decoded.userId)
+      .maybeSingle();
+    if (currentError) throw new Error(currentError.message);
+    const current = currentRow && { stripeCustomerId: currentRow.stripe_customer_id };
     if (!current || !current.stripeCustomerId) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }

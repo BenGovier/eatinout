@@ -1,8 +1,8 @@
+// api/auth/refresh-session/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -26,19 +26,23 @@ export async function POST() {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    await connectToDatabase();
-    const user = await User.findById(decoded.userId);
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, email, role, subscription_status, is_trialing")
+      .eq("id", decoded.userId)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const token = jwt.sign(
       {
-        userId: user._id.toString(),
+        userId: user.id,
         email: user.email,
         role: user.role,
-        subscriptionStatus: user.subscriptionStatus,
-        isTrialing: user.isTrialing,
+        subscriptionStatus: user.subscription_status,
+        isTrialing: user.is_trialing,
       },
       JWT_SECRET,
       { expiresIn: "365d" }
@@ -46,8 +50,8 @@ export async function POST() {
 
     const response = NextResponse.json({
       success: true,
-      subscriptionStatus: user.subscriptionStatus,
-      isTrialing: user.isTrialing,
+      subscriptionStatus: user.subscription_status,
+      isTrialing: user.is_trialing,
     });
 
     response.cookies.set({

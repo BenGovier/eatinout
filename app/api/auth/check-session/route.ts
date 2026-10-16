@@ -1,24 +1,27 @@
+// api/auth/check-session/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import Restaurant from "@/models/Restaurant";
 
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export async function GET(req: Request) {
-  await connectToDatabase();
-
   // Try NextAuth session (SSO)
   const session = await getServerSession(authOptions);
 
   if (session?.user?.email) {
-    const user = await User.findOne({ email: session.user.email });
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, email, role, first_name, last_name, subscription_status, is_trialing")
+      .eq("email", session.user.email)
+      .limit(1)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -37,14 +40,21 @@ export async function GET(req: Request) {
     //     redirectUrl: res.data.url, // send Stripe URL to client
     //   });
     // }
-    let restaurantId = user.restaurantId;
+    let restaurantId: string | undefined = undefined;
 
     if (user.role === "restaurant") {
       // If role is restaurant, fetch corresponding restaurant document
-      const restaurant = await Restaurant.findOne({ userId: user._id });
+      const { data: restaurant, error: restaurantError } = await supabaseAdmin
+        .from("restaurants")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (restaurantError) throw new Error(restaurantError.message);
   
       if (restaurant) {
-        restaurantId = restaurant._id.toString();
+        restaurantId = restaurant.id;
       } else {
         return NextResponse.json(
           { message: "Associated restaurant not found" },
@@ -56,14 +66,14 @@ export async function GET(req: Request) {
 
     const token = jwt.sign(
       {
-        userId: user._id.toString(),
+        userId: user.id,
         email: user.email,
         role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user.first_name,
+        lastName: user.last_name,
         restaurantId: restaurantId,
-        subscriptionStatus: user.subscriptionStatus || "inactive",
-        isTrialing: user.isTrialing || false,
+        subscriptionStatus: user.subscription_status || "inactive",
+        isTrialing: user.is_trialing || false,
       },
       JWT_SECRET,
       { expiresIn: "365d" }
@@ -75,8 +85,8 @@ export async function GET(req: Request) {
       message: "SSO user session active",
       email: user.email,
       role: user.role,
-      subscriptionStatus: user.subscriptionStatus,
-      isTrialing: user.isTrialing || false,
+      subscriptionStatus: user.subscription_status,
+      isTrialing: user.is_trialing || false,
     });
 
     response.cookies.set({

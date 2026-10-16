@@ -1,7 +1,8 @@
+// app/api/admin/vouchers/bulk/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import connectToDatabase from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
+import { randomBytes } from "crypto";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
 import { resolveStripeCouponCheckoutName } from "@/lib/stripe-coupon-display-name";
 
@@ -11,6 +12,39 @@ export const dynamic = 'force-dynamic';
 
 // We rely on runtime Node.js because we parse Excel optionally on server
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// Supabase row -> same shape the Mongoose voucher had (so the code below stays unchanged)
+function toLegacyVoucher(r: any) {
+  if (!r) return r;
+  const iso = (v: any) => (v ? new Date(v).toISOString() : v);
+  const expiryDate = iso(r.expiry_date);
+  return {
+    _id: r.id,
+    code: r.code,
+    discountType: r.discount_type,
+    discountValue: r.discount_value,
+    maxUses: r.max_uses,
+    currentUses: r.current_uses,
+    expiryDate,
+    validityDays: r.validity_days,
+    isActive: r.is_active,
+    description: r.description,
+    stripeCouponId: r.stripe_coupon_id,
+    stripeCouponName: r.stripe_coupon_name,
+    stripePromotionCodeId: r.stripe_promotion_code_id,
+    duration: r.duration,
+    durationInMonths: r.duration_in_months,
+    calculatedPercentOff: r.calculated_percent_off,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+    // virtual: expiryDate if set, otherwise createdAt + validityDays days, otherwise null
+    resolvedExpiry: expiryDate
+      ? expiryDate
+      : r.validity_days
+        ? new Date(new Date(r.created_at).getTime() + r.validity_days * 24 * 60 * 60 * 1000).toISOString()
+        : null,
+  };
+}
 
 type IncomingRow = {
   code: string;
@@ -137,7 +171,12 @@ async function createVoucherFromRow(row: IncomingRow) {
   }
 
   // Check DB for duplicate (fast local check)
-  const existingVoucher = await Voucher.findOne({ code });
+  const { data: existingVoucher, error: existingError } = await supabaseAdmin
+    .from("vouchers")
+    .select("id")
+    .eq("code", code)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
   if (existingVoucher) {
     throw new Error("Code already exists in database");
   }
@@ -167,25 +206,30 @@ async function createVoucherFromRow(row: IncomingRow) {
     });
 
     // Save voucher in DB
-    const voucher = new Voucher({
-      code,
-      discountType,
-      discountValue: Number(discountValueNum),
-      maxUses: Number(maxUsesNum),
-      currentUses: 0,
-      expiryDate: expiryDateIso ? new Date(expiryDateIso) : null,
-      validityDays: validityDaysNum ?? null,
-      isActive,
-      description,
-      stripeCouponName: null,
-      stripeCouponId: coupon.id,
-      stripePromotionCodeId: promotionCode.id,
-      calculatedPercentOff: percentOff,
-      duration,
-      durationInMonths: duration === "repeating" ? durationInMonthsNum : null,
-    });
-
-    await voucher.save();
+    const { data: voucherRow, error: voucherError } = await supabaseAdmin
+      .from("vouchers")
+      .insert({
+        id: randomBytes(12).toString("hex"),
+        code,
+        discount_type: discountType,
+        discount_value: Number(discountValueNum),
+        max_uses: Number(maxUsesNum),
+        current_uses: 0,
+        expiry_date: expiryDateIso ? new Date(expiryDateIso).toISOString() : null,
+        validity_days: validityDaysNum ?? null,
+        is_active: isActive,
+        description,
+        stripe_coupon_name: null,
+        stripe_coupon_id: coupon.id,
+        stripe_promotion_code_id: promotionCode.id,
+        calculated_percent_off: percentOff,
+        duration,
+        duration_in_months: duration === "repeating" ? durationInMonthsNum : null,
+      })
+      .select()
+      .single();
+    if (voucherError) throw new Error(voucherError.message);
+    const voucher = toLegacyVoucher(voucherRow);
 
     return voucher;
   } catch (stripeError: any) {
@@ -256,8 +300,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: adminCheck.message }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const contentType = req.headers.get("content-type") || "";
     let rows: IncomingRow[] = [];
 
@@ -311,5 +353,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-
