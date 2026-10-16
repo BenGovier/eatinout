@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-import dotenv from "dotenv";
-import { Wallet } from "@/models/Wallet";
-import mongoose from "mongoose";
 
-dotenv.config();
 export async function GET() {
   try {
-    // Get auth token from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
@@ -20,7 +14,6 @@ export async function GET() {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify token
     let restaurantId: string;
     let userId: string;
     try {
@@ -38,9 +31,9 @@ export async function GET() {
       }
 
       restaurantId = decoded.restaurantId;
-      userId = decoded.userId; // Use userId from the token
+      userId = decoded.userId;
 
-      if (!restaurantId) {
+      if (!restaurantId && !userId) {
         return NextResponse.json(
           { message: "Restaurant ID not found in token" },
           { status: 400 }
@@ -50,139 +43,130 @@ export async function GET() {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    await connectToDatabase();
+    // 1. Fetch user's restaurant IDs
+    let targetRestaurantIds: string[] = [];
+    if (restaurantId) {
+      targetRestaurantIds.push(restaurantId);
+    }
 
-    // Get active offers count
-    const activeOffers = await Offer.countDocuments({
-      associatedId: userId,
-      status: "active",
-      $or: [
-        { expiryDate: { $gt: new Date() } },
-        { expiryDate: { $exists: false } },
-        { expiryDate: null },
-        { expiryDate: "" },
-      ],
-    });
+    if (userId) {
+      const { data: userRestaurants } = await supabaseAdmin
+        .from("restaurants")
+        .select("id")
+        .eq("user_id", userId);
 
-    // Get total redemptions
-    const totalRedemptions = await Wallet.aggregate([
-      {
-        $match: {
-          offerRestaurantId: userId,
-          offerStatus: "redeemed"
+      (userRestaurants || []).forEach((r: any) => {
+        if (!targetRestaurantIds.includes(r.id)) {
+          targetRestaurantIds.push(r.id);
         }
-      },
-      {
-        $lookup: {
-          from: "offers",
-          localField: "offerId",
-          foreignField: "_id",
-          as: "offerDetails"
-        }
-      },
-      {
-        $match: {
-          "offerDetails": { $ne: [] } // Ensures offer exists in offers collection
-        }
-      },
-      {
-        $count: "total"
-      }
-    ]).then(result => result[0]?.total || 0);
+      });
+    }
 
-    // Get monthly redemptions (current month)
+    // 2. Active offers count
+    let activeOffersCount = 0;
+    if (targetRestaurantIds.length > 0) {
+      const { count } = await supabaseAdmin
+        .from("offers")
+        .select("id", { count: "exact", head: true })
+        .in("restaurant_id", targetRestaurantIds)
+        .eq("status", "active")
+        .eq("is_deactivated", false);
+
+      activeOffersCount = count || 0;
+    }
+
+    // 3. Redemptions query: fetch all redeemed wallets for restaurant
+    let totalRedemptions = 0;
+    let monthlyRedemptions = 0;
+    let allWallets: any[] = [];
+
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthlyRedemptions = await Wallet.countDocuments({
-      offerRestaurantId: userId,
-      offerStatus: "redeemed",
-      updatedAt: { $gte: startOfMonth },
-    });
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    // Get recent activity (last 5 redemptions)
-    const recentActivity = await Wallet.aggregate([
-      {
-        $match: {
-          offerRestaurantId: new mongoose.Types.ObjectId(userId),
-          offerStatus: "redeemed", // Filter for redeemed offers
-        },
-      },
-      {
-        $sort: { createdAt: -1 }, // Sort by most recent
-      },
-      {
-        $lookup: {
-          from: "offers", // Join with the Offer collection
-          localField: "offerId",
-          foreignField: "_id",
-          as: "offerDetails",
-        },
-      },
-      {
-        $lookup: {
-          from: "users", // Join with the User collection
-          localField: "userId",
-          foreignField: "_id",
-          as: "userDetails",
-        },
-      },
-      {
-        $unwind: "$offerDetails", // Unwind the offerDetails array
-      },
-      {
-        $unwind: "$userDetails", // Unwind the userDetails array
-      },
-      { $addFields: { now: new Date() } }, // <-- Add this line
-      {
-        $project: {
-          _id: 1,
-          redeemCode: 1,
-          offerTitle: "$offerDetails.title",
-          offerStatus: {
-            $cond: [
-              { $or: [
-                { $eq: ["$offerDetails.expiryDate", null] },
-                { $eq: ["$offerDetails.expiryDate", ""] },
-                { $not: ["$offerDetails.expiryDate"] }
-              ] },
-              "Active",
-              {
-                $cond: [
-                  { $gt: ["$offerDetails.expiryDate", "$now"] },
-                  "Active",
-                  "Expired"
-                ]
-              }
-            ]
-          },
-          userName: {
-            $concat: ["$userDetails.firstName", " ", "$userDetails.lastName"]
-          },
-          userEmail: "$userDetails.email",
-          redeemedAt: "$createdAt",
-          redeemStatus: "$redeemStatus" ,
-          redeemCodeExpiry: "$redeemCodeExpiry",
-          offerRestaurantId: "$offerRestaurantId",
-        },
-      },
+    if (targetRestaurantIds.length > 0) {
+      // Total redemptions count
+      const { count: totalCount } = await supabaseAdmin
+        .from("wallets")
+        .select("id", { count: "exact", head: true })
+        .in("restaurant_id", targetRestaurantIds)
+        .or("redeem_status.eq.true,offer_status.eq.redeemed");
+
+      totalRedemptions = totalCount || 0;
+
+      // Monthly redemptions count
+      const { count: monthCount } = await supabaseAdmin
+        .from("wallets")
+        .select("id", { count: "exact", head: true })
+        .in("restaurant_id", targetRestaurantIds)
+        .or("redeem_status.eq.true,offer_status.eq.redeemed")
+        .gte("created_at", startOfMonth);
+
+      monthlyRedemptions = monthCount || 0;
+
+      // Fetch all redemptions list (up to 500 for the all-redemptions view)
+      const { data: walletsData } = await supabaseAdmin
+        .from("wallets")
+        .select("id, redeem_code, redeem_status, redeem_code_expiry, offer_id, user_id, restaurant_id, created_at")
+        .in("restaurant_id", targetRestaurantIds)
+        .or("redeem_status.eq.true,offer_status.eq.redeemed")
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      allWallets = walletsData || [];
+    }
+
+    // 4. Fetch details for offers and users in parallel
+    const offerIds = Array.from(new Set(allWallets.map((w: any) => w.offer_id).filter(Boolean)));
+    const userIds = Array.from(new Set(allWallets.map((w: any) => w.user_id).filter(Boolean)));
+
+    const [offersRes, usersRes] = await Promise.all([
+      offerIds.length > 0
+        ? supabaseAdmin.from("offers").select("id, title, status, expiry_date").in("id", offerIds)
+        : { data: [] },
+      userIds.length > 0
+        ? supabaseAdmin.from("users").select("id, first_name, last_name, email").in("id", userIds)
+        : { data: [] },
     ]);
 
-    // Format recent activity
-    const formattedActivity = recentActivity.map((redemption: any) => ({
-      id: redemption._id.toString(),
-      redeemCode: redemption.redeemCode,
-      offerTitle: redemption.offerTitle || "Unknown Offer",
-      offerStatus: redemption.offerStatus,
-      userName: redemption.userName,
-      userEmail: redemption.userEmail,
-      redeemedAt: redemption.redeemedAt,
-      redeemStatus : redemption.redeemStatus,
-      redeemCodeExpiry: redemption.redeemCodeExpiry,
-      offerRestaurantId: redemption.offerRestaurantId,
-    }));
+    const offersMap = new Map<string, any>();
+    (offersRes.data || []).forEach((o: any) => offersMap.set(o.id, o));
+
+    const usersMap = new Map<string, any>();
+    (usersRes.data || []).forEach((u: any) => usersMap.set(u.id, u));
+
+    const formattedActivity = allWallets.map((wallet: any) => {
+      const offer = offersMap.get(wallet.offer_id);
+      const user = usersMap.get(wallet.user_id);
+
+      let offerStatus = "Active";
+      if (offer) {
+        if (offer.expiry_date && new Date(offer.expiry_date) < now) {
+          offerStatus = "Expired";
+        } else if (offer.status) {
+          offerStatus = offer.status.charAt(0).toUpperCase() + offer.status.slice(1);
+        }
+      }
+
+      const userName = user
+        ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown Customer"
+        : "Unknown Customer";
+
+      return {
+        id: wallet.id,
+        redeemCode: wallet.redeem_code,
+        offerTitle: offer?.title || "Unknown Offer",
+        offerStatus,
+        userName,
+        userEmail: user?.email || "",
+        redeemedAt: wallet.created_at,
+        redeemStatus: wallet.redeem_status,
+        redeemCodeExpiry: wallet.redeem_code_expiry,
+        offerRestaurantId: wallet.restaurant_id,
+      };
+    });
 
     return NextResponse.json({
-      activeOffers,
+      activeOffers: activeOffersCount,
       totalRedemptions,
       monthlyRedemptions,
       recentActivity: formattedActivity,
