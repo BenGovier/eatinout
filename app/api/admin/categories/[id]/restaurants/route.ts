@@ -1,8 +1,15 @@
+// app/api/admin/categories/[id]/restaurants/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import Restaurant from "@/models/Restaurant";
-import connectToDatabase from "@/lib/mongodb";
+import supabaseAdmin from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
-import mongoose from "mongoose";
+
+// Supabase helpers: ids are 24-char hex strings (same format as the old ObjectIds)
+const OBJECT_ID_FORMAT = /^[0-9a-fA-F]{24}$/;
+const SUPABASE_PAGE_SIZE = 1000;
+const ID_CHUNK = 100;
+const dbCheck = (res: { error: any }) => {
+  if (res.error) throw new Error(res.error.message);
+};
 
 // GET restaurants for a specific category
 export async function GET(
@@ -16,8 +23,6 @@ export async function GET(
     //   return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     // }
 
-    await connectToDatabase();
-
     const { id } = await params;
     const categoryIdString = id;
 
@@ -29,9 +34,10 @@ export async function GET(
     }
 
     // Convert string ID to ObjectId for proper comparison
-    let categoryId: mongoose.Types.ObjectId;
+    let categoryId: string;
     try {
-      categoryId = new mongoose.Types.ObjectId(categoryIdString);
+      if (!OBJECT_ID_FORMAT.test(categoryIdString)) throw new Error("Invalid category ID format");
+      categoryId = categoryIdString;
     } catch (error) {
       return NextResponse.json(
         { success: false, message: "Invalid category ID format" },
@@ -41,50 +47,45 @@ export async function GET(
 
     // Find restaurants that have this category - use same approach as count query
     // Normalize category to array, then check if categoryId is in it
-    const restaurants = await Restaurant.aggregate([
-      {
-        $match: {
-          $or: [
-            // Case 1: category is an array containing the categoryId
-            { category: { $in: [categoryId] } },
-            // Case 2: category is a single value matching categoryId
-            { category: categoryId }
-          ]
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          category: 1,
-          status: 1,
-          // Normalize category to array for filtering
-          categoryArray: {
-            $cond: {
-              if: { $isArray: "$category" },
-              then: "$category",
-              else: ["$category"]
-            }
-          }
-        }
-      },
-      {
-        // Filter to only include restaurants where categoryId is in the categoryArray
-        $match: {
-          $expr: {
-            $in: [categoryId, "$categoryArray"]
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          category: 1,
-          status: 1
-        }
-      }
-    ]);
+    const restaurantIds: string[] = [];
+    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+      const res = await supabaseAdmin
+        .from("restaurant_categories")
+        .select("restaurant_id")
+        .eq("category_id", categoryId)
+        .order("restaurant_id", { ascending: true })
+        .range(from, from + SUPABASE_PAGE_SIZE - 1);
+      dbCheck(res);
+      restaurantIds.push(...(res.data || []).map((r: any) => r.restaurant_id));
+      if ((res.data || []).length < SUPABASE_PAGE_SIZE) break;
+    }
+    const idChunks: string[][] = [];
+    for (let i = 0; i < restaurantIds.length; i += ID_CHUNK) {
+      idChunks.push(restaurantIds.slice(i, i + ID_CHUNK));
+    }
+    const chunkResults = await Promise.all(
+      idChunks.map((ids) =>
+        supabaseAdmin
+          .from("restaurants")
+          .select("id, name, status, created_at, restaurant_categories(category_id)")
+          .in("id", ids)
+      )
+    );
+    const restaurantRows: any[] = [];
+    for (const res of chunkResults) {
+      dbCheck(res);
+      restaurantRows.push(...(res.data || []));
+    }
+    const restaurants = restaurantRows
+      .sort((a: any, b: any) =>
+        a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.id < b.id ? -1 : 1
+      )
+      .map((r: any) => ({
+        _id: r.id,
+        name: r.name,
+        category: (r.restaurant_categories || []).map((rc: any) => rc.category_id),
+        status: r.status,
+      }));
 
     return NextResponse.json({
       success: true,
@@ -116,8 +117,6 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     }
 
-    await connectToDatabase();
-
     const { id } = await params;
     const categoryId = id;
     const { searchParams } = new URL(req.url);
@@ -131,7 +130,16 @@ export async function DELETE(
     }
 
     // Find the restaurant
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurantRes = await supabaseAdmin
+      .from("restaurants")
+      .select("id, restaurant_categories(category_id)")
+      .eq("id", restaurantId)
+      .maybeSingle();
+    dbCheck(restaurantRes);
+    const restaurant: any = restaurantRes.data && {
+      _id: restaurantRes.data.id,
+      category: (restaurantRes.data.restaurant_categories || []).map((rc: any) => rc.category_id),
+    };
 
     if (!restaurant) {
       return NextResponse.json(
@@ -160,9 +168,21 @@ export async function DELETE(
       updatedCategory = [];
     }
 
-    await Restaurant.findByIdAndUpdate(restaurantId, {
-      category: updatedCategory,
-    });
+    // Save: keep only the categories in updatedCategory (restaurant_categories rows)
+    let removeQuery: any = supabaseAdmin
+      .from("restaurant_categories")
+      .delete()
+      .eq("restaurant_id", restaurantId);
+    if (updatedCategory.length > 0) {
+      removeQuery = removeQuery.not(
+        "category_id",
+        "in",
+        `(${updatedCategory
+          .map((c: any) => `"${String(c).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+          .join(",")})`
+      );
+    }
+    dbCheck(await removeQuery);
 
     return NextResponse.json({
       success: true,
@@ -175,4 +195,3 @@ export async function DELETE(
     );
   }
 }
-
