@@ -1,26 +1,22 @@
-// app/api/new-tags/[id]/route.ts
-
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Tag from "@/models/Tag";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// ─────────────────────────────────────────────────────────────────
-// PUT /api/new-tags/[id]
-// Body: { name?: string, isActive?: boolean }
-// ─────────────────────────────────────────────────────────────────
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDatabase();
-
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { name, isActive } = body;
 
-    const tag = await Tag.findById(id);
+    const { data: tag, error: fetchErr } = await supabaseAdmin
+      .from("tags")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchErr) throw new Error(fetchErr.message);
     if (!tag) {
       return NextResponse.json(
         { success: false, message: "Tag not found" },
@@ -28,50 +24,80 @@ export async function PUT(
       );
     }
 
-    const update: any = {};
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
 
     if (name?.trim()) {
       // Check duplicate name (excluding self)
-      const duplicate = await Tag.findOne({
-        name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
-        _id: { $ne: id },
-      });
+      const { data: duplicate } = await supabaseAdmin
+        .from("tags")
+        .select("id")
+        .ilike("name", name.trim())
+        .neq("id", id)
+        .maybeSingle();
+
       if (duplicate) {
         return NextResponse.json(
           { success: false, message: "Tag name already exists" },
           { status: 409 }
         );
       }
-      update.name = name.trim();
+
+      updatePayload.name = name.trim();
 
       // Regenerate slug
-      const baseSlug = name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "") || "tag";
+      const baseSlug =
+        name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "tag";
 
       let finalSlug = baseSlug;
       let suffix = 2;
-      while (await Tag.findOne({ slug: finalSlug, _id: { $ne: id } })) {
+      while (true) {
+        const { data: slugCheck } = await supabaseAdmin
+          .from("tags")
+          .select("id")
+          .eq("slug", finalSlug)
+          .neq("id", id)
+          .maybeSingle();
+
+        if (!slugCheck) break;
         finalSlug = `${baseSlug}-${suffix}`;
         suffix++;
       }
-      update.slug = finalSlug;
+      updatePayload.slug = finalSlug;
     }
 
     if (typeof isActive === "boolean") {
-      update.isActive = isActive;
+      updatePayload.is_active = isActive;
     }
 
-    const updated = await Tag.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
+    const { data: updated, error: updateErr } = await supabaseAdmin
+      .from("tags")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
 
-    return NextResponse.json({ success: true, data: updated });
+    if (updateErr) throw new Error(updateErr.message);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        _id: updated.id,
+        id: updated.id,
+        name: updated.name,
+        slug: updated.slug,
+        isActive: updated.is_active,
+        createdAt: updated.created_at,
+        updatedAt: updated.updated_at,
+      },
+    });
   } catch (err: any) {
-    console.error("[PUT /api/new-tags/[id]]", err);
+    console.error("[PUT /api/admin/new-tags/[id]]", err);
     return NextResponse.json(
       { success: false, message: err.message || "Server error" },
       { status: 500 }
@@ -79,20 +105,20 @@ export async function PUT(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DELETE /api/new-tags/[id]
-// Removes tag from all offers' tags[] array, then deletes the tag
-// ─────────────────────────────────────────────────────────────────
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDatabase();
+    const { id } = await params;
 
-    const { id } = params;
+    const { data: tag, error: fetchErr } = await supabaseAdmin
+      .from("tags")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
 
-    const tag = await Tag.findById(id);
+    if (fetchErr) throw new Error(fetchErr.message);
     if (!tag) {
       return NextResponse.json(
         { success: false, message: "Tag not found" },
@@ -100,20 +126,20 @@ export async function DELETE(
       );
     }
 
-    // Remove this tag's id string from all offers
-    await Offer.updateMany(
-      { tags: id },
-      { $pull: { tags: id } }
-    );
+    // Clean up associations first
+    await supabaseAdmin.from("offer_tags").delete().eq("tag_id", id);
+    await supabaseAdmin.from("restaurant_tags").delete().eq("tag_id", id);
 
-    await Tag.findByIdAndDelete(id);
+    // Delete tag
+    const { error: delErr } = await supabaseAdmin.from("tags").delete().eq("id", id);
+    if (delErr) throw new Error(delErr.message);
 
     return NextResponse.json({
       success: true,
       message: "Tag deleted and removed from all offers",
     });
   } catch (err: any) {
-    console.error("[DELETE /api/new-tags/[id]]", err);
+    console.error("[DELETE /api/admin/new-tags/[id]]", err);
     return NextResponse.json(
       { success: false, message: err.message || "Server error" },
       { status: 500 }

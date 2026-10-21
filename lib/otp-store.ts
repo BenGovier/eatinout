@@ -1,4 +1,3 @@
-import { Otp } from "@/models/Otp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import crypto from "crypto";
 
