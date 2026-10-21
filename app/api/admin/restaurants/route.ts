@@ -1,12 +1,133 @@
+// app/api/admin/restaurants/route.ts
 import { NextResponse } from "next/server"
 import { NextRequest } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Restaurant from "@/models/Restaurant"
-import Offer from "@/models/Offer"
+import supabaseAdmin from "@/lib/supabase/admin"
 import { verifyAdminToken } from "@/lib/auth-admin"
-import { Category } from "@/models/Categories"
-import User from "@/models/User"
-import Area from "@/models/Area"
+
+// Supabase (PostgREST) returns max 1000 rows per request by default
+const SUPABASE_PAGE_SIZE = 1000
+// Max ids per .in() request (keeps the request URL short)
+const ID_CHUNK = 100
+
+const fetchAllRows = async (buildQuery: () => any) => {
+  const rows: any[] = []
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(from, from + SUPABASE_PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    rows.push(...(data || []))
+    if ((data || []).length < SUPABASE_PAGE_SIZE) break
+  }
+  return rows
+}
+
+// Fetch rows whose `column` (default id) is in `ids`, in parallel chunks
+const fetchByIds = async (
+  table: string,
+  columns: string,
+  ids: string[],
+  options: { column?: string; orderBy?: string; apply?: (q: any) => any } = {}
+) => {
+  const { column = "id", orderBy = "id", apply } = options
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    chunks.push(ids.slice(i, i + ID_CHUNK))
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      fetchAllRows(() => {
+        let q: any = supabaseAdmin.from(table).select(columns).in(column, chunk)
+        if (apply) q = apply(q)
+        return q.order(orderBy, { ascending: true })
+      })
+    )
+  )
+  const rows: any[] = []
+  for (const r of results) rows.push(...r)
+  return rows
+}
+
+const RESTAURANT_DOC_SELECT = `
+  id, name, slug, description, address, city, zip_code, phone, email, website, user_id, status,
+  dine_in, dine_out, delivery_available, associated_id, address_link, is_hidden,
+  subscription_status, stripe_customer_id, lat, lng,
+  home_is_pinned, home_pin_priority, home_pinned_at, created_at, updated_at,
+  restaurant_areas(area_id),
+  restaurant_categories(category_id),
+  restaurant_tags(tag_id),
+  restaurant_images(image_url, display_order),
+  restaurant_menu_pdfs(pdf_url, display_order),
+  restaurant_area_pins(area_id, is_pinned, priority, pinned_at)
+`
+
+const mapRestaurantDoc = (r: any) => ({
+  _id: r.id as string,
+  name: r.name,
+  slug: r.slug,
+  description: r.description,
+  address: r.address,
+  city: r.city,
+  zipCode: r.zip_code,
+  area: (r.restaurant_areas || []).map((ra: any) => ra.area_id) as string[],
+  phone: r.phone,
+  email: r.email,
+  website: r.website,
+  userId: r.user_id as string | null,
+  images: (r.restaurant_images || [])
+    .slice()
+    .sort((a: any, b: any) => a.display_order - b.display_order)
+    .map((i: any) => i.image_url) as string[],
+  status: r.status as string,
+  dineIn: r.dine_in,
+  dineOut: r.dine_out,
+  deliveryAvailable: r.delivery_available,
+  category: (r.restaurant_categories || []).map((rc: any) => rc.category_id) as string[],
+  associatedId: r.associated_id as string | null,
+  addressLink: r.address_link,
+  menuPdfUrls: (r.restaurant_menu_pdfs || [])
+    .slice()
+    .sort((a: any, b: any) => a.display_order - b.display_order)
+    .map((p: any) => p.pdf_url) as string[],
+  hidden: r.is_hidden,
+  subscriptionStatus: r.subscription_status,
+  stripeCustomerId: r.stripe_customer_id,
+  homePin: {
+    isPinned: r.home_is_pinned,
+    priority: r.home_pin_priority,
+    pinnedAt: r.home_pinned_at,
+  },
+  areaPins: (r.restaurant_area_pins || []).map((p: any) => ({
+    areaId: p.area_id,
+    isPinned: p.is_pinned,
+    priority: p.priority,
+    areaPinnedAt: p.pinned_at,
+  })),
+  searchTags: (r.restaurant_tags || []).map((t: any) => t.tag_id) as string[],
+  lat: r.lat,
+  lng: r.lng,
+  ...(r.lat != null && r.lng != null
+    ? { location: { type: "Point", coordinates: [r.lng, r.lat] } }
+    : {}),
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+})
+
+const getRestaurantDocById = async (id: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("restaurants")
+    .select(RESTAURANT_DOC_SELECT)
+    .eq("id", id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data ? mapRestaurantDoc(data) : null
+}
+
+// Supabase helpers
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m)
+const countOf = async (query: PromiseLike<{ count: number | null; error: any }>) => {
+  const { count, error } = await query
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +136,6 @@ export async function GET(req: NextRequest) {
     if (!adminCheck.success) {
       return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     }
-
-    await connectToDatabase()
 
     // Parse query parameters
     const { searchParams } = new URL(req.url)
@@ -37,19 +156,16 @@ export async function GET(req: NextRequest) {
     const query: any = {}
 
     // Exclude hidden restaurants by default
-    query.hidden = { $ne: true }
+    query.hidden = false
 
     if (searchTerm) {
-      query.$or = [
-        { name: { $regex: searchTerm, $options: 'i' } },
-        {
-          category: {
-            $in: await Category.find({
-              name: { $regex: searchTerm, $options: 'i' }
-            }).distinct('_id')
-          }
-        }
-      ]
+      query.search = searchTerm
+      const { data: matchingCategories, error: matchingCategoriesError } = await supabaseAdmin
+        .from("categories")
+        .select("id")
+        .ilike("name", `%${escapeLike(searchTerm)}%`)
+      if (matchingCategoriesError) throw new Error(matchingCategoriesError.message)
+      query.categoryIds = (matchingCategories || []).map((c: any) => c.id)
     }
 
     // Status filter
@@ -60,7 +176,14 @@ export async function GET(req: NextRequest) {
     // Area filter
     if (areaFilter && areaFilter !== 'all') {
       // Find the area by name
-      const area = await Area.findOne({ name: areaFilter })
+      const { data: areaRow, error: areaError } = await supabaseAdmin
+        .from("areas")
+        .select("id, name")
+        .eq("name", areaFilter)
+        .limit(1)
+        .maybeSingle()
+      if (areaError) throw new Error(areaError.message)
+      const area = areaRow && { _id: areaRow.id, name: areaRow.name }
 
       console.log('Area Filter Details:', {
         areaFilter,
@@ -73,13 +196,35 @@ export async function GET(req: NextRequest) {
         const areaIdString = area._id.toString()
 
         // Use $in to match any area in the restaurant's areas array
-        query.area = { $in: [areaIdString] }
+        query.areaId = areaIdString
       }
     }
 
     console.log('Final Query:', query)
 
-    const totalRestaurants = await Restaurant.countDocuments(query)
+    // Lightweight list of every matching restaurant (id + sort fields); the page is cut out of it below
+    const matchingRows = await fetchAllRows(() => {
+      let q: any = supabaseAdmin
+        .from("restaurants")
+        .select(
+          "id, name, created_at, home_is_pinned, home_pin_priority, restaurant_area_pins(priority), restaurant_categories(category_id)" +
+            (query.areaId ? ", restaurant_areas!inner(area_id)" : "")
+        )
+        .eq("is_hidden", query.hidden)
+      if (query.status) q = q.eq("status", query.status)
+      if (query.areaId) q = q.eq("restaurant_areas.area_id", query.areaId)
+      return q.order("id", { ascending: true })
+    })
+    const searchLower = searchTerm.toLowerCase()
+    const filteredRows = matchingRows.filter((r: any) => {
+      if (!query.search) return true
+      return (
+        String(r.name || "").toLowerCase().includes(searchLower) ||
+        (r.restaurant_categories || []).some((rc: any) => query.categoryIds.includes(rc.category_id))
+      )
+    })
+
+    const totalRestaurants = filteredRows.length
 
     const totalPages = Math.ceil(totalRestaurants / limit)
 
@@ -96,92 +241,68 @@ export async function GET(req: NextRequest) {
     //   .populate('area', 'name')
     //   .lean() // Optimize: Return plain JavaScript objects instead of Mongoose documents  
 
-    const restaurants = await Restaurant.aggregate([
-      { $match: query },
-
-      /** ✅ COMPUTED SORT FIELDS */
-      {
-        $addFields: {
-          isHomePinned: { $cond: ["$homePin.isPinned", 1, 0] },
-          homePriority: { $ifNull: ["$homePin.priority", 9999] },
-
-          isAreaPinned: {
-            $cond: [
-              { $gt: [{ $size: { $ifNull: ["$areaPins", []] } }, 0] },
-              1,
-              0
-            ]
-          },
-
-          areaMinPriority: {
-            $min: {
-              $map: {
-                input: { $ifNull: ["$areaPins", []] },
-                as: "pin",
-                in: "$$pin.priority"
-              }
-            }
-          }
+    // Computed sort fields + sort logic (same as the old aggregation), then skip/limit
+    const sortedRows = filteredRows
+      .map((r: any) => {
+        const pinPriorities = (r.restaurant_area_pins || [])
+          .map((p: any) => p.priority)
+          .filter((p: any) => p != null)
+        return {
+          id: r.id,
+          created_at: r.created_at,
+          /** ✅ COMPUTED SORT FIELDS */
+          isHomePinned: r.home_is_pinned ? 1 : 0,
+          homePriority: r.home_pin_priority ?? 9999,
+          isAreaPinned: (r.restaurant_area_pins || []).length > 0 ? 1 : 0,
+          areaMinPriority: pinPriorities.length > 0 ? Math.min(...pinPriorities) : null,
         }
-      },
-
+      })
       /** ✅ SORT LOGIC */
-      {
-        $sort: {
-          isHomePinned: -1,        // 1️⃣ Home pinned first
-          homePriority: 1,
+      .sort((a: any, b: any) => {
+        if (a.isHomePinned !== b.isHomePinned) return b.isHomePinned - a.isHomePinned // 1️⃣ Home pinned first
+        if (a.homePriority !== b.homePriority) return a.homePriority - b.homePriority
 
-          isAreaPinned: -1,        // 2️⃣ Area pinned next
-          areaMinPriority: 1,
+        if (a.isAreaPinned !== b.isAreaPinned) return b.isAreaPinned - a.isAreaPinned // 2️⃣ Area pinned next
+        const aMin = a.areaMinPriority ?? -Infinity
+        const bMin = b.areaMinPriority ?? -Infinity
+        if (aMin !== bMin) return aMin - bMin
 
-          createdAt: -1            // 3️⃣ Normal fallback
-        }
-      },
+        if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1 // 3️⃣ Normal fallback
+        return a.id < b.id ? -1 : 1
+      })
+    const pageIds = sortedRows.slice(skip, skip + exportLimit).map((r: any) => r.id)
 
-      { $skip: skip },
-      { $limit: exportLimit }
-    ])
+    const pageRows = await fetchByIds("restaurants", RESTAURANT_DOC_SELECT, pageIds)
+    const pageRowById = new Map(pageRows.map((r: any) => [r.id, r]))
+    const restaurants = pageIds
+      .map((rid: string) => pageRowById.get(rid))
+      .filter(Boolean)
+      .map(mapRestaurantDoc)
 
     // Get restaurant IDs for this page
     const restaurantIds = restaurants.map(restaurant => restaurant._id)
 
     // Optimize: Combine both offer count queries into one aggregation with $facet
     const currentDate = new Date()
-    const offerCounts = await Offer.aggregate([
+    const offerRows = await fetchByIds("offers", "restaurant_id, status", restaurantIds, {
+      column: "restaurant_id",
+      apply: (q) =>
+        q
+          .in("status", ["active", "pending"])
+          .or(`expiry_date.gt.${currentDate.toISOString()},expiry_date.is.null`),
+    })
+    const activeCounts: Record<string, number> = {}
+    const pendingCounts: Record<string, number> = {}
+    for (const o of offerRows) {
+      const bucket = o.status === "active" ? activeCounts : pendingCounts
+      bucket[o.restaurant_id] = (bucket[o.restaurant_id] || 0) + 1
+    }
+    const offerCounts = [
       {
-        $match: {
-          restaurantId: { $in: restaurantIds },
-          status: { $in: ["active", "pending"] },
-          $or: [
-            { expiryDate: { $gt: currentDate } },
-            { expiryDate: { $exists: false } },
-            { expiryDate: null }
-          ]
-        }
+        active: Object.entries(activeCounts).map(([_id, count]) => ({ _id, count })),
+        pending: Object.entries(pendingCounts).map(([_id, count]) => ({ _id, count })),
       },
-      {
-        $facet: {
-          active: [
-            { $match: { status: "active" } },
-            {
-              $group: {
-                _id: "$restaurantId",
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          pending: [
-            { $match: { status: "pending" } },
-            {
-              $group: {
-                _id: "$restaurantId",
-                count: { $sum: 1 }
-              }
-            }
-          ]
-        }
-      }
-    ])
+    ]
 
     console.log('Offer Counts Result:', JSON.stringify(offerCounts, null, 2))
 
@@ -205,7 +326,7 @@ export async function GET(req: NextRequest) {
       if (Array.isArray(restaurant.category)) {
         restaurant.category.forEach((catId: any) => allCategoryIds.add(catId.toString()))
       } else if (restaurant.category) {
-        allCategoryIds.add(restaurant.category.toString())
+        allCategoryIds.add((restaurant.category as any).toString())
       }
 
       // Collect user IDs from both userId and associatedId
@@ -229,9 +350,15 @@ export async function GET(req: NextRequest) {
 
     // Optimize: Batch fetch all data at once
     const [categoriesData, usersData, areasData, dynamicFilters] = await Promise.all([
-      Category.find({ _id: { $in: Array.from(allCategoryIds) } }).select("_id name").lean(),
-      User.find({ _id: { $in: Array.from(allUserIds) } }).select("_id firstName lastName").lean(),
-      Area.find({ _id: { $in: Array.from(allAreaIds) } }).select("_id name").lean(),
+      fetchByIds("categories", "id, name", Array.from(allCategoryIds)).then((rows) =>
+        rows.map((c: any) => ({ _id: c.id, name: c.name }))
+      ),
+      fetchByIds("users", "id, first_name, last_name", Array.from(allUserIds)).then((rows) =>
+        rows.map((u: any) => ({ _id: u.id, firstName: u.first_name, lastName: u.last_name }))
+      ),
+      fetchByIds("areas", "id, name", Array.from(allAreaIds)).then((rows) =>
+        rows.map((a: any) => ({ _id: a.id, name: a.name }))
+      ),
       getDynamicFilterOptions()
     ])
 
@@ -397,9 +524,15 @@ export async function GET(req: NextRequest) {
 async function getDynamicFilterOptions() {
   // Optimize: Run all queries in parallel and use lean() for better performance
   const [areas, statuses, categories] = await Promise.all([
-    Area.find().select('name').lean(),
-    Restaurant.distinct('status'),
-    Category.find().select('name').lean()
+    fetchAllRows(() =>
+      supabaseAdmin.from("areas").select("id, name").order("created_at", { ascending: true }).order("id", { ascending: true })
+    ).then((rows) => rows.map((a: any) => ({ _id: a.id, name: a.name }))),
+    fetchAllRows(() =>
+      supabaseAdmin.from("restaurants").select("id, status").order("id", { ascending: true })
+    ).then((rows) => Array.from(new Set(rows.map((r: any) => r.status))).sort() as string[]),
+    fetchAllRows(() =>
+      supabaseAdmin.from("categories").select("id, name").order("created_at", { ascending: true }).order("id", { ascending: true })
+    ).then((rows) => rows.map((c: any) => ({ _id: c.id, name: c.name })))
   ])
 
   return {
@@ -429,12 +562,12 @@ async function getGlobalRestaurantStats() {
     totalOffers,
     activeOffers
   ] = await Promise.all([
-    Restaurant.countDocuments(),
-    Restaurant.countDocuments({ status: 'approved' }),
-    Restaurant.countDocuments({ status: 'pending' }),
-    Restaurant.countDocuments({ status: 'rejected' }),
-    Offer.countDocuments(),
-    Offer.countDocuments({ status: 'active' })
+    countOf(supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true })),
+    countOf(supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "approved")),
+    countOf(supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "pending")),
+    countOf(supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "rejected")),
+    countOf(supabaseAdmin.from("offers").select("id", { count: "exact", head: true })),
+    countOf(supabaseAdmin.from("offers").select("id", { count: "exact", head: true }).eq("status", "active"))
   ])
 
   return {

@@ -1,8 +1,10 @@
+// app/api/admin/areas/[id]/route.ts
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Area from "@/models/Area"
-import Restaurant from "@/models/Restaurant"
+import supabaseAdmin from "@/lib/supabase/admin"
 import { verifyAdminToken } from "@/lib/auth-admin"
+
+// Supabase helper: escape a name so it is matched literally (case-insensitive exact match) in ILIKE
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m)
 
 // Update an area
 export async function PUT(req : any, { params } : any) {
@@ -20,20 +22,33 @@ export async function PUT(req : any, { params } : any) {
       return NextResponse.json({ success: false, message: "Area name is required" }, { status: 400 })
     }
 
-    await connectToDatabase()
-
     // Check if area exists
-    const area = await Area.findById(id)
+    const { data: areaRow, error: areaError } = await supabaseAdmin
+      .from("areas")
+      .select("id, name, is_active, hide_restaurant")
+      .eq("id", id)
+      .maybeSingle()
+    if (areaError) throw new Error(areaError.message)
+    const area = areaRow && {
+      _id: areaRow.id,
+      name: areaRow.name,
+      isActive: areaRow.is_active,
+      hideRestaurant: areaRow.hide_restaurant,
+    }
     if (!area) {
       return NextResponse.json({ success: false, message: "Area not found" }, { status: 404 })
     }
 
     // Check if name is being changed and if it already exists
     if (name.toLowerCase() !== area.name.toLowerCase()) {
-      const existingArea = await Area.findOne({
-        name: { $regex: new RegExp(`^${name}$`, "i") },
-        _id: { $ne: id },
-      })
+      const { data: existingArea, error: existingAreaError } = await supabaseAdmin
+        .from("areas")
+        .select("id")
+        .ilike("name", escapeLike(name))
+        .neq("id", id)
+        .limit(1)
+        .maybeSingle()
+      if (existingAreaError) throw new Error(existingAreaError.message)
 
       if (existingArea) {
         return NextResponse.json({ success: false, message: "Area name already exists" }, { status: 400 })
@@ -44,15 +59,25 @@ export async function PUT(req : any, { params } : any) {
     // const formattedName = name.trim().charAt(0).toUpperCase() + name.trim().slice(1).toUpperCase()
 
     // Update area
-    const updatedArea = await Area.findByIdAndUpdate(
-      id,
-      {
-        name: name,
-        isActive: isActive !== undefined ? isActive : area.isActive,
-        hideRestaurant: hideRestaurant !== undefined ? hideRestaurant : area.hideRestaurant,
-      },
-      { new: true },
-    )
+    const { data: updatedAreaRow, error: updateError } = await supabaseAdmin
+      .from("areas")
+      .update({
+        name: name.trim(),
+        is_active: isActive !== undefined ? isActive : area.isActive,
+        hide_restaurant: hideRestaurant !== undefined ? hideRestaurant : area.hideRestaurant,
+      })
+      .eq("id", id)
+      .select("id, name, is_active, hide_restaurant, created_at, updated_at")
+      .single()
+    if (updateError) throw new Error(updateError.message)
+    const updatedArea = {
+      _id: updatedAreaRow.id,
+      name: updatedAreaRow.name,
+      isActive: updatedAreaRow.is_active,
+      hideRestaurant: updatedAreaRow.hide_restaurant,
+      createdAt: updatedAreaRow.created_at,
+      updatedAt: updatedAreaRow.updated_at,
+    }
 
     return NextResponse.json({
       success: true,
@@ -83,18 +108,25 @@ export async function DELETE(req : any, { params } : any) {
 
     const { id } = params
 
-    await connectToDatabase()
-
     // Check if area exists
-    const area = await Area.findById(id)
+    const { data: areaRow, error: areaError } = await supabaseAdmin
+      .from("areas")
+      .select("id, name")
+      .eq("id", id)
+      .maybeSingle()
+    if (areaError) throw new Error(areaError.message)
+    const area = areaRow && { _id: areaRow.id, name: areaRow.name }
     if (!area) {
       return NextResponse.json({ success: false, message: "Area not found" }, { status: 404 })
     }
 
     // Check if any restaurant is assigned to this area
-    const restaurantsWithArea = await Restaurant.find({
-      area: { $in: [id] }
-    })
+    const { data: restaurantRows, error: restaurantsError } = await supabaseAdmin
+      .from("restaurants")
+      .select("id, name, restaurant_areas!inner(area_id)")
+      .eq("restaurant_areas.area_id", id)
+    if (restaurantsError) throw new Error(restaurantsError.message)
+    const restaurantsWithArea = (restaurantRows || []).map((r: any) => ({ _id: r.id, name: r.name }))
 
     if (restaurantsWithArea.length > 0) {
       const restaurantNames = restaurantsWithArea.map(restaurant => restaurant.name).join(", ")
@@ -105,7 +137,8 @@ export async function DELETE(req : any, { params } : any) {
     }
 
     // Delete area
-    await Area.findByIdAndDelete(id)
+    const { error: deleteError } = await supabaseAdmin.from("areas").delete().eq("id", id)
+    if (deleteError) throw new Error(deleteError.message)
 
     return NextResponse.json({
       success: true,
@@ -123,4 +156,3 @@ export async function DELETE(req : any, { params } : any) {
     )
   }
 }
-
