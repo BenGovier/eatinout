@@ -133,7 +133,19 @@ export async function POST(req: NextRequest) {
 
     // Generate unique ID for wallet
     const walletId = crypto.randomUUID().replace(/-/g, "").substring(0, 24);
-    const targetRestaurantId = offerRestaurantId || offer.restaurant_id;
+
+    // Use verified restaurant_id from the offer in the database to prevent FK constraint failures
+    let targetRestaurantId = offer.restaurant_id || null;
+    if (!targetRestaurantId && offerRestaurantId) {
+      const { data: restCheck } = await supabaseAdmin
+        .from("restaurants")
+        .select("id")
+        .eq("id", offerRestaurantId)
+        .maybeSingle();
+      if (restCheck) {
+        targetRestaurantId = restCheck.id;
+      }
+    }
 
     const { data: newWallet, error: insertError } = await supabaseAdmin
       .from("wallets")
