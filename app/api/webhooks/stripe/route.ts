@@ -182,7 +182,11 @@ export async function POST(req: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = (invoice as any).subscription as string | undefined;
         // Ignore the £0 trial invoice: it is created at page load, before any card is entered.
-        if (subscriptionId && (invoice.amount_paid ?? 0) > 0) {
+              if (
+          subscriptionId &&
+          (invoice as any).billing_reason === 'subscription_create' &&
+          (invoice.amount_paid ?? 0) > 0
+        ) {
           await activateSubscription(subscriptionId);
         }
         break;
