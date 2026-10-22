@@ -98,6 +98,14 @@ export async function activateSubscription(subscriptionId: string, expectedCusto
   }
 
   const user = claimed;
+
+  // Renewal / trial-end par DB update ho chuka hai, bas mail mat bhejo.
+  const latestInv: any = subscription.latest_invoice;
+  const billingReason = typeof latestInv === "object" ? latestInv?.billing_reason : undefined;
+  if (billingReason && billingReason !== "subscription_create") {
+    return { ok: true as const, user, emailsSent: false };
+  }
+
   const priceId = subscription.items.data[0]?.price?.id;
   const selectedPlan = PLANS.find((p) => p.priceId && p.priceId === priceId) ?? PLANS[0];
 
