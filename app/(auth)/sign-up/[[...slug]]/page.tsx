@@ -48,16 +48,6 @@ function SignUpPageContent() {
 
   const PLANS = [
     {
-      id: "monthly",
-      name: "Monthly",
-      price: "£4.99",
-      period: "/month",
-      originalPrice: null as string | null,
-      discountLabel: null as string | null,
-      perMonth: null as string | null,
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
-    },
-    {
       id: "six",
       name: "6 Months",
       price: "£25.45",
@@ -66,6 +56,16 @@ function SignUpPageContent() {
       discountLabel: "15% off",
       perMonth: "£4.24/month",
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT,
+    },
+    {
+      id: "monthly",
+      name: "Monthly",
+      price: "£4.99",
+      period: "/month",
+      originalPrice: null as string | null,
+      discountLabel: null as string | null,
+      perMonth: null as string | null,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
     },
     {
       id: "annual",
