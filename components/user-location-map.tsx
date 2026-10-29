@@ -1059,6 +1059,17 @@ export default function UserLocationMap({
               <CarouselItem key={mapPopover.id} className="pl-4 basis-[85%]">
                 <div className="flex flex-col gap-3 pr-4">
                   <div className="relative h-32 w-full overflow-hidden rounded-xl bg-gray-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMapPopoverList([]);
+                      }}
+                      aria-label="Close popup"
+                      className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors shadow-md"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                     <Image
                       src={mapPopover.imageUrl || "/placeholder.svg"}
                       alt={mapPopover.name}
