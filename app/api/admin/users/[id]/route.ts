@@ -1,10 +1,34 @@
+// api/admin/users/[id]/route.ts
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
+import supabaseAdmin from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
 import Stripe from "stripe";
-import User from "@/models/User";
-import Restaurant from "@/models/Restaurant";
-import Offer from "@/models/Offer";
+
+// Supabase helpers: map snake_case rows to the camelCase shape used below, and throw on DB errors
+const USER_COLUMNS =
+  "id, first_name, last_name, email, role, subscription_status, is_trialing, subscription_id, stripe_customer_id, is_deleted, created_at, updated_at";
+
+const mapUser = (row: any) =>
+  row
+    ? {
+        _id: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: row.email,
+        role: row.role,
+        subscriptionStatus: row.subscription_status,
+        isTrialing: row.is_trialing,
+        subscriptionId: row.subscription_id,
+        stripeCustomerId: row.stripe_customer_id,
+        deleted: row.is_deleted,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }
+    : null;
+
+const dbCheck = (res: { error: any }) => {
+  if (res.error) throw new Error(res.error.message);
+};
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -19,10 +43,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const { id } = await params;
 
-    await connectToDatabase();
-
     // Get user details
-    const user = await User.findById(id);
+    const userRes = await supabaseAdmin
+      .from("users")
+      .select(USER_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    dbCheck(userRes);
+    const user = mapUser(userRes.data);
 
     if (!user) {
       return NextResponse.json(
@@ -108,10 +136,15 @@ export async function DELETE(
     }
 
     const { id } = params;
-    await connectToDatabase();
 
     // ✅ Find user
-    const user = await User.findById(id);
+    const userRes = await supabaseAdmin
+      .from("users")
+      .select(USER_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    dbCheck(userRes);
+    const user = mapUser(userRes.data);
     if (!user) {
       return NextResponse.json(
         { success: false, message: "User not found" },
@@ -139,10 +172,15 @@ export async function DELETE(
         stripeCleanupResult.subscriptionCanceled = true;
 
         // Update user's subscription status in database
-        await User.findByIdAndUpdate(user._id, {
-          subscriptionStatus: 'cancelled',
-          subscriptionId: null
-        });
+        dbCheck(
+          await supabaseAdmin
+            .from("users")
+            .update({
+              subscription_status: 'cancelled',
+              subscription_id: null
+            })
+            .eq("id", user._id)
+        );
       } catch (stripeError: any) {
         console.error('Stripe subscription cancellation error:', stripeError);
         // Log the error but continue with user deletion
@@ -151,51 +189,82 @@ export async function DELETE(
 
     // ✅ If user is a restaurant → soft delete restaurant + offers
     if (user.role === "restaurant") {
-      const restaurant = await Restaurant.findOne({ userId: user._id });
+      const restaurantRes = await supabaseAdmin
+        .from("restaurants")
+        .select("id, user_id")
+        .eq("user_id", user._id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      dbCheck(restaurantRes);
+      const restaurant = restaurantRes.data
+        ? { _id: restaurantRes.data.id, userId: restaurantRes.data.user_id }
+        : null;
       if (restaurant) {
         // Soft delete all offers of this restaurant
-        await Offer.updateMany(
-          { restaurantId: restaurant._id },
-          { 
-            status: 'inactive',
-            deactivated: true 
-          }
+        dbCheck(
+          await supabaseAdmin
+            .from("offers")
+            .update({ 
+              status: 'inactive',
+              is_deactivated: true 
+            })
+            .eq("restaurant_id", restaurant._id)
         );
 
         console.log("Soft deleting restaurants with associatedId:", restaurant.userId);
 
         // Soft delete linked restaurants (only if associatedId exists)
         if (restaurant.userId) {
-          const associatedRestaurants = await Restaurant.find({ associatedId: restaurant.userId });
+          const assocRes = await supabaseAdmin
+            .from("restaurants")
+            .select("id")
+            .eq("associated_id", restaurant.userId);
+          dbCheck(assocRes);
+          const associatedRestaurants = (assocRes.data || []).map((r: any) => ({ _id: r.id }));
 
           // Deactivate their offers
           for (const assoc of associatedRestaurants) {
-            await Offer.updateMany(
-              { restaurantId: assoc._id },
-              { 
-                status: 'inactive',
-                deactivated: true 
-              }
+            dbCheck(
+              await supabaseAdmin
+                .from("offers")
+                .update({ 
+                  status: 'inactive',
+                  is_deactivated: true 
+                })
+                .eq("restaurant_id", assoc._id)
             );
           }
 
           // Hide associated restaurants
-          await Restaurant.updateMany(
-            { associatedId: restaurant.userId },
-            { hidden: true }
+          dbCheck(
+            await supabaseAdmin
+              .from("restaurants")
+              .update({ is_hidden: true })
+              .eq("associated_id", restaurant.userId)
           );
         }
 
         // Hide the main restaurant
-        await Restaurant.findByIdAndUpdate(restaurant._id, { hidden: true });
+        dbCheck(
+          await supabaseAdmin
+            .from("restaurants")
+            .update({ is_hidden: true })
+            .eq("id", restaurant._id)
+        );
       }
     }
 
     // ✅ Soft delete user itself
-    await User.findByIdAndUpdate(user._id, {
-      deleted: true,
-      deletedAt: new Date()
-    });
+    dbCheck(
+      await supabaseAdmin
+        .from("users")
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq("id", user._id)
+    );
 
     console.log("User soft deleted:", user.email);
     console.log("Stripe subscription cancellation result:", stripeCleanupResult);

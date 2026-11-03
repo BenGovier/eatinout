@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Area from "@/models/Area"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export async function GET() {
   try {
-    await connectToDatabase()
+    const { data, error } = await supabaseAdmin
+      .from("areas")
+      .select("id, name, hide_restaurant")
+      .eq("is_active", true)
+      .order("name", { ascending: true })
 
-    const areas = await Area.find({ isActive: true })
-      .select("_id name hideRestaurant")
-      .sort({ name: 1 })
-      .lean()
+    if (error) throw new Error(error.message)
 
-    const formattedAreas = (areas as any[]).map((area) => ({
-      _id: area._id.toString(),
+    const formattedAreas = (data || []).map((area: any) => ({
+      _id: area.id,
       name: area.name,
-      hideRestaurant : area.hideRestaurant || false
+      hideRestaurant: area.hide_restaurant || false,
     }))
 
     return NextResponse.json({

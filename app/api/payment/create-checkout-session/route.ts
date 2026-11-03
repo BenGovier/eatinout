@@ -1,4 +1,5 @@
-import User from "@/models/User";
+// api/payment/create-checkout-session/route.ts
+import supabaseAdmin from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -12,7 +13,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const user = await User.findOne({ email });
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("has_subscribed_before, rewardful_referral, selected_price_id")
+      .eq("email", String(email).toLowerCase())
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
+    const user = userRow && {
+      hasSubscribedBefore: userRow.has_subscribed_before,
+      rewardfulReferral: userRow.rewardful_referral,
+      selectedPriceId: userRow.selected_price_id,
+    };
     const hasSubscribedBefore = user?.hasSubscribedBefore ?? false;
 
     // Get referral ID from request or user record

@@ -1,9 +1,18 @@
+// app/api/admin/areas/route.ts
 import { NextResponse } from "next/server"
 import { NextRequest } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Area from "@/models/Area"
-import Restaurant from "@/models/Restaurant"
+import supabaseAdmin from "@/lib/supabase/admin"
+import { randomBytes } from "crypto"
 import { verifyAdminToken } from "@/lib/auth-admin"
+
+// Supabase helpers
+const SUPABASE_PAGE_SIZE = 1000
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m)
+const countOf = async (query: PromiseLike<{ count: number | null; error: any }>) => {
+  const { count, error } = await query
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,8 +21,6 @@ export async function GET(req: NextRequest) {
     if (!adminCheck.success) {
       return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     }
-
-    await connectToDatabase()
 
     // Parse query parameters
     const { searchParams } = new URL(req.url)
@@ -31,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     // Search filter
     if (searchTerm) {
-      query.name = { $regex: searchTerm, $options: 'i' }
+      query.name = searchTerm
     }
 
     // Status filter
@@ -40,36 +47,60 @@ export async function GET(req: NextRequest) {
     }
 
     // Count total areas
-    const totalAreas = await Area.countDocuments(query)
+    // Fetch areas with pagination (the total comes from the same query)
+    const rangeStart = isExport ? 0 : skip
+    const rangeEnd = rangeStart + (isExport ? 10000 : limit) - 1
+    const areaRows: any[] = []
+    let totalAreas = 0
+    for (let from = rangeStart; from <= rangeEnd; from += SUPABASE_PAGE_SIZE) {
+      const to = Math.min(from + SUPABASE_PAGE_SIZE - 1, rangeEnd)
+      let q: any = supabaseAdmin
+        .from("areas")
+        .select("id, name, is_active, hide_restaurant, created_at", from === rangeStart ? { count: "exact" } : {})
+      if (query.name !== undefined) q = q.ilike("name", `%${escapeLike(query.name)}%`)
+      if (query.isActive !== undefined) q = q.eq("is_active", query.isActive)
+      const { data, count, error } = await q
+        .order("name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (error) throw new Error(error.message)
+      if (from === rangeStart) totalAreas = count ?? 0
+      areaRows.push(...(data || []))
+      if ((data || []).length < to - from + 1) break
+    }
     const totalPages = Math.ceil(totalAreas / limit)
-
-    // Fetch areas with pagination
-    const areas = await Area.find(query)
-      .sort({ name: 1 })
-      .skip(isExport ? 0 : skip)
-      .limit(isExport ? 10000 : limit)
-      .lean() // Optimize: Return plain JavaScript objects instead of Mongoose documents
+    const areas = areaRows.map((a: any) => ({
+      _id: a.id,
+      name: a.name,
+      isActive: a.is_active,
+      hideRestaurant: a.hide_restaurant,
+      createdAt: a.created_at,
+    })) // Optimize: Return plain JavaScript objects instead of Mongoose documents
 
     // Get restaurant counts for each area in a single aggregation query
     const areaIds = areas.map((area: any) => area._id.toString())
     
-    const restaurantCounts = await Restaurant.aggregate([
-      {
-        $match: {
-          area: { $in: areaIds },
-          status: "approved"
-        }
-      },
-      {
-        $unwind: "$area"
-      },
-      {
-        $group: {
-          _id: "$area",
-          count: { $sum: 1 }
-        }
+    const restaurantCountRows: any[] = []
+    if (areaIds.length > 0) {
+      for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+        const { data, error } = await supabaseAdmin
+          .from("restaurant_areas")
+          .select("area_id, restaurant_id, restaurants!inner(status)")
+          .in("area_id", areaIds)
+          .eq("restaurants.status", "approved")
+          .order("area_id", { ascending: true })
+          .order("restaurant_id", { ascending: true })
+          .range(from, from + SUPABASE_PAGE_SIZE - 1)
+        if (error) throw new Error(error.message)
+        restaurantCountRows.push(...(data || []))
+        if ((data || []).length < SUPABASE_PAGE_SIZE) break
       }
-    ])
+    }
+    const countsByArea: Record<string, number> = {}
+    for (const row of restaurantCountRows) {
+      countsByArea[row.area_id] = (countsByArea[row.area_id] || 0) + 1
+    }
+    const restaurantCounts = Object.entries(countsByArea).map(([_id, count]) => ({ _id, count }))
 
     // Create a map for quick lookup
     const countMap = new Map<string, number>()
@@ -134,10 +165,10 @@ async function getDynamicFilterOptions() {
 async function getGlobalAreaStats() {
   // Optimize: Run all count queries in parallel instead of sequentially
   const [totalAreas, activeAreas, inactiveAreas, totalRestaurants] = await Promise.all([
-    Area.countDocuments(),
-    Area.countDocuments({ isActive: true }),
-    Area.countDocuments({ isActive: false }),
-    Restaurant.countDocuments({ status: 'approved' })
+    countOf(supabaseAdmin.from("areas").select("id", { count: "exact", head: true })),
+    countOf(supabaseAdmin.from("areas").select("id", { count: "exact", head: true }).eq("is_active", true)),
+    countOf(supabaseAdmin.from("areas").select("id", { count: "exact", head: true }).eq("is_active", false)),
+    countOf(supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "approved"))
   ])
 
   return {
@@ -163,20 +194,37 @@ export async function POST(req: any) {
       return NextResponse.json({ success: false, message: "Area name is required" }, { status: 400 })
     }
 
-    await connectToDatabase()
-
     // Check if area already exists (case insensitive)
-    const existingArea = await Area.findOne({
-      name: { $regex: new RegExp(`^${name}$`, "i") },
-    })
+    const { data: existingArea, error: existingAreaError } = await supabaseAdmin
+      .from("areas")
+      .select("id")
+      .ilike("name", escapeLike(name))
+      .limit(1)
+      .maybeSingle()
+    if (existingAreaError) throw new Error(existingAreaError.message)
 
     if (existingArea) {
       return NextResponse.json({ success: false, message: "Area already exists" }, { status: 400 })
     }
 
     // Create new area with proper capitalization
-    const area = new Area({ name: name })
-    await area.save()
+    const { data: createdArea, error: createError } = await supabaseAdmin
+      .from("areas")
+      .insert({
+        // 24-char hex id, same format as the migrated MongoDB ObjectId ids
+        id: randomBytes(12).toString("hex"),
+        name: name.trim(),
+      })
+      .select("id, name, is_active, hide_restaurant, created_at")
+      .single()
+    if (createError) throw new Error(createError.message)
+    const area = {
+      _id: createdArea.id,
+      name: createdArea.name,
+      isActive: createdArea.is_active,
+      hideRestaurant: createdArea.hide_restaurant,
+      createdAt: createdArea.created_at,
+    }
 
     return NextResponse.json(
       {
@@ -205,4 +253,3 @@ export async function POST(req: any) {
     )
   }
 }
-

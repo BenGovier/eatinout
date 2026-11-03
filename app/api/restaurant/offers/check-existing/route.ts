@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   try {
@@ -8,16 +7,28 @@ export async function GET(request: Request) {
     const restaurantId = searchParams.get("restaurantId");
 
     if (!restaurantId) {
-      return NextResponse.json({ message: "Restaurant ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Restaurant ID is required" },
+        { status: 400 }
+      );
     }
 
-    await connectToDatabase();
+    const { count, error } = await supabaseAdmin
+      .from("offers")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId);
 
-    const existingOfferCount = await Offer.countDocuments({ restaurantId });
+    if (error) {
+      console.error("Supabase check existing offers error:", error);
+      return NextResponse.json(
+        { message: "Failed to check existing offers", error: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      hasExistingOffers: existingOfferCount > 0,
+      hasExistingOffers: (count || 0) > 0,
     });
   } catch (error: any) {
     console.error("Check existing offers error:", error);

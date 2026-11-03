@@ -2,23 +2,23 @@
   "default_branch": "main",
   "branches": [
     "main",
-    "nktest",
-    "ns-feature",
+    "nk-sup",
+    "ns-dev",
     "origin",
-    "vercel-build-test"
+    "saurabh"
   ],
   "parent": {
     "main": null,
-    "nktest": "main",
-    "ns-feature": "main",
+    "nk-sup": "main",
+    "ns-dev": "main",
     "origin": "main",
-    "vercel-build-test": "main"
+    "saurabh": "main"
   },
   "order": [
     "main",
-    "nktest",
-    "ns-feature",
+    "nk-sup",
+    "ns-dev",
     "origin",
-    "vercel-build-test"
+    "saurabh"
   ]
 }

@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import User from "@/models/User";
-import connectToDatabase from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -22,8 +21,6 @@ export async function PUT(request: NextRequest) {
       process.env.JWT_SECRET as string
     ) as { userId: string };
 
-    await connectToDatabase();
-
     const { firstName, lastName, email, mobile } = await request.json();
 
     if (!firstName || !lastName || !email) {
@@ -33,22 +30,41 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      decodedToken.userId,
-      {
-        $set: { firstName, lastName, email, mobile },
-      },
-      { new: true, runValidators: true }
-    ).select("-password");
+    const { data: updatedUser, error } = await supabaseAdmin
+      .from("users")
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        mobile: mobile ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", decodedToken.userId)
+      .select("id, first_name, last_name, email, role, mobile, zip_code, subscription_status, created_at, updated_at")
+      .maybeSingle();
 
-    if (!updatedUser) {
+    if (error || !updatedUser) {
       return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
     }
+
+    const formattedUser = {
+      _id: updatedUser.id,
+      id: updatedUser.id,
+      firstName: updatedUser.first_name,
+      lastName: updatedUser.last_name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      mobile: updatedUser.mobile,
+      zipCode: updatedUser.zip_code,
+      subscriptionStatus: updatedUser.subscription_status,
+      createdAt: updatedUser.created_at,
+      updatedAt: updatedUser.updated_at,
+    };
 
     return NextResponse.json({
       success: true,
       message: "Restaurant profile updated successfully",
-      restaurant: updatedUser,
+      restaurant: formattedUser,
     });
   } catch (error) {
     console.error("Error updating restaurant profile:", error);

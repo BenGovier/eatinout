@@ -1,18 +1,8 @@
-// app/api/new-tags/bulk-delete/route.ts
-
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Tag from "@/models/Tag";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/new-tags/bulk-delete
-// Body: { ids: string[] }
-// ─────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    await connectToDatabase();
-
     const { ids } = await req.json();
 
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -22,22 +12,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Remove all these tag ids from all offers
-    await Offer.updateMany(
-      { tags: { $in: ids } },
-      { $pull: { tags: { $in: ids } } }
-    );
+    // Clean up associations first
+    await supabaseAdmin.from("offer_tags").delete().in("tag_id", ids);
+    await supabaseAdmin.from("restaurant_tags").delete().in("tag_id", ids);
 
-    // Delete all tags
-    const result = await Tag.deleteMany({ _id: { $in: ids } });
+    // Delete tags from tags table
+    const { error: delErr, count } = await supabaseAdmin
+      .from("tags")
+      .delete({ count: "exact" })
+      .in("id", ids);
+
+    if (delErr) throw new Error(delErr.message);
+
+    const deletedCount = count ?? ids.length;
 
     return NextResponse.json({
       success: true,
-      deleted: result.deletedCount,
-      message: `${result.deletedCount} tags deleted and removed from all offers`,
+      deleted: deletedCount,
+      message: `${deletedCount} tags deleted and removed from all offers`,
     });
   } catch (err: any) {
-    console.error("[POST /api/new-tags/bulk-delete]", err);
+    console.error("[POST /api/admin/new-tags/bulk-delete]", err);
     return NextResponse.json(
       { success: false, message: err.message || "Server error" },
       { status: 500 }

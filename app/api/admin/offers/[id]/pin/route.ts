@@ -1,7 +1,7 @@
+// app/api/admin/offers/[id]/pin/route.ts
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
 
 // PUT endpoint to pin / unpin an offer (restaurant-wise)
@@ -22,10 +22,20 @@ export async function PUT(
     const { id } = params;
     const { isPinned } = await req.json();
 
-    await connectToDatabase();
-
     // 2️⃣ Find offer
-    const offer = await Offer.findById(id);
+    const { data: offerRow, error: offerError } = await supabaseAdmin
+      .from("offers")
+      .select("id, restaurant_id, is_pinned, pinned_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (offerError) throw new Error(offerError.message);
+    // same field names the rest of this route already uses
+    const offer = offerRow && {
+      _id: offerRow.id,
+      restaurantId: offerRow.restaurant_id,
+      isPinned: offerRow.is_pinned,
+      pinnedAt: offerRow.pinned_at ? new Date(offerRow.pinned_at) : null,
+    };
     if (!offer) {
       return NextResponse.json(
         { success: false, message: "Offer not found" },
@@ -45,14 +55,15 @@ export async function PUT(
     // 4️⃣ Pin logic (RESTAURANT-WISE)
     if (isPinned === true) {
       // Unpin other offers of SAME restaurant
-      const unpinnedCount = await Offer.updateMany(
-        {
-          restaurantId: offer.restaurantId, // 🔥 key change
-          isPinned: true,
-          _id: { $ne: id },
-        },
-        { $set: { isPinned: false, pinnedAt: null } }
-      );
+      const { data: unpinnedRows, error: unpinError } = await supabaseAdmin
+        .from("offers")
+        .update({ is_pinned: false, pinned_at: null })
+        .eq("restaurant_id", offer.restaurantId) // 🔥 key change
+        .eq("is_pinned", true)
+        .neq("id", id)
+        .select("id");
+      if (unpinError) throw new Error(unpinError.message);
+      const unpinnedCount = { modifiedCount: unpinnedRows?.length || 0 };
 
       // Pin current offer
       offer.isPinned = true;
@@ -66,7 +77,11 @@ export async function PUT(
     }
 
     // 5️⃣ Save offer
-    await offer.save();
+    const { error: saveError } = await supabaseAdmin
+      .from("offers")
+      .update({ is_pinned: offer.isPinned, pinned_at: offer.pinnedAt })
+      .eq("id", id);
+    if (saveError) throw new Error(saveError.message);
 
     // 6️⃣ Response
     return NextResponse.json({

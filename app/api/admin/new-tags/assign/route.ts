@@ -1,19 +1,8 @@
-// app/api/new-tags/assign/route.ts
-
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
-import Tag from "@/models/Tag";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/new-tags/assign
-// Body: { tagId: string, offerId: string }
-// Adds tagId into Offer.tags[]
-// ─────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    await connectToDatabase();
-
     const { tagId, offerId } = await req.json();
 
     if (!tagId || !offerId) {
@@ -24,7 +13,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify tag exists
-    const tag = await Tag.findById(tagId);
+    const { data: tag, error: tagErr } = await supabaseAdmin
+      .from("tags")
+      .select("id, name")
+      .eq("id", tagId)
+      .maybeSingle();
+
+    if (tagErr) throw new Error(tagErr.message);
     if (!tag) {
       return NextResponse.json(
         { success: false, message: "Tag not found" },
@@ -33,13 +28,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify offer exists and is active
-    const offer = await Offer.findById(offerId);
+    const { data: offer, error: offerErr } = await supabaseAdmin
+      .from("offers")
+      .select("id, status")
+      .eq("id", offerId)
+      .maybeSingle();
+
+    if (offerErr) throw new Error(offerErr.message);
     if (!offer) {
       return NextResponse.json(
         { success: false, message: "Offer not found" },
         { status: 404 }
       );
     }
+
     if (offer.status !== "active") {
       return NextResponse.json(
         { success: false, message: "Can only assign tags to active offers" },
@@ -47,17 +49,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // $addToSet prevents duplicates
-    await Offer.findByIdAndUpdate(offerId, {
-      $addToSet: { tags: tagId },
-    });
+    // Insert into offer_tags (avoid duplicate)
+    const { error: insertErr } = await supabaseAdmin
+      .from("offer_tags")
+      .upsert(
+        { offer_id: offerId, tag_id: tagId },
+        { onConflict: "offer_id, tag_id", ignoreDuplicates: true }
+      );
+
+    if (insertErr) throw new Error(insertErr.message);
 
     return NextResponse.json({
       success: true,
       message: `Tag "${tag.name}" assigned to offer`,
     });
   } catch (err: any) {
-    console.error("[POST /api/new-tags/assign]", err);
+    console.error("[POST /api/admin/new-tags/assign]", err);
     return NextResponse.json(
       { success: false, message: err.message || "Server error" },
       { status: 500 }
@@ -65,15 +72,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DELETE /api/new-tags/assign
-// Body: { tagId: string, offerId: string }
-// Removes tagId from Offer.tags[]
-// ─────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   try {
-    await connectToDatabase();
-
     const { tagId, offerId } = await req.json();
 
     if (!tagId || !offerId) {
@@ -83,12 +83,14 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const offer = await Offer.findByIdAndUpdate(
-      offerId,
-      { $pull: { tags: tagId } },
-      { new: true }
-    );
+    // Verify offer exists
+    const { data: offer, error: offerErr } = await supabaseAdmin
+      .from("offers")
+      .select("id")
+      .eq("id", offerId)
+      .maybeSingle();
 
+    if (offerErr) throw new Error(offerErr.message);
     if (!offer) {
       return NextResponse.json(
         { success: false, message: "Offer not found" },
@@ -96,12 +98,20 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const { error: delErr } = await supabaseAdmin
+      .from("offer_tags")
+      .delete()
+      .eq("offer_id", offerId)
+      .eq("tag_id", tagId);
+
+    if (delErr) throw new Error(delErr.message);
+
     return NextResponse.json({
       success: true,
       message: "Tag removed from offer",
     });
   } catch (err: any) {
-    console.error("[DELETE /api/new-tags/assign]", err);
+    console.error("[DELETE /api/admin/new-tags/assign]", err);
     return NextResponse.json(
       { success: false, message: err.message || "Server error" },
       { status: 500 }

@@ -1,8 +1,8 @@
+// api/auth/verify-token/route.ts
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import User from "@/models/User";
-import connectToDatabase from "@/lib/mongodb";
+import supabaseAdmin from "@/lib/supabase/admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -30,9 +30,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Connect to database and get user details
-    await connectToDatabase();
-    const user = await User.findById(decoded.userId).select('subscriptionStatus isTrialing role email firstName lastName');
+    // Get user details
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("subscription_status, is_trialing, role, email, first_name, last_name")
+      .eq("id", decoded.userId)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
 
     if (!user) {
       return NextResponse.json({
@@ -47,10 +51,10 @@ export async function POST(request: Request) {
       message: "Token is valid",
       user: {
         ...decoded,
-        subscriptionStatus: user.subscriptionStatus,
-        isTrialing: user.isTrialing || false,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        subscriptionStatus: user.subscription_status,
+        isTrialing: user.is_trialing || false,
+        firstName: user.first_name,
+        lastName: user.last_name,
         email: user.email,
         role: user.role
       }

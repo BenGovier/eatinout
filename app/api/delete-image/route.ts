@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
-import Restaurant from "@/models/Restaurant";
-import connectToDatabase from "@/lib/mongodb";
-import dotenv from "dotenv";
-dotenv.config();
-
-console.log("DELETE IMAGE API HIT");
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function DELETE(req: Request) {
   try {
-    await connectToDatabase();
-
     const { restaurantId, imageIndex } = await req.json();
 
     if (!restaurantId || imageIndex === undefined) {
@@ -20,7 +13,13 @@ export async function DELETE(req: Request) {
     }
 
     // 1. Find restaurant
-    const restaurant = await Restaurant.findById(restaurantId);
+    const { data: restaurant, error: restErr } = await supabaseAdmin
+      .from("restaurants")
+      .select("id")
+      .eq("id", restaurantId)
+      .maybeSingle();
+
+    if (restErr) throw new Error(restErr.message);
     if (!restaurant) {
       return NextResponse.json(
         { success: false, message: "Restaurant not found" },
@@ -28,25 +27,44 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // 2. Validate imageIndex
-    if (imageIndex < 0 || imageIndex >= restaurant.images.length) {
+    // 2. Fetch current restaurant images
+    const { data: imageRows, error: imgErr } = await supabaseAdmin
+      .from("restaurant_images")
+      .select("id, image_url, display_order")
+      .eq("restaurant_id", restaurantId)
+      .order("display_order", { ascending: true });
+
+    if (imgErr) throw new Error(imgErr.message);
+
+    const rows = imageRows || [];
+
+    // 3. Validate imageIndex
+    if (imageIndex < 0 || imageIndex >= rows.length) {
       return NextResponse.json({
         success: true,
         message: "Image already removed or not present in DB",
-        images: restaurant.images,
+        images: rows.map((r) => r.image_url),
       });
     }
 
-    // 3. Remove image from array
-    restaurant.images.splice(imageIndex, 1);
+    const targetRow = rows[imageIndex];
 
-    // 4. Save updated restaurant
-    await restaurant.save();
+    // 4. Remove image from database
+    const { error: delErr } = await supabaseAdmin
+      .from("restaurant_images")
+      .delete()
+      .eq("id", targetRow.id);
+
+    if (delErr) throw new Error(delErr.message);
+
+    const remainingImages = rows
+      .filter((r) => r.id !== targetRow.id)
+      .map((r) => r.image_url);
 
     return NextResponse.json({
       success: true,
       message: "Image removed from database successfully",
-      images: restaurant.images, // send updated array back
+      images: remainingImages, // send updated array back
     });
   } catch (error: any) {
     console.error("Error removing image:", error);

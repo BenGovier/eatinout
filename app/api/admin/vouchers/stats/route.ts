@@ -1,7 +1,34 @@
+// app/api/admin/vouchers/stats/route.ts
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
+
+// replacement for Voucher.countDocuments(filter)
+async function countVouchers(apply?: (q: any) => any): Promise<number> {
+  let q: any = supabaseAdmin
+    .from("vouchers")
+    .select("id", { count: "exact", head: true });
+  if (apply) q = apply(q);
+  const { count, error } = await q;
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
+// replacement for { $expr: { $gte: ["$currentUses", "$maxUses"] } } (column-to-column compare, so counted here)
+async function countFullyUsed(): Promise<number> {
+  let n = 0;
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabaseAdmin
+      .from("vouchers")
+      .select("current_uses, max_uses")
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    n += (data || []).filter((v: any) => v.current_uses >= v.max_uses).length;
+    if (!data || data.length < 1000) break;
+  }
+  return n;
+}
 
 export async function GET(req: Request) {
   try {
@@ -12,8 +39,6 @@ export async function GET(req: Request) {
         { status: 401 }
       );
     }
-
-    await connectToDatabase();
 
     const today = new Date();
     
@@ -26,12 +51,12 @@ export async function GET(req: Request) {
       used,
       fullyUsed
     ] = await Promise.all([
-      Voucher.countDocuments(),
-      Voucher.countDocuments({ isActive: true }),
-      Voucher.countDocuments({ isActive: false }),
-      Voucher.countDocuments({ expiryDate: { $lt: today } }),
-      Voucher.countDocuments({ currentUses: { $gt: 0 } }),
-      Voucher.countDocuments({ $expr: { $gte: ["$currentUses", "$maxUses"] } })
+      countVouchers(),
+      countVouchers((q) => q.eq("is_active", true)),
+      countVouchers((q) => q.eq("is_active", false)),
+      countVouchers((q) => q.lt("expiry_date", today.toISOString())),
+      countVouchers((q) => q.gt("current_uses", 0)),
+      countFullyUsed()
     ]);
 
     return NextResponse.json({

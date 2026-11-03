@@ -1,323 +1,293 @@
-import { NextResponse } from "next/server"
-import { NextRequest } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Restaurant from "@/models/Restaurant"
-import Offer from "@/models/Offer"
-import Tag from "@/models/Tag"
-import { verifyAdminToken } from "@/lib/auth-admin"
-import { Category } from "@/models/Categories"
-import Area from "@/models/Area"
+import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyAdminToken } from "@/lib/auth-admin";
+
+function chunk<T>(arr: T[], size = 100): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function getGlobalRestaurantStats() {
+  const [
+    totalRestRes,
+    approvedRestRes,
+    pendingRestRes,
+    rejectedRestRes,
+    totalOffersRes,
+    activeOffersRes,
+  ] = await Promise.all([
+    supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabaseAdmin.from("restaurants").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+    supabaseAdmin.from("offers").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("offers").select("id", { count: "exact", head: true }).eq("status", "active"),
+  ]);
+
+  return {
+    totalRestaurants: totalRestRes.count || 0,
+    activeRestaurants: approvedRestRes.count || 0,
+    pendingRestaurants: pendingRestRes.count || 0,
+    rejectedRestaurants: rejectedRestRes.count || 0,
+    totalOffers: totalOffersRes.count || 0,
+    activeOffers: activeOffersRes.count || 0,
+  };
+}
 
 export async function GET(req: NextRequest) {
   try {
-    const adminCheck = await verifyAdminToken(req)
+    const adminCheck = await verifyAdminToken(req);
     if (!adminCheck.success) {
-      return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
+      return NextResponse.json(
+        { success: false, message: adminCheck.message },
+        { status: 401 }
+      );
     }
 
-    await connectToDatabase()
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const isExport = searchParams.get("export") === "true";
+    const skip = isExport ? 0 : (page - 1) * limit;
+    const fetchLimit = isExport ? 10000 : limit;
+    const rawSearch = searchParams.get("search")?.trim() || "";
+    const areaFilter = searchParams.get("area")?.trim() || "";
+    const sortParam = searchParams.get("sort") || "name-asc";
 
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '10', 10)
-    const isExport = searchParams.get('export') === 'true'
-    const skip = isExport ? 0 : (page - 1) * limit
-    const exportLimit = isExport ? 10000 : limit
-    const rawSearch = searchParams.get('search') || ''
-    const searchTerm = rawSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    const statusFilter = searchParams.get('status') || ''
-    const areaFilter = searchParams.get('area') || ''
-    const sortParam = searchParams.get('sort') || 'name-asc'
+    const isOffersSort = sortParam === "offers-asc" || sortParam === "offers-desc";
+    const isTagsSort = sortParam === "tags-asc" || sortParam === "tags-desc";
 
-    const isOffersSort = sortParam === 'offers-asc' || sortParam === 'offers-desc'
-    const isTagsSort = sortParam === 'tags-asc' || sortParam === 'tags-desc'
-    const isNameSort = sortParam === 'name-asc' || sortParam === 'name-desc'
+    // 1. Resolve matching restaurant IDs from search & area if needed
+    let matchingIds: string[] | null = null;
 
-    // ── Base query — sirf approved restaurants ────────────────────────────────
-    const query: any = {
-      hidden: { $ne: true },
-      status: "approved",
+    if (rawSearch) {
+      // Find matching categories
+      const { data: matchedCats } = await supabaseAdmin
+        .from("categories")
+        .select("id")
+        .ilike("name", `%${rawSearch}%`);
+
+      let catRestIds: string[] = [];
+      if (matchedCats && matchedCats.length > 0) {
+        const catIds = matchedCats.map((c) => c.id);
+        const { data: restCatRows } = await supabaseAdmin
+          .from("restaurant_categories")
+          .select("restaurant_id")
+          .in("category_id", catIds);
+        catRestIds = (restCatRows || []).map((r) => r.restaurant_id);
+      }
+
+      // Find restaurants matching name
+      const { data: nameRests } = await supabaseAdmin
+        .from("restaurants")
+        .select("id")
+        .ilike("name", `%${rawSearch}%`);
+
+      const nameRestIds = (nameRests || []).map((r) => r.id);
+      const combined = Array.from(new Set([...nameRestIds, ...catRestIds]));
+      matchingIds = combined;
     }
 
-    const [categoryIds, areaDoc] = await Promise.all([
-      searchTerm
-        ? Category.find({ name: { $regex: searchTerm, $options: 'i' } }).distinct('_id').lean()
-        : Promise.resolve(null),
-      areaFilter && areaFilter !== 'all'
-        ? Area.findOne({ name: areaFilter }).select('_id').lean()
-        : Promise.resolve(null),
-    ])
+    if (areaFilter && areaFilter !== "all") {
+      const { data: areaDoc } = await supabaseAdmin
+        .from("areas")
+        .select("id")
+        .eq("name", areaFilter)
+        .maybeSingle();
 
-    if (searchTerm) {
-      query.$or = [
-        { name: { $regex: searchTerm, $options: 'i' } },
-        ...(categoryIds?.length ? [{ category: { $in: categoryIds } }] : []),
-      ]
+      if (areaDoc) {
+        const { data: restAreaRows } = await supabaseAdmin
+          .from("restaurant_areas")
+          .select("restaurant_id")
+          .eq("area_id", areaDoc.id);
+
+        const areaRestIds = new Set((restAreaRows || []).map((r) => r.restaurant_id));
+        if (matchingIds !== null) {
+          matchingIds = matchingIds.filter((id) => areaRestIds.has(id));
+        } else {
+          matchingIds = Array.from(areaRestIds);
+        }
+      } else {
+        matchingIds = [];
+      }
     }
-    if (areaDoc) query.area = { $in: [(areaDoc as any)._id.toString()] }
 
-    // ── Valid tag IDs as strings (Offer.tags = [String]) ──────────────────────
-    const validTagDocs = await Tag.find({}, { _id: 1 }).lean()
-    const validTagIdStrings = validTagDocs.map((t: any) => t._id.toString())
+    // 2. Base restaurant query
+    let baseQuery = supabaseAdmin
+      .from("restaurants")
+      .select("id, name, status, is_hidden", { count: "exact" })
+      .eq("status", "approved")
+      .eq("is_hidden", false);
 
-    let restaurants: any[]
-    let totalRestaurants: number
+    if (matchingIds !== null) {
+      if (matchingIds.length === 0) {
+        const globalStats = await getGlobalRestaurantStats();
+        return NextResponse.json({
+          success: true,
+          restaurants: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            pages: 0,
+            hasMore: false,
+          },
+          stats: globalStats,
+        });
+      }
+      baseQuery = baseQuery.in("id", matchingIds);
+    }
 
-    if (isNameSort) {
-      const [aggregateResult] = await Restaurant.aggregate([
-        { $match: query },
-        {
-          $addFields: {
-            cleanName: { $trim: { input: "$name" } },
+    let restaurants: any[] = [];
+    let totalRestaurants = 0;
 
-            sortPriority: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $regexMatch: {
-                        input: { $trim: { input: "$name" } },
-                        regex: /^[a-zA-Z]/
-                      }
-                    },
-                    then: 0
-                  },
-                  {
-                    case: {
-                      $regexMatch: {
-                        input: { $trim: { input: "$name" } },
-                        regex: /^[0-9]/
-                      }
-                    },
-                    then: 1
-                  }
-                ],
-                default: 2
-              }
-            },
+    if (isOffersSort || isTagsSort) {
+      // Need all matching restaurants to sort by offers or tags count
+      const { data: allRests, count, error: allErr } = await baseQuery;
+      if (allErr) throw new Error(allErr.message);
 
-            sortName: {
-              $toLower: {
-                $trim: { input: "$name" }
-              }
+      totalRestaurants = count || 0;
+      const allList = allRests || [];
+      const allIds = allList.map((r) => r.id);
+
+      const scoreMap = new Map<string, number>();
+
+      if (isOffersSort && allIds.length > 0) {
+        const idChunks = chunk(allIds, 100);
+        const results = await Promise.all(
+          idChunks.map((c) =>
+            supabaseAdmin
+              .from("offers")
+              .select("restaurant_id")
+              .in("restaurant_id", c)
+              .eq("status", "active")
+          )
+        );
+        for (const res of results) {
+          for (const row of res.data || []) {
+            scoreMap.set(row.restaurant_id, (scoreMap.get(row.restaurant_id) || 0) + 1);
+          }
+        }
+      } else if (isTagsSort && allIds.length > 0) {
+        const idChunks = chunk(allIds, 100);
+        const results = await Promise.all(
+          idChunks.map((c) =>
+            supabaseAdmin
+              .from("offer_tags")
+              .select("tag_id, offers!inner(restaurant_id)")
+              .in("offers.restaurant_id", c)
+          )
+        );
+        const restTags = new Map<string, Set<string>>();
+        for (const res of results) {
+          for (const row of res.data || []) {
+            const rId = (row as any).offers?.restaurant_id;
+            const tId = row.tag_id;
+            if (rId && tId) {
+              if (!restTags.has(rId)) restTags.set(rId, new Set());
+              restTags.get(rId)!.add(tId);
             }
           }
-        },
-        {
-          $sort: {
-            sortPriority: 1,
-            sortName: sortParam === 'name-asc' ? 1 : -1
-          }
-        },
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }],
-            data: [
-              { $skip: skip },
-              { $limit: exportLimit },
-              { $project: { _id: 1, name: 1, status: 1 } },
-            ],
-          },
-        },
-      ])
-      totalRestaurants = aggregateResult?.metadata?.[0]?.total ?? 0
-      restaurants = aggregateResult?.data ?? []
-
-    } else if (isOffersSort || isTagsSort) {
-      const allRestaurantIds: any[] = await Restaurant.find(query, { _id: 1 }).lean()
-      totalRestaurants = allRestaurantIds.length
-      const allIds = allRestaurantIds.map((r: any) => r._id)
-
-      const scoreMap = new Map<string, number>()
-
-      if (isOffersSort) {
-        const offerGroups = await Offer.aggregate([
-          { $match: { restaurantId: { $in: allIds }, status: 'active' } },
-          { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
-        ])
-        for (const g of offerGroups) scoreMap.set(g._id.toString(), g.count)
-
-      } else {
-        const tagGroups = await Offer.aggregate([
-          {
-            $match: {
-              restaurantId: { $in: allIds },
-              tags: { $exists: true, $not: { $size: 0 } },
-            },
-          },
-          { $project: { restaurantId: 1, tags: 1 } },
-          { $unwind: '$tags' },
-          { $match: { tags: { $in: validTagIdStrings } } },
-          { $group: { _id: { restaurantId: '$restaurantId', tag: '$tags' } } },
-          { $group: { _id: '$_id.restaurantId', count: { $sum: 1 } } },
-        ])
-        for (const g of tagGroups) scoreMap.set(g._id.toString(), g.count)
+        }
+        for (const [rId, set] of restTags.entries()) {
+          scoreMap.set(rId, set.size);
+        }
       }
 
-      const asc = sortParam.endsWith('-asc')
-      const sortedIds = allIds.sort((a: any, b: any) => {
-        const sa = scoreMap.get(a.toString()) ?? 0
-        const sb = scoreMap.get(b.toString()) ?? 0
-        return asc ? sa - sb : sb - sa
-      })
-      const pageIds = sortedIds.slice(skip, skip + exportLimit)
+      const asc = sortParam.endsWith("-asc");
+      allList.sort((a, b) => {
+        const sa = scoreMap.get(a.id) || 0;
+        const sb = scoreMap.get(b.id) || 0;
+        return asc ? sa - sb : sb - sa;
+      });
 
-      if (pageIds.length === 0) {
-        restaurants = []
-      } else {
-        const rawDocs: any[] = await Restaurant.find(
-          { _id: { $in: pageIds } },
-          { _id: 1, name: 1, status: 1 }
-        ).lean()
-        const docMap = new Map(rawDocs.map((d: any) => [d._id.toString(), d]))
-        restaurants = pageIds.map((id: any) => docMap.get(id.toString())).filter(Boolean)
-      }
-
+      restaurants = allList.slice(skip, skip + fetchLimit);
     } else {
-      const [aggregateResult] = await Restaurant.aggregate([
-        { $match: query },
-        {
-          $addFields: {
-            cleanName: { $trim: { input: "$name" } },
+      // Name sorting
+      const ascending = sortParam !== "name-desc";
+      const { data: pagedRests, count, error: pagedErr } = await baseQuery
+        .order("name", { ascending })
+        .range(skip, skip + fetchLimit - 1);
 
-            sortPriority: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $regexMatch: {
-                        input: { $trim: { input: "$name" } },
-                        regex: /^[a-zA-Z]/
-                      }
-                    },
-                    then: 0
-                  },
-                  {
-                    case: {
-                      $regexMatch: {
-                        input: { $trim: { input: "$name" } },
-                        regex: /^[0-9]/
-                      }
-                    },
-                    then: 1
-                  }
-                ],
-                default: 2
-              }
-            },
-
-            sortName: {
-              $toLower: {
-                $trim: { input: "$name" }
-              }
-            }
-          }
-        },
-        {
-          $sort: {
-            sortPriority: 1,
-            sortName: 1
-          }
-        },
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }],
-            data: [
-              { $skip: skip },
-              { $limit: exportLimit },
-              { $project: { _id: 1, name: 1, status: 1 } },
-            ],
-          },
-        },
-      ])
-      totalRestaurants = aggregateResult?.metadata?.[0]?.total ?? 0
-      restaurants = aggregateResult?.data ?? []
+      if (pagedErr) throw new Error(pagedErr.message);
+      totalRestaurants = count || 0;
+      restaurants = pagedRests || [];
     }
 
-    const totalPages = Math.ceil(totalRestaurants / limit)
-    const restaurantIds = restaurants.map((r: any) => r._id)
-    const currentDate = new Date()
+    const restaurantIds = restaurants.map((r) => r.id);
+    const idChunks = chunk(restaurantIds, 100);
 
-    // ── Parallel: offer counts + tag counts + global stats ────────────────────
-    const [offerCounts, tagCounts, globalStats] = await Promise.all([
-
-      // 1. Per-restaurant offer counts grouped by status
-      //    active  → activeOffersCount
-      //    active + inactive + expired → totalOffersCount
+    // 3. Parallel fetch: per-restaurant offer counts, tag counts, global stats
+    const [offerChunkResults, tagChunkResults, globalStats] = await Promise.all([
       restaurantIds.length > 0
-        ? Offer.aggregate([
-          {
-            $match: {
-              restaurantId: { $in: restaurantIds },
-              // Offer valid statuses: active, inactive, expired
-              status: { $in: ['active', 'inactive', 'expired'] },
-            },
-          },
-          {
-            $group: {
-              _id: { restaurantId: '$restaurantId', status: '$status' },
-              count: { $sum: 1 },
-            },
-          },
-        ])
+        ? Promise.all(
+            idChunks.map((c) =>
+              supabaseAdmin
+                .from("offers")
+                .select("restaurant_id, status")
+                .in("restaurant_id", c)
+                .in("status", ["active", "inactive", "expired"])
+            )
+          )
         : Promise.resolve([]),
 
-      // 2. Unique valid tag count per restaurant
-      //    - Deleted tags filtered via $in validTagIdStrings
-      //    - Same tag on multiple offers = counted once
       restaurantIds.length > 0
-        ? Offer.aggregate([
-          {
-            $match: {
-              restaurantId: { $in: restaurantIds },
-              tags: { $exists: true, $not: { $size: 0 } },
-            },
-          },
-          { $project: { restaurantId: 1, tags: 1 } },
-          { $unwind: '$tags' },
-          { $match: { tags: { $in: validTagIdStrings } } },
-          { $group: { _id: { restaurantId: '$restaurantId', tagId: '$tags' } } },
-          { $group: { _id: '$_id.restaurantId', tagCount: { $sum: 1 } } },
-        ])
+        ? Promise.all(
+            idChunks.map((c) =>
+              supabaseAdmin
+                .from("offer_tags")
+                .select("tag_id, offers!inner(restaurant_id)")
+                .in("offers.restaurant_id", c)
+            )
+          )
         : Promise.resolve([]),
 
-      // 3. Global stats (unchanged)
       getGlobalRestaurantStats(),
-    ])
+    ]);
 
-    // ── Build lookup maps ─────────────────────────────────────────────────────
-    // offerCounts grouped by { restaurantId, status } — teen status ke alag counts
-    const activeOffersMap: Record<string, number> = {}
-    const inactiveOffersMap: Record<string, number> = {}
-    const expiredOffersMap: Record<string, number> = {}
+    // Build offer count map
+    const activeOffersMap: Record<string, number> = {};
+    const totalOffersMap: Record<string, number> = {};
 
-    for (const item of offerCounts) {
-      const rid = item._id.restaurantId.toString()
-      if (item._id.status === 'active') activeOffersMap[rid] = item.count
-      if (item._id.status === 'inactive') inactiveOffersMap[rid] = item.count
-      if (item._id.status === 'expired') expiredOffersMap[rid] = item.count
+    for (const res of offerChunkResults) {
+      for (const row of (res as any).data || []) {
+        const rId = row.restaurant_id;
+        totalOffersMap[rId] = (totalOffersMap[rId] || 0) + 1;
+        if (row.status === "active") {
+          activeOffersMap[rId] = (activeOffersMap[rId] || 0) + 1;
+        }
+      }
     }
 
-    const tagCountMap: Record<string, number> = {}
-    for (const item of tagCounts as any[]) {
-      tagCountMap[item._id.toString()] = item.tagCount
+    // Build unique tag count per restaurant
+    const restTagSetMap = new Map<string, Set<string>>();
+    for (const res of tagChunkResults) {
+      for (const row of (res as any).data || []) {
+        const rId = (row as any).offers?.restaurant_id;
+        const tId = row.tag_id;
+        if (rId && tId) {
+          if (!restTagSetMap.has(rId)) restTagSetMap.set(rId, new Set());
+          restTagSetMap.get(rId)!.add(tId);
+        }
+      }
     }
 
-    // ── Format response ───────────────────────────────────────────────────────
-    const formattedRestaurants = restaurants.map((r: any) => {
-      const rid = r._id.toString()
-      const active = activeOffersMap[rid] || 0
-      const inactive = inactiveOffersMap[rid] || 0
-      const expired = expiredOffersMap[rid] || 0
+    const formattedRestaurants = restaurants.map((r) => {
+      const rid = r.id;
       return {
-        _id: r._id,
+        _id: r.id,
+        id: r.id,
         name: r.name,
         status: r.status,
-        activeOffersCount: active,
-        totalOffersCount: active + inactive + expired, // ← all 3 statuses
-        tagCount: tagCountMap[rid] || 0,
-      }
-    })
+        activeOffersCount: activeOffersMap[rid] || 0,
+        totalOffersCount: totalOffersMap[rid] || 0,
+        tagCount: restTagSetMap.get(rid)?.size || 0,
+      };
+    });
+
+    const totalPages = Math.ceil(totalRestaurants / limit);
 
     return NextResponse.json({
       success: true,
@@ -330,50 +300,14 @@ export async function GET(req: NextRequest) {
         hasMore: page * limit < totalRestaurants,
       },
       stats: globalStats,
-    })
-
+    });
   } catch (error: unknown) {
-    console.error("Error fetching restaurants:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+    console.error("Error fetching restaurants:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
     return NextResponse.json(
       { success: false, message: "Failed to fetch restaurants", error: errorMessage },
       { status: 500 }
-    )
-  }
-}
-
-// Unchanged
-async function getGlobalRestaurantStats() {
-  const [restaurantStats, offerStats] = await Promise.all([
-    Restaurant.aggregate([
-      {
-        $facet: {
-          total: [{ $count: 'n' }],
-          approved: [{ $match: { status: 'approved' } }, { $count: 'n' }],
-          pending: [{ $match: { status: 'pending' } }, { $count: 'n' }],
-          rejected: [{ $match: { status: 'rejected' } }, { $count: 'n' }],
-        },
-      },
-    ]),
-    Offer.aggregate([
-      {
-        $facet: {
-          total: [{ $count: 'n' }],
-          active: [{ $match: { status: 'active' } }, { $count: 'n' }],
-        },
-      },
-    ]),
-  ])
-
-  const rs = restaurantStats[0]
-  const os = offerStats[0]
-
-  return {
-    totalRestaurants: rs.total?.[0]?.n ?? 0,
-    activeRestaurants: rs.approved?.[0]?.n ?? 0,
-    pendingRestaurants: rs.pending?.[0]?.n ?? 0,
-    rejectedRestaurants: rs.rejected?.[0]?.n ?? 0,
-    totalOffers: os.total?.[0]?.n ?? 0,
-    activeOffers: os.active?.[0]?.n ?? 0,
+    );
   }
 }

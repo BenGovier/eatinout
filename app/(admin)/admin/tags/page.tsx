@@ -56,6 +56,7 @@ interface GlobalStats {
 export default function TagsPage() {
   // ── Tags ───────────────────────────────────────────────────────────────────
   const [tags, setTags] = useState<Tag[]>([])
+  const [allTags, setAllTags] = useState<Tag[]>([])
   const [totalTags, setTotalTags] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
@@ -305,9 +306,14 @@ export default function TagsPage() {
       apiFetch(`/api/admin/new-tags?page=1&limit=${PAGE_SIZE}&search=&sort=name-asc`),
       apiFetch(`/api/admin/new-tags/restaurants?page=1&limit=${REST_PAGE_SIZE}&search=&sort=tags-desc`),
       apiFetch("/api/admin/new-tags/offers"),
+      apiFetch("/api/admin/tags"),
     ])
-      .then(([tagsRes, restaurantsRes, offersRes]) => {
+      .then(([tagsRes, restaurantsRes, offersRes, allTagsRes]) => {
         if (cancelled) return
+
+        if (allTagsRes?.tags) {
+          setAllTags(allTagsRes.tags.map(mapTagFromServer))
+        }
 
         const mappedTags = (tagsRes.data || []).map(mapTagFromServer)
         setTags(mappedTags)
@@ -386,6 +392,9 @@ export default function TagsPage() {
       if (!debouncedSearch) {
         tagPrefetchRef.current = false
         setTimeout(() => prefetchAllTags(), 300)
+        apiFetch("/api/admin/tags").then((r) => {
+          if (r?.tags) setAllTags(r.tags.map(mapTagFromServer))
+        }).catch(() => {})
       }
     } catch { /* silent */ }
     finally { setIsLoadingMore(false) }
@@ -398,6 +407,7 @@ export default function TagsPage() {
       const res = await apiFetch("/api/admin/new-tags", { method: "POST", body: JSON.stringify({ name }) })
       const newTag = mapTagFromServer(res.data)
       setTags((prev) => [newTag, ...prev])
+      setAllTags((prev) => [newTag, ...prev])
       setTotalTags((n) => n + 1)
       setGlobalStats((prev) => ({ ...prev, totalTags: prev.totalTags + 1 }))
       toast.success(`Tag "${name}" created`)
@@ -408,6 +418,7 @@ export default function TagsPage() {
     try {
       await apiFetch(`/api/admin/new-tags/${id}`, { method: "PUT", body: JSON.stringify({ name }) })
       setTags((prev) => prev.map((t) => (t.id === id ? { ...t, name } : t)))
+      setAllTags((prev) => prev.map((t) => (t.id === id ? { ...t, name } : t)))
       toast.success("Tag updated")
     } catch (err: any) { toast.error(err.message || "Failed to update tag") }
   }, [])
@@ -416,6 +427,7 @@ export default function TagsPage() {
     try {
       await apiFetch(`/api/admin/new-tags/${id}`, { method: "DELETE" })
       setTags((prev) => prev.filter((t) => t.id !== id))
+      setAllTags((prev) => prev.filter((t) => t.id !== id))
       setTotalTags((n) => Math.max(0, n - 1))
       setGlobalStats((prev) => ({ ...prev, totalTags: Math.max(0, prev.totalTags - 1) }))
       setOffers((prev) => prev.map((o) => ({ ...o, tags: o.tags.filter((tid) => tid !== id) })))
@@ -428,6 +440,7 @@ export default function TagsPage() {
       await apiFetch("/api/admin/new-tags/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) })
       const idSet = new Set(ids)
       setTags((prev) => prev.filter((t) => !idSet.has(t.id)))
+      setAllTags((prev) => prev.filter((t) => !idSet.has(t.id)))
       setTotalTags((n) => Math.max(0, n - ids.length))
       setGlobalStats((prev) => ({ ...prev, totalTags: Math.max(0, prev.totalTags - ids.length) }))
       setOffers((prev) => prev.map((o) => ({ ...o, tags: o.tags.filter((tid) => !idSet.has(tid)) })))
@@ -628,7 +641,7 @@ const handleAssignTag = useCallback(async (tagId: string, offerId: string) => {
         />
       ) : (
         <RestaurantBrowser
-          tags={tags} associations={associations} restaurants={restaurants} offers={offers}
+          tags={allTags.length > 0 ? allTags : tags} associations={associations} restaurants={restaurants} offers={offers}
           hasMoreRestaurants={restaurantHasMore}
           isLoadingRestaurants={restaurantLoading}
           totalRestaurants={restaurantTotal}

@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import Restaurant from "@/models/Restaurant";
-import User from "@/models/User";
+import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import Tag from "@/models/Tag";
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 import dotenv from "dotenv";
 import { render } from "@react-email/render";
 import RestaurantRegistrationEmail from "@/utils/email-templates/RestaurantRegistrationEmail";
 import sendEmail from "@/lib/sendEmail";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
-import { geoPointFromLatLng } from "@/lib/restaurant-geo";
+
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 /** Accept JSON numbers or numeric strings from the client. */
 function parseCoord(v: unknown): number | null {
@@ -24,86 +23,89 @@ function parseCoord(v: unknown): number | null {
   return null;
 }
 
-dotenv.config();
 export async function POST(req: any) {
   try {
-    // Connect to database
-    try {
-      await connectToDatabase();
-      console.log("Connected to database for registration");
-    } catch (dbError: any) {
-      console.error("Database connection error during registration:", dbError);
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Database connection failed",
-          error: dbError.message,
-        },
-        { status: 500 },
-      );
-    }
-
-    // Parse the request body
     const data = await req.json();
-    const { firstName, lastName, email, password } = data;
-    console.log("Parsed request body:", { ...data, password: "[REDACTED]" });
+    const { firstName, lastName, email, password, restaurantName } = data;
 
-    if (!firstName || !lastName || !email || !password) {
-      console.error("Missing required fields");
+    if (!firstName || !lastName || !email || !password || !restaurantName) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Check if user already exists
-    try {
-      const existingUser = await User.findOne({ email });
-      const existingRestaurantEmail = await Restaurant.findOne({ email });
-      if (existingUser || existingRestaurantEmail) {
-        return NextResponse.json(
-          { success: false, message: "User already exists" },
-          { status: 400 },
-        );
-      }
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-      const existingRestaurantName = await Restaurant.findOne({ name: data.restaurantName });
-      if (existingRestaurantName) {
+    // Check if user already exists
+    const { data: existingUser, error: findUserErr } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (findUserErr) throw new Error(findUserErr.message);
+
+    const { data: existingRestEmail, error: findRestErr } = await supabaseAdmin
+      .from("restaurants")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (findRestErr) throw new Error(findRestErr.message);
+
+    if (existingUser || existingRestEmail) {
+      return NextResponse.json(
+        { success: false, message: "User already exists" },
+        { status: 400 }
+      );
+    }
+
+    // Check if restaurant name already exists
+    if (data.restaurantName?.trim()) {
+      const { data: existingRestName } = await supabaseAdmin
+        .from("restaurants")
+        .select("id")
+        .ilike("name", data.restaurantName.trim())
+        .maybeSingle();
+
+      if (existingRestName) {
         return NextResponse.json(
           { success: false, message: "Restaurant name already exist" },
-          { status: 400 },
+          { status: 400 }
         );
       }
-    } catch (findError: any) {
-      console.error("Error checking for existing user/restaurant:", findError);
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Error checking for existing user/restaurant",
-          error: findError.message,
-        },
-        { status: 500 },
-      );
     }
 
     // Create user account for restaurant owner
-    const user = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-      role: "restaurant",
-      zipCode: data.zipCode,
-    });
+    const userId = randomBytes(12).toString("hex");
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    await user.save();
+    const { error: createUserError } = await supabaseAdmin
+      .from("users")
+      .insert({
+        id: userId,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: normalizedEmail,
+        password_hash: passwordHash,
+        role: "restaurant",
+        zip_code: data.zipCode || "",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (createUserError) throw new Error(createUserError.message);
 
     // Get area name for slug generation
     let firstAreaName = "";
-    if (data.area && data.area.length > 0) {
+    if (Array.isArray(data.area) && data.area.length > 0) {
       try {
-        const Area = (await import("@/models/Area")).default;
-        const firstArea = await Area.findById(data.area[0]);
+        const { data: firstArea } = await supabaseAdmin
+          .from("areas")
+          .select("name")
+          .eq("id", data.area[0])
+          .maybeSingle();
         if (firstArea) {
           firstAreaName = firstArea.name;
         }
@@ -125,7 +127,11 @@ export async function POST(req: any) {
     if (regLat === null || regLng === null) {
       try {
         const { getCoordinatesFromAddress } = await import("@/utils/geocoding");
-        const coords = await getCoordinatesFromAddress(data.address || "", data.city || "", data.zipCode || "");
+        const coords = await getCoordinatesFromAddress(
+          data.address || "",
+          data.city || "",
+          data.zipCode || ""
+        );
         if (coords) {
           regLat = coords.lat;
           regLng = coords.lng;
@@ -133,7 +139,7 @@ export async function POST(req: any) {
       } catch (geocodeError) {
         console.error("Geocoding failed during registration:", geocodeError);
       }
-      
+
       // Fallback
       if (regLat === null || regLng === null) {
         regLat = DEFAULT_MAP_CENTER_LAT_LNG.lat;
@@ -141,48 +147,82 @@ export async function POST(req: any) {
       }
     }
 
-    const location = geoPointFromLatLng(regLat as number, regLng as number) ?? {
-      type: "Point" as const,
-      coordinates: [regLng as number, regLat as number],
-    };
+    const restaurantId = randomBytes(12).toString("hex");
 
-    const restaurant = new Restaurant({
-      name: data.restaurantName,
-      slug,
-      description: data.description,
-      cuisine: data.cuisine,
-      priceRange: data.priceRange,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      zipCode: data.zipCode,
-      lat: regLat,
-      lng: regLng,
-      location,
-      area: data.area,
-      phone: data.phone,
-      email: data.email,
-      website: data.website,
-      openingHours: data.openingHours,
-      userId: user._id.toString(),
-      images: data.images || [],
-      status: "pending",
-      category: data.category,
-      addressLink: data.addressLink,
-      dineIn: data.dineIn,
-      dineOut: data.dineOut,
-      deliveryAvailable: data.deliveryAvailable,
-      menuPdfUrls: data.menuPdfUrls || [],
-      searchTags: data.searchTags || [],
-    });
-    await restaurant.save();
+    const { error: createRestError } = await supabaseAdmin
+      .from("restaurants")
+      .insert({
+        id: restaurantId,
+        name: data.restaurantName.trim(),
+        slug,
+        description: data.description || null,
+        address: data.address || "",
+        city: data.city || "",
+        zip_code: data.zipCode || "",
+        lat: regLat,
+        lng: regLng,
+        phone: data.phone || null,
+        email: normalizedEmail,
+        website: data.website || null,
+        user_id: userId,
+        status: "pending",
+        address_link: data.addressLink || null,
+        dine_in: data.dineIn ?? true,
+        dine_out: data.dineOut ?? false,
+        delivery_available: data.deliveryAvailable ?? false,
+        is_hidden: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
 
-    // 🔗 Sync Tags → Restaurant
-    if (data.searchTags?.length > 0) {
-      await Tag.updateMany(
-        { _id: { $in: data.searchTags } },
-        { $addToSet: { restaurants: restaurant._id } },
-      );
+    if (createRestError) throw new Error(createRestError.message);
+
+    // Child relations
+    // 1. Categories
+    if (Array.isArray(data.category) && data.category.length > 0) {
+      const catRows = data.category.map((catId: string) => ({
+        restaurant_id: restaurantId,
+        category_id: catId,
+      }));
+      await supabaseAdmin.from("restaurant_categories").insert(catRows);
+    }
+
+    // 2. Areas
+    if (Array.isArray(data.area) && data.area.length > 0) {
+      const areaRows = data.area.map((areaId: string) => ({
+        restaurant_id: restaurantId,
+        area_id: areaId,
+      }));
+      await supabaseAdmin.from("restaurant_areas").insert(areaRows);
+    }
+
+    // 3. Images
+    if (Array.isArray(data.images) && data.images.length > 0) {
+      const imgRows = data.images.map((url: string, index: number) => ({
+        restaurant_id: restaurantId,
+        image_url: url,
+        display_order: index + 1,
+      }));
+      await supabaseAdmin.from("restaurant_images").insert(imgRows);
+    }
+
+    // 4. Menu PDFs
+    if (Array.isArray(data.menuPdfUrls) && data.menuPdfUrls.length > 0) {
+      const pdfRows = data.menuPdfUrls.map((url: string, index: number) => ({
+        restaurant_id: restaurantId,
+        pdf_url: url,
+        display_order: index + 1,
+      }));
+      await supabaseAdmin.from("restaurant_menu_pdfs").insert(pdfRows);
+    }
+
+    // 5. Search tags
+    if (Array.isArray(data.searchTags) && data.searchTags.length > 0) {
+      const tagRows = data.searchTags.map((tagId: string) => ({
+        restaurant_id: restaurantId,
+        tag_id: tagId,
+      }));
+      await supabaseAdmin.from("restaurant_tags").insert(tagRows);
     }
 
     // Send registration email (non-blocking)
@@ -195,39 +235,32 @@ export async function POST(req: any) {
           restaurantImage:
             data.images?.[0] ||
             "https://via.placeholder.com/600x300?text=Your+Restaurant",
-        }),
+        })
       );
-      console.log("Email HTML:", "sending email to:", user.email);
       await sendEmail(
-        user.email,
+        normalizedEmail,
         `Eatinout - We've received your registration for ${data.restaurantName}`,
-        emailHtml,
+        emailHtml
       );
-      console.log("Registration email sent successfully to:", user.email);
     } catch (error: any) {
       console.error("Error sending registration email:", error);
       emailError = `Registration email failed: ${error.message}`;
     }
 
-    console.log(
-      `Created restaurant: ${restaurant._id}, status: pending, linked to user: ${user._id}`,
-    );
-
     // Create JWT token for authentication
     const token = jwt.sign(
       {
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        restaurantId: restaurant._id,
+        userId,
+        email: normalizedEmail,
+        role: "restaurant",
+        firstName,
+        lastName,
+        restaurantId,
       },
       JWT_SECRET,
-      { expiresIn: "7d" },
+      { expiresIn: "7d" }
     );
 
-    // Create response
     const responseMessage = emailError
       ? "Restaurant registered successfully, but confirmation email failed to send"
       : "Restaurant registered successfully";
@@ -237,25 +270,26 @@ export async function POST(req: any) {
         success: true,
         message: responseMessage,
         restaurant: {
-          _id: restaurant._id,
-          name: restaurant.name,
-          cuisine: restaurant.cuisine,
-          area: restaurant.area,
-          status: restaurant.status,
+          _id: restaurantId,
+          id: restaurantId,
+          name: data.restaurantName,
+          cuisine: data.cuisine,
+          area: data.area,
+          status: "pending",
         },
         emailError: emailError || undefined,
       },
-      { status: 201 },
+      { status: 201 }
     );
 
-    // Set auth cookie
+    // Set auth cookie (7 days)
     response.cookies.set({
       name: "auth_token",
       value: token,
       httpOnly: true,
       path: "/",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 1, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
@@ -267,7 +301,7 @@ export async function POST(req: any) {
         message: "Registration failed",
         error: error.message,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

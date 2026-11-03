@@ -3,8 +3,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import Restaurant from "@/models/Restaurant";
+import supabaseAdmin from "@/lib/supabase/admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -32,8 +31,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const url = new URL(request.url);
     const ownerId = url.searchParams.get("id");
 
@@ -41,15 +38,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Missing owner ID" }, { status: 400 });
     }
 
-    const restaurants = await Restaurant.find(
-      {
-        $or: [
-          { userId: ownerId },
-          { associatedId: ownerId }
-        ]
-      },
-      { _id: 1, name: 1 } // Select only necessary fields
-    );
+    const quotedOwnerId = `"${ownerId.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    const { data: restaurantRows, error: restaurantsError } = await supabaseAdmin
+      .from("restaurants")
+      .select("id, name") // Select only necessary fields
+      .or(`user_id.eq.${quotedOwnerId},associated_id.eq.${quotedOwnerId}`);
+    if (restaurantsError) throw new Error(restaurantsError.message);
+    const restaurants = (restaurantRows || []).map((r: any) => ({ _id: r.id, name: r.name }));
 
     return NextResponse.json({ success: true, restaurants });
   } catch (error: any) {

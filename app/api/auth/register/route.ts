@@ -1,7 +1,8 @@
+// api/auth/register/route.ts
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
-import Lead from "@/models/Lead";
+import supabaseAdmin from "@/lib/supabase/admin";
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import Stripe from "stripe";
@@ -13,22 +14,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export async function POST(req: NextRequest) {
   try {
     console.log("Starting user registration process");
-
-    // Connect to database
-    try {
-      await connectToDatabase();
-      console.log("Connected to database for registration");
-    } catch (dbError: any) {
-      console.error("Database connection error during registration:", dbError);
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Database connection failed",
-          error: dbError.message,
-        },
-        { status: 500 }
-      );
-    }
 
     // Parse request body
     let requestBody;
@@ -68,9 +53,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Emails were stored lowercase by the old User model (lowercase: true)
+    const normalizedEmail = String(email).toLowerCase();
+
     // Check if user already exists
     try {
-      const existingUser = await User.findOne({ email });
+      const { data: existingUser, error: existingUserError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .limit(1)
+        .maybeSingle();
+      if (existingUserError) throw new Error(existingUserError.message);
       if (existingUser) {
         console.log("User already exists:", email);
         return NextResponse.json(
@@ -80,7 +74,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (mobile) {
-        const existingMobile = await User.findOne({ mobile });
+        const { data: existingMobile, error: existingMobileError } = await supabaseAdmin
+          .from("users")
+          .select("id")
+          .eq("mobile", mobile)
+          .limit(1)
+          .maybeSingle();
+        if (existingMobileError) throw new Error(existingMobileError.message);
         if (existingMobile) {
           console.log("Mobile number already in use:", mobile);
           return NextResponse.json(
@@ -104,30 +104,48 @@ export async function POST(req: NextRequest) {
     // Create new user
     let user;
     try {
-      user = new User({
-        firstName,
-        lastName,
-        email,
-        password,
-        mobile,
-        zipCode,
-        role: "user",
-        // Store selected price ID for reference
-        selectedPriceId: selectedPriceId || null,
-        // Store Rewardful referral ID for affiliate tracking
-        rewardfulReferral: referral || null,
-        source: source || null,
-      });
+      const { data: createdUser, error: createError } = await supabaseAdmin
+        .from("users")
+        .insert({
+          // 24-char hex id, same format as the migrated MongoDB ObjectId ids
+          id: randomBytes(12).toString("hex"),
+          first_name: firstName,
+          last_name: lastName,
+          email: normalizedEmail,
+          // password was bcrypt-hashed on save by the old User model
+          password_hash: await bcrypt.hash(password, 10),
+          mobile,
+          zip_code: zipCode,
+          role: "user",
+          // Store selected price ID for reference
+          selected_price_id: selectedPriceId || null,
+          // Store Rewardful referral ID for affiliate tracking
+          rewardful_referral: referral || null,
+          source: source || null,
+        })
+        .select("id, first_name, last_name, email, mobile, zip_code, role, stripe_customer_id")
+        .single();
+      if (createError) throw new Error(createError.message);
 
-      await user.save();
+      user = {
+        _id: createdUser.id,
+        firstName: createdUser.first_name,
+        lastName: createdUser.last_name,
+        email: createdUser.email,
+        mobile: createdUser.mobile,
+        zipCode: createdUser.zip_code,
+        role: createdUser.role,
+        stripeCustomerId: createdUser.stripe_customer_id,
+      };
       console.log("User created successfully:", user._id);
 
       // Mark lead as converted if it exists
       try {
-        await Lead.findOneAndUpdate(
-          { email },
-          { $set: { converted: true } }
-        );
+        const { error: leadUpdateError } = await supabaseAdmin
+          .from("leads")
+          .update({ is_converted: true })
+          .eq("email", normalizedEmail);
+        if (leadUpdateError) throw new Error(leadUpdateError.message);
       } catch (leadError) {
         console.error("Error updating lead conversion status:", leadError);
       }
@@ -152,7 +170,11 @@ export async function POST(req: NextRequest) {
         metadata: { userId: user._id.toString() },
       });
       user.stripeCustomerId = customer.id;
-      await user.save();
+      const { error: stripeSaveError } = await supabaseAdmin
+        .from("users")
+        .update({ stripe_customer_id: customer.id })
+        .eq("id", user._id);
+      if (stripeSaveError) throw new Error(stripeSaveError.message);
       console.log("Stripe customer created:", customer.id);
     } catch (stripeError: any) {
       // Do not fail registration if Stripe customer creation fails —

@@ -1,7 +1,7 @@
+// api/payment/create-setup-intent/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import connectToDatabase from "@/lib/mongodb";
-import User from "@/models/User";
+import supabaseAdmin from "@/lib/supabase/admin";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -13,11 +13,14 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    // Connect to the database
-    await connectToDatabase();
-
     // Find the user by email
-    const user = await User.findOne({ email });
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("stripe_customer_id")
+      .eq("email", String(email).toLowerCase())
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
+    const user = userRow && { stripeCustomerId: userRow.stripe_customer_id };
     if (!user || !user.stripeCustomerId) {
       return NextResponse.json(
         { message: "User or Stripe customer not found" },

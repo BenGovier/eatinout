@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import connectToDatabase from "@/lib/mongodb";
-import Offer from "@/models/Offer";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -20,7 +16,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     // Verify token
-    let restaurantId: string | null | any = null;
+    let restaurantId: string | null = null;
+    let isAdmin = false;
+
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as {
         restaurantId?: string;
@@ -35,10 +33,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         );
       }
 
-      // Only set restaurantId if the role is "restaurant"
-      if (decoded.role === "restaurant") {
-        restaurantId = decoded.restaurantId;
-
+      if (decoded.role === "admin") {
+        isAdmin = true;
+      } else {
+        restaurantId = decoded.restaurantId || null;
         if (!restaurantId) {
           return NextResponse.json(
             { message: "Restaurant ID not found in token" },
@@ -46,11 +44,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           );
         }
       }
-    } catch (error) {
+    } catch {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
-
-    await connectToDatabase();
 
     // Parse request body
     const { areas } = await req.json();
@@ -63,14 +59,38 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       );
     }
 
-    // Update offer with assigned areas
-    const query = restaurantId ? { _id: params.id, restaurantId } : { _id: params.id }; // Admin can update any offer
-    const updatedOffer = await Offer.findOneAndUpdate(query, { areas }, { new: true });
+    // Verify offer existence and ownership
+    let offerQuery = supabaseAdmin.from("offers").select("id, restaurant_id").eq("id", params.id);
+    if (!isAdmin && restaurantId) {
+      offerQuery = offerQuery.eq("restaurant_id", restaurantId);
+    }
 
-    if (!updatedOffer) {
+    const { data: existingOffer, error: offerErr } = await offerQuery.maybeSingle();
+
+    if (offerErr || !existingOffer) {
       return NextResponse.json(
         { message: "Offer not found or unauthorized" },
         { status: 404 }
+      );
+    }
+
+    // Sync offer_areas junction table
+    await supabaseAdmin.from("offer_areas").delete().eq("offer_id", params.id);
+
+    const offerAreaRows = areas.map((areaId: string) => ({
+      offer_id: params.id,
+      area_id: areaId,
+    }));
+
+    const { error: insertAreaErr } = await supabaseAdmin
+      .from("offer_areas")
+      .insert(offerAreaRows);
+
+    if (insertAreaErr) {
+      console.error("Error inserting offer_areas:", insertAreaErr);
+      return NextResponse.json(
+        { message: "Failed to assign areas", error: insertAreaErr.message },
+        { status: 500 }
       );
     }
 
@@ -78,8 +98,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       success: true,
       message: "Areas assigned successfully",
       offer: {
-        id: updatedOffer._id.toString(),
-        areas: updatedOffer.areas,
+        id: params.id,
+        areas,
       },
     });
   } catch (error: any) {

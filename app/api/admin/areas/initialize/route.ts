@@ -1,6 +1,7 @@
+// app/api/admin/areas/initialize/route.ts
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import Area from "@/models/Area"
+import supabaseAdmin from "@/lib/supabase/admin"
+import { randomBytes } from "crypto"
 import { verifyAdminToken } from "@/lib/auth-admin"
 
 // Initialize areas with default values
@@ -12,15 +13,16 @@ export async function POST(req) {
       return NextResponse.json({ success: false, message: adminCheck.message }, { status: 401 })
     }
 
-    await connectToDatabase()
-
     // Default areas
     const defaultAreas = ["Blackpool", "Preston", "Burnley"]
 
     // Check if areas collection is empty
-    const count = await Area.countDocuments()
+    const { count, error: countError } = await supabaseAdmin
+      .from("areas")
+      .select("id", { count: "exact", head: true })
+    if (countError) throw new Error(countError.message)
 
-    if (count > 0) {
+    if ((count ?? 0) > 0) {
       return NextResponse.json({
         success: false,
         message: "Areas collection is not empty. Initialization skipped.",
@@ -28,13 +30,25 @@ export async function POST(req) {
     }
 
     // Create default areas
-    const areas = await Promise.all(
-      defaultAreas.map(async (name) => {
-        const area = new Area({ name })
-        await area.save()
-        return area
-      }),
-    )
+    const { data: createdAreas, error: createError } = await supabaseAdmin
+      .from("areas")
+      .insert(
+        defaultAreas.map((name) => ({
+          // 24-char hex id, same format as the migrated MongoDB ObjectId ids
+          id: randomBytes(12).toString("hex"),
+          name,
+        }))
+      )
+      .select("id, name, is_active, hide_restaurant, created_at, updated_at")
+    if (createError) throw new Error(createError.message)
+    const areas = (createdAreas || []).map((a: any) => ({
+      _id: a.id,
+      name: a.name,
+      isActive: a.is_active,
+      hideRestaurant: a.hide_restaurant,
+      createdAt: a.created_at,
+      updatedAt: a.updated_at,
+    }))
 
     return NextResponse.json({
       success: true,
@@ -53,4 +67,3 @@ export async function POST(req) {
     )
   }
 }
-

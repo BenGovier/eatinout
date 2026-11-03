@@ -176,9 +176,8 @@ export default function AccountPage() {
       <Card className="p-5 sm:p-6">
         <div className="flex items-center">
           <div
-            className={`h-6 w-6 mr-2 rounded-full flex items-center justify-center text-xs ${
-              indicator === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
+            className={`h-6 w-6 mr-2 rounded-full flex items-center justify-center text-xs ${indicator === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}
           >
             {indicator === "ok" ? "✓" : "!"}
           </div>
@@ -233,7 +232,14 @@ export default function AccountPage() {
         onExplore={() => router.push("/restaurants")}
         onManage={() => router.push("/account/payment")}
         onKeepMembership={handleReactivate}
-        onRestart={() => router.push("/account/payment")}
+        onRestart={() => {
+          if (profile.email) {
+            sessionStorage.setItem("checkoutEmail", profile.email);
+            sessionStorage.removeItem("selectedPriceId");
+            sessionStorage.removeItem("checkoutReferral");
+          }
+          router.push("/checkout");
+        }}
         reactivating={reactivating}
       />
     );

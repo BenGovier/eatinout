@@ -1,10 +1,9 @@
+// app/api/auth/forgot-password/route.ts
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
-import User from "@/models/User";
-import connectToDatabase from "@/lib/mongodb";
+import supabaseAdmin from "@/lib/supabase/admin";
 import sendEmail from "@/lib/sendEmail";
 import PasswordResetEmail from "@/utils/email-templates/password-reset";
 import { render } from "@react-email/render";
@@ -23,8 +22,15 @@ export async function POST(req: Request) {
       );
     }
 
-    await connectToDatabase();
-    const user = await User.findOne({ email });
+    // Emails are stored lowercase (old User model used lowercase: true)
+    const normalizedEmail = String(email).toLowerCase();
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, first_name")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
+    const user = userRow && { _id: userRow.id, firstName: userRow.first_name };
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -35,11 +41,14 @@ export async function POST(req: Request) {
     const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
     // Update without validation
-    await User.findOneAndUpdate(
-      { email },
-      { resetToken, resetTokenExpires },
-      { new: true }
-    );
+    const { error: tokenSaveError } = await supabaseAdmin
+      .from("users")
+      .update({
+        reset_token: resetToken,
+        reset_token_expires: resetTokenExpires.toISOString(),
+      })
+      .eq("email", normalizedEmail);
+    if (tokenSaveError) throw new Error(tokenSaveError.message);
 
     // Generate reset URL
     const resetUrl = `${process.env.NEXTAUTH_URL}/forgot-password?token=${resetToken}`;
@@ -80,13 +89,20 @@ export async function PUT(req: Request) {
     }
 
     console.log("Connecting to database");
-    await connectToDatabase();
 
     // Find user with a valid token
     console.log("Finding user with reset token");
-    const user = await User.findOne({
-      resetToken: token,
-    });
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, reset_token_expires")
+      .eq("reset_token", token)
+      .limit(1)
+      .maybeSingle();
+    if (userError) throw new Error(userError.message);
+    const user = userRow && {
+      _id: userRow.id,
+      resetTokenExpires: userRow.reset_token_expires,
+    };
     console.log("User found:", user);
 
     if (
@@ -111,13 +127,15 @@ export async function PUT(req: Request) {
 
     // Update user password and remove token
     console.log("Updating user password and removing reset token");
-    await User.updateOne(
-      { _id: user._id },
-      {
-        $set: { password: hashedPassword },
-        $unset: { resetToken: "", resetTokenExpires: "" },
-      }
-    );
+    const { error: passwordUpdateError } = await supabaseAdmin
+      .from("users")
+      .update({
+        password_hash: hashedPassword,
+        reset_token: null,
+        reset_token_expires: null,
+      })
+      .eq("id", user._id);
+    if (passwordUpdateError) throw new Error(passwordUpdateError.message);
     console.log("User password updated successfully");
 
     console.log("Password reset completed successfully");

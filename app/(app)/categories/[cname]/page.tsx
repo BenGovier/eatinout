@@ -358,7 +358,7 @@ export default function CategoryDetailPage() {
 
                                                                     <div className="mt-6">
                                                                         <Button
-                                                                            onClick={() => handleRedeem(offer._id, offer.associatedId)}
+                                                                            onClick={() => handleRedeem(offer._id, offer.restaurantId || restaurant._id)}
                                                                             className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg"
                                                                             disabled={redeemLoadingId === offer._id}
                                                                         >

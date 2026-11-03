@@ -1,6 +1,6 @@
+// api/admin/users/[id]/role/route.ts
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import User from "@/models/User"
+import supabaseAdmin from "@/lib/supabase/admin"
 import { verifyAdminToken } from "@/lib/auth-admin"
 
 export async function PUT(req, { params }) {
@@ -25,10 +25,14 @@ export async function PUT(req, { params }) {
       )
     }
 
-    await connectToDatabase()
-
     // Update user role
-    const user = await User.findByIdAndUpdate(id, { role }, { new: true })
+    const { data: user, error: updateError } = await supabaseAdmin
+      .from("users")
+      .update({ role })
+      .eq("id", id)
+      .select("id, first_name, last_name, email, role")
+      .maybeSingle()
+    if (updateError) throw new Error(updateError.message)
 
     if (!user) {
       return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
@@ -38,9 +42,9 @@ export async function PUT(req, { params }) {
       success: true,
       message: `User role updated to ${role}`,
       user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        _id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
         email: user.email,
         role: user.role,
       },
@@ -57,4 +61,3 @@ export async function PUT(req, { params }) {
     )
   }
 }
-
