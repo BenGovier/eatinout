@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
+import { getStorageUrl, getStorageFileName } from "@/lib/storage-url";
 
 // 24-char hex id, same shape as the migrated Mongo ids
 const newId = () => randomBytes(12).toString("hex");
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest) {
       _id: category.id,
       name: category.name,
       isActive: category.is_active,
-      image: category.image_url ?? undefined,
+      image: category.image_url ? getStorageUrl(category.image_url) : undefined,
       priority: category.priority ?? 999,
       restaurantCount: countMap.get(category.id) || 0,
       createdAt: toIso(category.created_at),
@@ -246,7 +247,7 @@ export async function POST(req: NextRequest) {
         id: newId(),
         name,
         is_active: true,
-        image_url: image || null,
+        image_url: image ? getStorageFileName(image) : null,
         priority: priority !== undefined ? Number(priority) : 999,
       })
       .select(CATEGORY_COLUMNS)
@@ -259,7 +260,7 @@ export async function POST(req: NextRequest) {
         _id: category.id,
         name: category.name,
         isActive: category.is_active,
-        image: category.image_url ?? undefined,
+        image: category.image_url ? getStorageUrl(category.image_url) : undefined,
         priority: category.priority ?? 999,
         restaurantCount: 0,
         createdAt: toIso(category.created_at)
@@ -335,7 +336,7 @@ export async function PUT(req: NextRequest) {
       updateData.is_active = isActive;
     }
     if (image !== undefined) {
-      updateData.image_url = image || null;
+      updateData.image_url = image ? getStorageFileName(image) : null;
     }
     if (priority !== undefined) {
       updateData.priority = Number(priority);
@@ -358,7 +359,7 @@ export async function PUT(req: NextRequest) {
         _id: updatedCategory.id,
         name: updatedCategory.name,
         isActive: updatedCategory.is_active,
-        image: updatedCategory.image_url ?? undefined,
+        image: updatedCategory.image_url ? getStorageUrl(updatedCategory.image_url) : undefined,
         priority: updatedCategory.priority ?? 999,
         restaurantCount: restaurantCount
       }

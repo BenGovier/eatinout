@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl, getStorageFileName } from "@/lib/storage-url";
 
 export async function DELETE(req: Request) {
   try {
@@ -43,11 +44,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({
         success: true,
         message: "Image already removed or not present in DB",
-        images: rows.map((r) => r.image_url),
+        images: rows.map((r) => getStorageUrl(r.image_url)),
       });
     }
 
     const targetRow = rows[imageIndex];
+
+    // Optional: remove from storage bucket if possible
+    if (targetRow.image_url) {
+      const fileName = getStorageFileName(targetRow.image_url);
+      const bucket = process.env.SUPABASE_STORAGE_BUCKET || "eatinout-staging-storage";
+      await supabaseAdmin.storage.from(bucket).remove([fileName]).catch(() => {});
+    }
 
     // 4. Remove image from database
     const { error: delErr } = await supabaseAdmin
@@ -59,11 +67,11 @@ export async function DELETE(req: Request) {
 
     const remainingImages = rows
       .filter((r) => r.id !== targetRow.id)
-      .map((r) => r.image_url);
+      .map((r) => getStorageUrl(r.image_url));
 
     return NextResponse.json({
       success: true,
-      message: "Image removed from database successfully",
+      message: "Image removed successfully",
       images: remainingImages, // send updated array back
     });
   } catch (error: any) {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 // Supabase offer row (with its restaurant, areas and categories embedded) -> same shape
 // the Mongoose docs had, so the code below stays unchanged
@@ -29,7 +30,7 @@ function toLegacyOffer(o: any) {
       images: (r.restaurant_images ?? [])
         .slice()
         .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map((i: any) => i.image_url),
+        .map((i: any) => getStorageUrl(i.image_url)),
       category: (r.restaurant_categories ?? []).map((x: any) => x.category_id),
       areaDocs: (r.restaurant_areas ?? [])
         .map((x: any) => x.areas)

@@ -102,13 +102,15 @@ function haversineDistanceMiles(
   return EARTH_RADIUS_MILES * c;
 }
 
+import { getStorageUrl } from "@/lib/storage-url";
+
 /* ---------------- row mappers (Supabase -> old Mongo shape) ---------------- */
 
 function mapRestaurantRow(r: any) {
   const images = (r.restaurant_images ?? [])
     .slice()
     .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-    .map((i: any) => i.image_url);
+    .map((i: any) => getStorageUrl(i.image_url));
 
   return {
     _id: r.id as string,

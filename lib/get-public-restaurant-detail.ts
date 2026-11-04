@@ -55,6 +55,8 @@ export type GetPublicRestaurantDetailResult =
   | { success: true; restaurant: PublicRestaurantDetail }
   | { success: false; status: 404 | 500; message: string; error?: string };
 
+import { getStorageUrl } from "@/lib/storage-url";
+
 // ids are the migrated 24-char hex strings
 function isValidObjectId(id: string): boolean {
   return /^[a-f0-9]{24}$/i.test(id);
@@ -86,11 +88,11 @@ function toLegacyRestaurant(r: any) {
     images: (r.restaurant_images ?? [])
       .slice()
       .sort(byOrder)
-      .map((i: any) => i.image_url),
+      .map((i: any) => getStorageUrl(i.image_url)),
     menuPdfUrls: (r.restaurant_menu_pdfs ?? [])
       .slice()
       .sort(byOrder)
-      .map((p: any) => p.pdf_url),
+      .map((p: any) => getStorageUrl(p.pdf_url)),
   };
 }
 

@@ -1,120 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  BlobServiceClient,
-  StorageSharedKeyCredential,
-} from "@azure/storage-blob";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   processImageToWebP,
   buildUniqueFileName,
   IMAGE_PRESETS,
 } from "@/lib/image-processing";
 
-const CONTAINER_NAME = "eatinout";
-const AZURE_BASE_URL = "https://eatinoutstorage.blob.core.windows.net";
-
-// export async function POST(req: NextRequest) {
-//   try {
-//     const formData = await req.formData();
-//     const file = formData.get("file") as File | null;
-//     const preset = (formData.get("preset") as keyof typeof IMAGE_PRESETS) || "restaurantHero";
-
-//     // Optional dimension overrides passed from client
-//     const widthParam = formData.get("width");
-//     const heightParam = formData.get("height");
-//     const customWidth = widthParam ? parseInt(widthParam as string, 10) : undefined;
-//     const customHeight = heightParam ? parseInt(heightParam as string, 10) : undefined;
-
-//     if (!file) {
-//       return NextResponse.json(
-//         { success: false, message: "No file provided" },
-//         { status: 400 }
-//       );
-//     }
-
-//     if (!file.type.startsWith("image/")) {
-//       return NextResponse.json(
-//         { success: false, message: "Only image files are allowed" },
-//         { status: 400 }
-//       );
-//     }
-
-//     // if (file.size > 10 * 1024 * 1024) {
-//     //   return NextResponse.json(
-//     //     { success: false, message: "File size exceeds 10MB limit" },
-//     //     { status: 400 }
-//     //   );
-//     // }
-
-//     const arrayBuffer = await file.arrayBuffer();
-//     const inputBuffer = Buffer.from(arrayBuffer);
-
-//     const presetOptions = IMAGE_PRESETS[preset];
-
-//     let finalBuffer: Buffer;
-//     let contentType: string;
-//     let fileExtension: string;
-
-//     if (presetOptions === null) {
-//       // No processing (e.g. PDF / menuPdf preset)
-//       finalBuffer = inputBuffer;
-//       contentType = file.type;
-//       fileExtension = file.name.split(".").pop() || "bin";
-//     } else {
-//       // Merge preset with any custom dimension overrides from client
-//       const processingOptions = {
-//         ...presetOptions,
-//         ...(customWidth !== undefined && { width: customWidth }),
-//         ...(customHeight !== undefined && { height: customHeight }),
-//       };
-
-//       const processed = await processImageToWebP(inputBuffer, processingOptions);
-//       finalBuffer = processed.buffer;
-//       contentType = processed.contentType;
-//       fileExtension = processed.extension;
-//     }
-
-//     const uniqueFileName = buildUniqueFileName(file.name, fileExtension);
-
-//     const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-//     const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
-
-//     const sharedKeyCredential = new StorageSharedKeyCredential(
-//       accountName,
-//       accountKey
-//     );
-//     const blobServiceClient = new BlobServiceClient(
-//       `https://${accountName}.blob.core.windows.net`,
-//       sharedKeyCredential
-//     );
-
-//     const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-//     const blockBlobClient = containerClient.getBlockBlobClient(uniqueFileName);
-
-//     await blockBlobClient.uploadData(finalBuffer, {
-//       blobHTTPHeaders: {
-//         blobContentType: contentType,
-//         blobCacheControl: "public, max-age=31536000, immutable",
-//       },
-//     });
-
-//     const publicUrl = `${AZURE_BASE_URL}/${CONTAINER_NAME}/${uniqueFileName}`;
-
-//     return NextResponse.json({
-//       success: true,
-//       url: publicUrl,
-//       fileName: uniqueFileName,
-//       originalSize: file.size,
-//       processedSize: finalBuffer.length,
-//       format: fileExtension,
-//     });
-//   } catch (error: any) {
-//     console.error("Image upload error:", error);
-//     return NextResponse.json(
-//       { success: false, message: error.message || "Upload failed" },
-//       { status: 500 }
-//     );
-//   }
-// }
+const BUCKET_NAME =
+  process.env.SUPABASE_STORAGE_BUCKET || "eatinout-staging-storage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -204,34 +97,31 @@ export async function POST(req: NextRequest) {
       fileExtension
     );
 
-    /* ---------- Azure Upload ---------- */
-    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-    const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+    /* ---------- Supabase Storage Upload ---------- */
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .upload(uniqueFileName, finalBuffer, {
+        contentType,
+        cacheControl: "31536000",
+        upsert: true,
+      });
 
-    const sharedKeyCredential = new StorageSharedKeyCredential(
-      accountName,
-      accountKey
-    );
+    if (uploadError) {
+      console.error("Supabase Storage upload error:", uploadError);
+      return NextResponse.json(
+        {
+          success: false,
+          message: uploadError.message || "Failed to upload to Supabase Storage",
+        },
+        { status: 500 }
+      );
+    }
 
-    const blobServiceClient = new BlobServiceClient(
-      `https://${accountName}.blob.core.windows.net`,
-      sharedKeyCredential
-    );
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(uniqueFileName);
 
-    const containerClient =
-      blobServiceClient.getContainerClient(CONTAINER_NAME);
-
-    const blockBlobClient =
-      containerClient.getBlockBlobClient(uniqueFileName);
-
-    await blockBlobClient.uploadData(finalBuffer, {
-      blobHTTPHeaders: {
-        blobContentType: contentType,
-        blobCacheControl: "public, max-age=31536000, immutable",
-      },
-    });
-
-    const publicUrl = `${AZURE_BASE_URL}/${CONTAINER_NAME}/${uniqueFileName}`;
+    const publicUrl = publicUrlData.publicUrl;
 
     return NextResponse.json({
       success: true,
@@ -253,6 +143,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -265,7 +156,17 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const fileName = fileUrl.split("/").pop();
+    // Extract path/filename from URL (supports both Supabase URLs and legacy Azure URLs)
+    let fileName = "";
+    if (fileUrl.includes(`/storage/v1/object/public/${BUCKET_NAME}/`)) {
+      fileName = fileUrl.split(`/storage/v1/object/public/${BUCKET_NAME}/`)[1];
+    } else {
+      fileName = fileUrl.split("/").pop() || "";
+    }
+
+    // Clean query parameters if present
+    fileName = fileName.split("?")[0];
+
     if (!fileName) {
       return NextResponse.json(
         { success: false, message: "Invalid URL" },
@@ -273,24 +174,21 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-    const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+    const { error: deleteError } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .remove([fileName]);
 
-    const sharedKeyCredential = new StorageSharedKeyCredential(
-      accountName,
-      accountKey
-    );
-    const blobServiceClient = new BlobServiceClient(
-      `https://${accountName}.blob.core.windows.net`,
-      sharedKeyCredential
-    );
-
-    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-    const blockBlobClient = containerClient.getBlockBlobClient(fileName);
-    await blockBlobClient.deleteIfExists();
+    if (deleteError) {
+      console.error("Supabase Storage delete error:", deleteError);
+      return NextResponse.json(
+        { success: false, message: deleteError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error("Delete file error:", error);
     return NextResponse.json(
       { success: false, message: error.message },
       { status: 500 }

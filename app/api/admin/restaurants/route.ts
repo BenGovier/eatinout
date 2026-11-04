@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { NextRequest } from "next/server"
 import supabaseAdmin from "@/lib/supabase/admin"
 import { verifyAdminToken } from "@/lib/auth-admin"
+import { getStorageUrl } from "@/lib/storage-url"
 
 // Supabase (PostgREST) returns max 1000 rows per request by default
 const SUPABASE_PAGE_SIZE = 1000
@@ -75,7 +76,7 @@ const mapRestaurantDoc = (r: any) => ({
   images: (r.restaurant_images || [])
     .slice()
     .sort((a: any, b: any) => a.display_order - b.display_order)
-    .map((i: any) => i.image_url) as string[],
+    .map((i: any) => getStorageUrl(i.image_url)) as string[],
   status: r.status as string,
   dineIn: r.dine_in,
   dineOut: r.dine_out,
@@ -86,7 +87,7 @@ const mapRestaurantDoc = (r: any) => ({
   menuPdfUrls: (r.restaurant_menu_pdfs || [])
     .slice()
     .sort((a: any, b: any) => a.display_order - b.display_order)
-    .map((p: any) => p.pdf_url) as string[],
+    .map((p: any) => getStorageUrl(p.pdf_url)) as string[],
   hidden: r.is_hidden,
   subscriptionStatus: r.subscription_status,
   stripeCustomerId: r.stripe_customer_id,

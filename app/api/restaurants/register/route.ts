@@ -9,6 +9,7 @@ import sendEmail from "@/lib/sendEmail";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { getStorageFileName } from "@/lib/storage-url";
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -200,7 +201,7 @@ export async function POST(req: any) {
     if (Array.isArray(data.images) && data.images.length > 0) {
       const imgRows = data.images.map((url: string, index: number) => ({
         restaurant_id: restaurantId,
-        image_url: url,
+        image_url: getStorageFileName(url),
         display_order: index + 1,
       }));
       await supabaseAdmin.from("restaurant_images").insert(imgRows);
@@ -210,7 +211,7 @@ export async function POST(req: any) {
     if (Array.isArray(data.menuPdfUrls) && data.menuPdfUrls.length > 0) {
       const pdfRows = data.menuPdfUrls.map((url: string, index: number) => ({
         restaurant_id: restaurantId,
-        pdf_url: url,
+        pdf_url: getStorageFileName(url),
         display_order: index + 1,
       }));
       await supabaseAdmin.from("restaurant_menu_pdfs").insert(pdfRows);

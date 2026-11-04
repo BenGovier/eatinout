@@ -1,95 +1,48 @@
 import axios from "axios";
 
+/**
+ * Uploads a file using the centralized /api/upload-image route
+ * which now stores into Supabase Storage.
+ */
 export async function uploadFileToAzure(file: File): Promise<string> {
-  console.log("Starting file upload to Azure...", file);
+  console.log("Uploading file via upload-image (Supabase Storage)...", file?.name);
 
-  const containerName = "eatinout";
-  const baseUrl = "https://eatinoutstorage.blob.core.windows.net";
-
-  let newName = "";
-  // Generate random file name if not provided
-  if (!file.name) {
-    const randomString = Math.random().toString(36).substring(7);
-    const fileExtension = file.type.split("/")[1] || "png";
-    newName = `file_${randomString}.${fileExtension}`;
-  }
-  const timestamp = Date.now();
-  const fileName = file.name || newName;
-  const uniqueFileName = `${fileName.split(".")[0]}_${timestamp}.${fileName
-    .split(".")
-    .pop()}`;
+  const isPdf = file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("preset", isPdf ? "menuPdf" : "restaurantHero");
 
   try {
-    // Get dynamic SAS token from API
-    console.log("Getting dynamic SAS token...");
-    const tokenResponse = await axios.get(`/api/get-upload-url?fileName=${encodeURIComponent(uniqueFileName)}`);
-    
-    if (tokenResponse.status !== 200) {
-      throw new Error("Failed to get upload URL");
-    }
-
-    const { uploadUrl } = tokenResponse.data;
-    const publicUrl = `${baseUrl}/${containerName}/${uniqueFileName}`;
-
-    console.log("Uploading file with dynamic token...");
-    const response = await axios.put(uploadUrl, file, {
-      headers: {
-        "x-ms-blob-type": "BlockBlob",
-        "Content-Type": file.type,
-        "x-ms-blob-cache-control": "public, max-age=31536000, immutable", 
-      },
+    const response = await axios.post("/api/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    if (response.status === 201) {
-      console.log("File upload successful");
-      return publicUrl;
-    } else {
-      console.log("Upload failed with status:", response.status);
-      throw new Error("Failed to upload file");
+    if (response.data?.success && response.data?.url) {
+      return response.data.url;
     }
-  } catch (error) {
-    console.error("Azure upload error:", error);
-    throw new Error("Azure upload failed");
+    throw new Error(response.data?.message || "Failed to upload file");
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    throw new Error(error.response?.data?.message || error.message || "Upload failed");
   }
 }
 
+/**
+ * Deletes a file using the centralized /api/upload-image route
+ * which now removes from Supabase Storage.
+ */
 export async function deleteFileFromAzure(fileUrl: string): Promise<void> {
-  console.log("Starting file deletion from Azure...");
-
-  const containerName = "eatinout";
-  const baseUrl = "https://eatinoutstorage.blob.core.windows.net";
-
-  console.log("Extracting filename from URL...");
-  const fileName = fileUrl.split("/").pop();
-  console.log("Filename extracted:", fileName);
+  if (!fileUrl) return;
+  console.log("Deleting file via upload-image (Supabase Storage)...", fileUrl);
 
   try {
-    // Get dynamic SAS token for deletion
-    console.log("Getting dynamic SAS token for deletion...");
-    const tokenResponse = await axios.get(`/api/get-upload-url?fileName=${encodeURIComponent(fileName!)}&operation=delete`);
-    
-    if (tokenResponse.status !== 200) {
-      throw new Error("Failed to get delete URL");
-    }
-
-    const { uploadUrl } = tokenResponse.data;
-    const deleteUrl = uploadUrl; // The upload URL can be used for deletion with proper permissions
-
-    console.log("Initiating delete request...");
-    const response = await axios.delete(deleteUrl, {
-      headers: {
-        "x-ms-blob-type": "BlockBlob",
-      },
-    });
-
-    if (response.status === 202) {
-      console.log("File deleted successfully");
-    } else {
-      console.log("Delete failed with status:", response.status);
-      throw new Error("Failed to delete file");
-    }
-  } catch (error) {
-    console.error("Azure delete error:", error);
-    throw new Error("Azure delete failed");
+    await axios.delete(`/api/upload-image?url=${encodeURIComponent(fileUrl)}`);
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    // Non-blocking in UI
   }
 }
+
+// Backward-compatible and future-proof aliases
+export const uploadFileToStorage = uploadFileToAzure;
+export const deleteFileFromStorage = deleteFileFromAzure;

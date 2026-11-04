@@ -1,69 +1,52 @@
-import { NextResponse } from 'next/server'
-import {
-  generateBlobSASQueryParameters,
-  BlobSASPermissions,
-  StorageSharedKeyCredential
-} from '@azure/storage-blob'
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+
+const BUCKET_NAME = process.env.SUPABASE_STORAGE_BUCKET || 'eatinout-staging-storage';
 
 export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const fileName = url.searchParams.get('fileName')
-  const operation = url.searchParams.get('operation') || 'upload' // 'upload' or 'delete'
+  const url = new URL(req.url);
+  const fileName = url.searchParams.get('fileName');
+  const operation = url.searchParams.get('operation') || 'upload'; // 'upload' or 'delete'
 
   if (!fileName) {
-    return NextResponse.json({ error: 'Missing fileName' }, { status: 400 })
-  }
-
-  // Check if environment variables are set
-  const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME
-  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY
-  const containerName = process.env.AZURE_CONTAINER_NAME
-
-  if (!accountName || !accountKey || !containerName) {
-    console.error('Missing Azure environment variables:', {
-      accountName: !!accountName,
-      accountKey: !!accountKey,
-      containerName: !!containerName
-    })
-    return NextResponse.json({ 
-      error: 'Azure storage configuration missing',
-      details: 'Please check AZURE_STORAGE_ACCOUNT_NAME, AZURE_STORAGE_ACCOUNT_KEY, and AZURE_CONTAINER_NAME environment variables'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Missing fileName' }, { status: 400 });
   }
 
   try {
-    const credential = new StorageSharedKeyCredential(accountName, accountKey)
-
-    const startsOn = new Date(Date.now() - 5 * 60 * 1000)
-    const expiresOn = new Date(Date.now() + 30 * 60 * 1000)
-
-    // Set permissions based on operation
-    let permissions: BlobSASPermissions
     if (operation === 'delete') {
-      permissions = BlobSASPermissions.parse('d') // delete
-    } else {
-      permissions = BlobSASPermissions.parse('cw') // create + write
+      const { error } = await supabaseAdmin.storage.from(BUCKET_NAME).remove([fileName]);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, message: 'Deleted from Supabase Storage' });
     }
 
-    const sasToken = generateBlobSASQueryParameters(
-      {
-        containerName,
-        blobName: fileName,
-        permissions,
-        startsOn,
-        expiresOn
-      },
-      credential
-    ).toString()
+    // Create a signed upload URL from Supabase Storage (valid for 15 minutes)
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .createSignedUploadUrl(fileName);
 
-    const uploadUrl = `https://${accountName}.blob.core.windows.net/${containerName}/${fileName}?${sasToken}`
+    if (error || !data) {
+      console.error('Supabase signed URL error:', error);
+      return NextResponse.json(
+        { error: 'Failed to generate upload URL', details: error?.message },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({ uploadUrl })
+    return NextResponse.json({
+      uploadUrl: data.signedUrl,
+      token: data.token,
+      path: data.path,
+    });
   } catch (error) {
-    console.error('Error generating SAS token:', error)
-    return NextResponse.json({ 
-      error: 'Failed to generate upload URL',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('Error generating Supabase Storage URL:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to generate upload URL',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
