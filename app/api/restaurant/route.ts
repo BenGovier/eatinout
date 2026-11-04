@@ -120,8 +120,8 @@ export async function GET(request: Request) {
         stripeCustomerId: restaurant.stripe_customer_id,
         homeIsPinned: restaurant.home_is_pinned,
         homePinPriority: restaurant.home_pin_priority,
-        images: (imagesRes.data || []).map((img) => getStorageUrl(img.image_url)),
-        menuPdfUrls: (menuPdfsRes.data || []).map((m) => getStorageUrl(m.pdf_url)),
+        images: (imagesRes.data || []).map((img) => getStorageUrl(img.image_url)).filter(Boolean),
+        menuPdfUrls: (menuPdfsRes.data || []).map((m) => getStorageUrl(m.pdf_url)).filter(Boolean),
         searchTags: (tagsRes.data || []).map((t) => t.tag_id),
         category: categories,
         area: areas,
@@ -191,16 +191,22 @@ export async function GET(request: Request) {
 
       const restImagesMap = new Map<string, string[]>();
       (imagesRes.data || []).forEach((img) => {
-        const list = restImagesMap.get(img.restaurant_id) || [];
-        list.push(getStorageUrl(img.image_url));
-        restImagesMap.set(img.restaurant_id, list);
+        const url = getStorageUrl(img.image_url);
+        if (url) {
+          const list = restImagesMap.get(img.restaurant_id) || [];
+          list.push(url);
+          restImagesMap.set(img.restaurant_id, list);
+        }
       });
 
       const restMenuPdfsMap = new Map<string, string[]>();
       (menuPdfsRes.data || []).forEach((m) => {
-        const list = restMenuPdfsMap.get(m.restaurant_id) || [];
-        list.push(getStorageUrl(m.pdf_url));
-        restMenuPdfsMap.set(m.restaurant_id, list);
+        const url = getStorageUrl(m.pdf_url);
+        if (url) {
+          const list = restMenuPdfsMap.get(m.restaurant_id) || [];
+          list.push(url);
+          restMenuPdfsMap.set(m.restaurant_id, list);
+        }
       });
 
       const restTagsMap = new Map<string, string[]>();

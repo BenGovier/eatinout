@@ -34,7 +34,8 @@ function toLegacyCarousel(c: any) {
               images: (r.restaurants.restaurant_images ?? [])
                 .slice()
                 .sort(byOrder)
-                .map((i: any) => getStorageUrl(i.image_url)),
+                .map((i: any) => getStorageUrl(i.image_url))
+                .filter(Boolean),
             }
           : null,
         order: r.display_order,

@@ -305,10 +305,13 @@ export async function GET(req: Request) {
     // Map images by restaurant ID
     const imagesByRest = new Map<string, string[]>();
     (imagesRes.data || []).forEach((img: any) => {
-      if (!imagesByRest.has(img.restaurant_id)) {
-        imagesByRest.set(img.restaurant_id, []);
+      const url = getStorageUrl(img.image_url);
+      if (url) {
+        if (!imagesByRest.has(img.restaurant_id)) {
+          imagesByRest.set(img.restaurant_id, []);
+        }
+        imagesByRest.get(img.restaurant_id)!.push(url);
       }
-      imagesByRest.get(img.restaurant_id)!.push(getStorageUrl(img.image_url));
     });
 
     // Map categories by restaurant ID

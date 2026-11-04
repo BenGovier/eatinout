@@ -88,11 +88,13 @@ function toLegacyRestaurant(r: any) {
     images: (r.restaurant_images ?? [])
       .slice()
       .sort(byOrder)
-      .map((i: any) => getStorageUrl(i.image_url)),
+      .map((i: any) => getStorageUrl(i.image_url))
+      .filter(Boolean),
     menuPdfUrls: (r.restaurant_menu_pdfs ?? [])
       .slice()
       .sort(byOrder)
-      .map((p: any) => getStorageUrl(p.pdf_url)),
+      .map((p: any) => getStorageUrl(p.pdf_url))
+      .filter(Boolean),
   };
 }
 

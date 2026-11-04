@@ -30,7 +30,8 @@ function toLegacyOffer(o: any) {
       images: (r.restaurant_images ?? [])
         .slice()
         .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map((i: any) => getStorageUrl(i.image_url)),
+        .map((i: any) => getStorageUrl(i.image_url))
+        .filter(Boolean),
       category: (r.restaurant_categories ?? []).map((x: any) => x.category_id),
       areaDocs: (r.restaurant_areas ?? [])
         .map((x: any) => x.areas)
