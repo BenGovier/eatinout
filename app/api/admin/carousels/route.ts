@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 // carousel with its areas and restaurants (name + images) in one query, like the old populate
 const CAROUSEL_SELECT =
@@ -33,7 +34,8 @@ function toLegacyCarousel(c: any) {
               images: (r.restaurants.restaurant_images ?? [])
                 .slice()
                 .sort(byOrder)
-                .map((i: any) => i.image_url),
+                .map((i: any) => getStorageUrl(i.image_url))
+                .filter(Boolean),
             }
           : null,
         order: r.display_order,

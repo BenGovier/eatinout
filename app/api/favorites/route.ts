@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 export async function GET(request: NextRequest) {
   try {
@@ -105,10 +106,13 @@ export async function GET(request: NextRequest) {
     // Group images by restaurant
     const imagesByRest = new Map<string, string[]>();
     (imagesRes.data || []).forEach((img: any) => {
-      if (!imagesByRest.has(img.restaurant_id)) {
-        imagesByRest.set(img.restaurant_id, []);
+      const url = getStorageUrl(img.image_url);
+      if (url) {
+        if (!imagesByRest.has(img.restaurant_id)) {
+          imagesByRest.set(img.restaurant_id, []);
+        }
+        imagesByRest.get(img.restaurant_id)!.push(url);
       }
-      imagesByRest.get(img.restaurant_id)!.push(img.image_url);
     });
 
     // Group categories by restaurant

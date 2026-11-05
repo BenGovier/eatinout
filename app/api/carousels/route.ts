@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 // Mongo serialized Dates as ISO (...000Z); keep the same format
 const toIso = (v: any) => (v ? new Date(v).toISOString() : v);
@@ -92,7 +93,8 @@ function mapRestaurantRow(r: any) {
   const images = (r.restaurant_images ?? [])
     .slice()
     .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-    .map((i: any) => i.image_url);
+    .map((i: any) => getStorageUrl(i.image_url))
+    .filter(Boolean);
 
   return {
     _id: r.id as string,

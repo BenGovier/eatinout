@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 import { generateUniqueRestaurantSlug } from "@/lib/restaurant-slug";
 import { DEFAULT_MAP_CENTER_LAT_LNG } from "@/lib/constants";
+import { getStorageUrl, getStorageFileName } from "@/lib/storage-url";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -119,8 +120,8 @@ export async function GET(request: Request) {
         stripeCustomerId: restaurant.stripe_customer_id,
         homeIsPinned: restaurant.home_is_pinned,
         homePinPriority: restaurant.home_pin_priority,
-        images: (imagesRes.data || []).map((img) => img.image_url),
-        menuPdfUrls: (menuPdfsRes.data || []).map((m) => m.pdf_url),
+        images: (imagesRes.data || []).map((img) => getStorageUrl(img.image_url)).filter(Boolean),
+        menuPdfUrls: (menuPdfsRes.data || []).map((m) => getStorageUrl(m.pdf_url)).filter(Boolean),
         searchTags: (tagsRes.data || []).map((t) => t.tag_id),
         category: categories,
         area: areas,
@@ -190,16 +191,22 @@ export async function GET(request: Request) {
 
       const restImagesMap = new Map<string, string[]>();
       (imagesRes.data || []).forEach((img) => {
-        const list = restImagesMap.get(img.restaurant_id) || [];
-        list.push(img.image_url);
-        restImagesMap.set(img.restaurant_id, list);
+        const url = getStorageUrl(img.image_url);
+        if (url) {
+          const list = restImagesMap.get(img.restaurant_id) || [];
+          list.push(url);
+          restImagesMap.set(img.restaurant_id, list);
+        }
       });
 
       const restMenuPdfsMap = new Map<string, string[]>();
       (menuPdfsRes.data || []).forEach((m) => {
-        const list = restMenuPdfsMap.get(m.restaurant_id) || [];
-        list.push(m.pdf_url);
-        restMenuPdfsMap.set(m.restaurant_id, list);
+        const url = getStorageUrl(m.pdf_url);
+        if (url) {
+          const list = restMenuPdfsMap.get(m.restaurant_id) || [];
+          list.push(url);
+          restMenuPdfsMap.set(m.restaurant_id, list);
+        }
       });
 
       const restTagsMap = new Map<string, string[]>();
@@ -415,7 +422,7 @@ export async function POST(request: Request) {
     if (Array.isArray(data.images) && data.images.length > 0) {
       const imgRows = data.images.map((url: string, index: number) => ({
         restaurant_id: newRestaurantId,
-        image_url: url,
+        image_url: getStorageFileName(url),
         display_order: index + 1,
       }));
       await supabaseAdmin.from("restaurant_images").insert(imgRows);
@@ -425,7 +432,7 @@ export async function POST(request: Request) {
     if (Array.isArray(data.menuPdfUrls) && data.menuPdfUrls.length > 0) {
       const pdfRows = data.menuPdfUrls.map((url: string, index: number) => ({
         restaurant_id: newRestaurantId,
-        pdf_url: url,
+        pdf_url: getStorageFileName(url),
         display_order: index + 1,
       }));
       await supabaseAdmin.from("restaurant_menu_pdfs").insert(pdfRows);
@@ -668,7 +675,7 @@ export async function PUT(request: Request) {
       if (images.length > 0) {
         const imgRows = images.map((url: string, index: number) => ({
           restaurant_id: targetRestId,
-          image_url: url,
+          image_url: getStorageFileName(url),
           display_order: index + 1,
         }));
         await supabaseAdmin.from("restaurant_images").insert(imgRows);
@@ -681,7 +688,7 @@ export async function PUT(request: Request) {
       if (menuPdfUrls.length > 0) {
         const pdfRows = menuPdfUrls.map((url: string, index: number) => ({
           restaurant_id: targetRestId,
-          pdf_url: url,
+          pdf_url: getStorageFileName(url),
           display_order: index + 1,
         }));
         await supabaseAdmin.from("restaurant_menu_pdfs").insert(pdfRows);

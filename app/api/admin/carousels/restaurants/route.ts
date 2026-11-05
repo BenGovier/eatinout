@@ -1,6 +1,7 @@
 // app/api/admin/carousels/restaurants/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 export async function GET() {
   try {
@@ -21,7 +22,8 @@ export async function GET() {
         images: (r.restaurant_images ?? [])
           .slice()
           .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-          .map((i: any) => i.image_url),
+          .map((i: any) => getStorageUrl(i.image_url))
+          .filter(Boolean),
       }))
       .sort((a: any, b: any) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 

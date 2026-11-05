@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -65,8 +66,8 @@ export async function GET(
       dineOut: restaurant.dine_out,
       category: (catsRes.data || []).map((c) => c.category_id),
       area: (areasRes.data || []).map((a) => a.area_id),
-      images: (imagesRes.data || []).map((i) => i.image_url),
-      menuPdfUrls: (menuPdfsRes.data || []).map((m) => m.pdf_url),
+      images: (imagesRes.data || []).map((i) => getStorageUrl(i.image_url)).filter(Boolean),
+      menuPdfUrls: (menuPdfsRes.data || []).map((m) => getStorageUrl(m.pdf_url)).filter(Boolean),
       subscriptionStatus: restaurant.subscription_status,
       stripeCustomerId: restaurant.stripe_customer_id,
       stripePriceId: restaurant.stripe_price_id,

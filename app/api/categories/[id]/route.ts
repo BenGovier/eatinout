@@ -1,6 +1,7 @@
 // app/api/categories/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import supabaseAdmin from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 /**
  * PERFORMANCE OPTIMIZATIONS APPLIED:
@@ -198,7 +199,8 @@ export async function GET(
         images: (r.restaurant_images || [])
           .slice()
           .sort((a: any, b: any) => a.display_order - b.display_order)
-          .map((i: any) => i.image_url),
+          .map((i: any) => getStorageUrl(i.image_url))
+          .filter(Boolean),
         status: r.status,
         dineIn: r.dine_in,
         dineOut: r.dine_out,
@@ -209,7 +211,8 @@ export async function GET(
         menuPdfUrls: (r.restaurant_menu_pdfs || [])
           .slice()
           .sort((a: any, b: any) => a.display_order - b.display_order)
-          .map((p: any) => p.pdf_url),
+          .map((p: any) => getStorageUrl(p.pdf_url))
+          .filter(Boolean),
         hidden: r.is_hidden,
         subscriptionStatus: r.subscription_status,
         stripeCustomerId: r.stripe_customer_id,

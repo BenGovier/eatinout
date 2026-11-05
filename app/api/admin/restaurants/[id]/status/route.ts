@@ -2,6 +2,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import supabaseAdmin from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/auth-admin";
+import { getStorageUrl } from "@/lib/storage-url";
 import sendEmail from "@/lib/sendEmail";
 import { render } from "@react-email/render";
 import { RestaurantApprovalEmail } from "@/utils/email-templates/restuarant-approval";
@@ -35,7 +36,8 @@ const mapRestaurantDoc = (r: any) => ({
   images: (r.restaurant_images || [])
     .slice()
     .sort((a: any, b: any) => a.display_order - b.display_order)
-    .map((i: any) => i.image_url) as string[],
+    .map((i: any) => getStorageUrl(i.image_url))
+    .filter(Boolean) as string[],
   status: r.status as string,
   dineIn: r.dine_in,
   dineOut: r.dine_out,
@@ -46,7 +48,8 @@ const mapRestaurantDoc = (r: any) => ({
   menuPdfUrls: (r.restaurant_menu_pdfs || [])
     .slice()
     .sort((a: any, b: any) => a.display_order - b.display_order)
-    .map((p: any) => p.pdf_url) as string[],
+    .map((p: any) => getStorageUrl(p.pdf_url))
+    .filter(Boolean) as string[],
   hidden: r.is_hidden,
   subscriptionStatus: r.subscription_status,
   stripeCustomerId: r.stripe_customer_id,

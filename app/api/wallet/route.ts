@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getStorageUrl } from "@/lib/storage-url";
 
 export const dynamic = "force-dynamic";
 
@@ -304,10 +305,13 @@ export async function GET(req: Request) {
     // Map images by restaurant ID
     const imagesByRest = new Map<string, string[]>();
     (imagesRes.data || []).forEach((img: any) => {
-      if (!imagesByRest.has(img.restaurant_id)) {
-        imagesByRest.set(img.restaurant_id, []);
+      const url = getStorageUrl(img.image_url);
+      if (url) {
+        if (!imagesByRest.has(img.restaurant_id)) {
+          imagesByRest.set(img.restaurant_id, []);
+        }
+        imagesByRest.get(img.restaurant_id)!.push(url);
       }
-      imagesByRest.get(img.restaurant_id)!.push(img.image_url);
     });
 
     // Map categories by restaurant ID
