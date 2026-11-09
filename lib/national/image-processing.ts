@@ -2,6 +2,7 @@ import sharp from "sharp"
 
 export const MAX_LOGO_BYTES = 4 * 1024 * 1024
 export const MAX_LOGO_PIXELS = 40_000_000
+export const MAX_LOGO_DIMENSION = 1024
 
 export type LogoFormat = "png" | "webp"
 
@@ -87,11 +88,21 @@ export async function processBrandLogo(input: Buffer): Promise<ProcessedLogo> {
 
   const hasAlpha = Boolean(metadata.hasAlpha)
 
-  // rotate() with no argument applies EXIF orientation. No resize, extract or
-  // flatten is applied, so the logo is never cropped, stretched or upscaled.
-  // keepIccProfile() keeps the embedded colour profile so colours are not altered,
-  // while other metadata (EXIF, GPS) is stripped.
-  const base = () => sharp(input, { limitInputPixels: MAX_LOGO_PIXELS }).rotate().keepIccProfile()
+  // rotate() applies EXIF orientation first so the 1024px cap is measured on the
+  // upright image. fit "inside" scales proportionally (never crops or stretches),
+  // and withoutEnlargement leaves smaller logos at their original size. No extract
+  // or flatten is applied, so transparency is kept. keepIccProfile() keeps the
+  // embedded colour profile while other metadata (EXIF, GPS) is stripped.
+  const base = () =>
+    sharp(input, { limitInputPixels: MAX_LOGO_PIXELS })
+      .rotate()
+      .resize({
+        width: MAX_LOGO_DIMENSION,
+        height: MAX_LOGO_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .keepIccProfile()
 
   let candidates: { buffer: Buffer; info: sharp.OutputInfo; format: LogoFormat }[]
   try {
@@ -109,7 +120,16 @@ export async function processBrandLogo(input: Buffer): Promise<ProcessedLogo> {
     throw new LogoValidationError("The image could not be processed.")
   }
 
-  const best = candidates.reduce((smallest, candidate) =>
+  const validCandidates = candidates.filter(
+    ({ buffer, info }) =>
+      buffer.length > 0 &&
+      info.width > 0 &&
+      info.height > 0 &&
+      Math.max(info.width, info.height) <= MAX_LOGO_DIMENSION,
+  )
+  if (validCandidates.length === 0) throw new LogoValidationError("The image could not be processed.")
+
+  const best = validCandidates.reduce((smallest, candidate) =>
     candidate.buffer.length < smallest.buffer.length ? candidate : smallest,
   )
 
