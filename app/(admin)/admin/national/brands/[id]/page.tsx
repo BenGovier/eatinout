@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Loader2,
   Lock,
@@ -640,14 +641,23 @@ function OffersCard({ detail }: { detail: BrandDetail }) {
         ) : (
           <ul className="divide-y">
             {offers.map((offer) => (
-              <li key={offer.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{offer.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {offerDateLabel(offer, offerDisplayState(offer))}
-                  </p>
-                </div>
-                <StatusBadge status={offerDisplayState(offer)} />
+              <li key={offer.id}>
+                <Link
+                  href={`/admin/national/brands/${encodeURIComponent(brand.id)}/offers/${encodeURIComponent(offer.id)}`}
+                  className="-mx-2 px-2 py-3 rounded-md flex items-center gap-3 sm:gap-4 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                >
+                  <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{offer.title}</p>
+                      <p className="text-xs text-gray-500">
+                        {offerDateLabel(offer, offerDisplayState(offer))}
+                      </p>
+                    </div>
+                    <StatusBadge status={offerDisplayState(offer)} />
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  <span className="sr-only">Edit offer</span>
+                </Link>
               </li>
             ))}
           </ul>
