@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
   AlertCircle,
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Loader2,
   Lock,
+  Plus,
   Store,
   Tag,
   X,
@@ -596,16 +597,37 @@ function StatusCard({
 }
 
 function OffersCard({ detail }: { detail: BrandDetail }) {
-  const { offers, offerCount, offersAvailable } = detail
+  const { brand, offers, offerCount, offersAvailable } = detail
+  const isArchived = brand.status === "archived"
   return (
     <Card className="shadow-md">
-      <CardHeader>
-        <CardTitle className="text-red-700">National offers</CardTitle>
-        <CardDescription>
-          {offersAvailable
-            ? `${offerCount ?? 0} ${offerCount === 1 ? "offer" : "offers"} linked to this brand`
-            : "Offer information is unavailable"}
-        </CardDescription>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 space-y-0">
+        <div className="space-y-1.5">
+          <CardTitle className="text-red-700">National offers</CardTitle>
+          <CardDescription>
+            {offersAvailable
+              ? `${offerCount ?? 0} ${offerCount === 1 ? "offer" : "offers"} linked to this brand`
+              : "Offer information is unavailable"}
+          </CardDescription>
+        </div>
+        {isArchived ? (
+          <div className="flex flex-col sm:items-end gap-1">
+            <Button type="button" className="bg-red-600 text-white" disabled aria-describedby="add-offer-archived-note">
+              <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+              Add Offer
+            </Button>
+            <p id="add-offer-archived-note" className="text-xs text-gray-500">
+              Restore the brand to add offers.
+            </p>
+          </div>
+        ) : (
+          <Button asChild className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
+            <Link href={`/admin/national/brands/${encodeURIComponent(brand.id)}/offers/new`}>
+              <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+              Add Offer
+            </Link>
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {!offersAvailable ? (
@@ -689,6 +711,26 @@ export default function AdminNationalBrandDetailPage() {
   useEffect(() => {
     if (detail?.brand.name) document.title = `${detail.brand.name} · National Brands`
   }, [detail?.brand.name])
+
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const createdOfferId = searchParams.get("offerCreated")
+  const createdAuditFailed = searchParams.get("audit") === "failed"
+
+  useEffect(() => {
+    if (!createdOfferId || !detail) return
+    const createdOffer = detail.offers.find((offer) => offer.id === createdOfferId)
+    const label = createdOffer ? `Draft offer "${createdOffer.title}" created.` : "Draft offer created."
+    setNotice(
+      createdAuditFailed
+        ? {
+            message: `${label} (ID: ${createdOfferId}) The audit log entry could not be recorded.`,
+            isWarning: true,
+          }
+        : { message: label, isWarning: false },
+    )
+    router.replace(`/admin/national/brands/${encodeURIComponent(detail.brand.id)}`, { scroll: false })
+  }, [createdOfferId, createdAuditFailed, detail, router])
 
   if (isLoading) return <LoadingState />
 
