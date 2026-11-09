@@ -66,7 +66,6 @@ type BrandInput = {
   slug: string
   description: string | null
   website_url: string | null
-  logo_url: string | null
   affiliate_network: AffiliateNetwork | null
 }
 
@@ -93,9 +92,9 @@ function validateBrandInput(body: unknown): { input?: BrandInput; errors: Record
   if (websiteUrl === undefined || (websiteUrl && !isValidHttpUrl(websiteUrl)))
     errors.website_url = "Website URL must be a valid http(s) URL"
 
-  const logoUrl = optionalString(raw.logo_url)
-  if (logoUrl === undefined || (logoUrl && !isValidHttpUrl(logoUrl)))
-    errors.logo_url = "Logo URL must be a valid http(s) URL"
+  // Logos will only be set through the dedicated uploader, never from a submitted URL
+  if (raw.logo_url !== undefined && raw.logo_url !== null && raw.logo_url !== "")
+    errors.logo_url = "Logo URLs cannot be submitted. Logo upload is handled separately."
 
   const network = optionalString(raw.affiliate_network)
   if (network === undefined || (network && !AFFILIATE_NETWORKS.includes(network as AffiliateNetwork)))
@@ -110,7 +109,6 @@ function validateBrandInput(body: unknown): { input?: BrandInput; errors: Record
       slug,
       description: description ?? null,
       website_url: websiteUrl ?? null,
-      logo_url: logoUrl ?? null,
       affiliate_network: (network as AffiliateNetwork | null) ?? null,
     },
   }
