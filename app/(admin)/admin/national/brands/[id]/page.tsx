@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { LogoUploadField } from "@/components/admin/national/logo-upload-field"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -556,7 +557,7 @@ function StatusCard({
 
         {brand.status !== "active" && !canActivate && (
           <p id="activate-locked-note" className="text-xs text-gray-500">
-            Activation needs an approved brand logo. Logo upload and approval are not available yet.
+            Activation needs an approved brand logo. Logo approval is not available yet.
           </p>
         )}
         <p className="text-xs text-gray-500">Brands are never permanently deleted.</p>
@@ -766,7 +767,24 @@ export default function AdminNationalBrandDetailPage() {
           />
           <OffersCard detail={detail} />
         </div>
-        <div>
+        <div className="space-y-6">
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle className="text-red-700">Brand logo</CardTitle>
+              <CardDescription>Logos are stored at their original proportions and are never cropped.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LogoUploadField<NationalBrand>
+                brandId={brand.id}
+                brandName={brand.name}
+                currentLogoUrl={brand.logo_url}
+                onUploaded={({ brand: updated, message, isWarning }) => {
+                  setDetail((prev) => (prev ? { ...prev, brand: updated } : prev))
+                  setNotice({ message, isWarning })
+                }}
+              />
+            </CardContent>
+          </Card>
           <StatusCard
             brand={brand}
             canActivate={detail.canActivate}
