@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LogoUploadField } from "@/components/admin/national/logo-upload-field"
@@ -125,7 +126,8 @@ const STATUS_ACTIONS: StatusAction[] = [
     target: "active",
     label: "Activate",
     title: "Activate this brand?",
-    description: "Active brands can be used for live national offers.",
+    description:
+      "Active brands can be used for live national offers. Check the brand details and logo before approving.",
   },
   {
     target: "paused",
@@ -479,6 +481,26 @@ function StatusCard({
   const [pending, setPending] = useState<StatusAction | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
+  const [approvalConfirmed, setApprovalConfirmed] = useState(false)
+
+  const isActivating = pending?.target === "active"
+  const lockedReason =
+    brand.status === "archived"
+      ? "Archived brands must be restored to draft before they can be activated."
+      : !brand.logo_url
+        ? "Upload a brand logo before activating this brand."
+        : "This brand cannot be activated right now."
+
+  function openAction(action: StatusAction) {
+    setApprovalConfirmed(false)
+    setError("")
+    setPending(action)
+  }
+
+  function closeDialog() {
+    setPending(null)
+    setApprovalConfirmed(false)
+  }
 
   const actions = STATUS_ACTIONS.filter((action) => action.target !== brand.status).map((action) =>
     brand.status === "archived" && action.target === "draft"
@@ -493,29 +515,32 @@ function StatusCard({
 
   async function confirmChange() {
     if (!pending || isSaving) return
+    if (pending.target === "active" && !approvalConfirmed) return
     setIsSaving(true)
     setError("")
     try {
+      const body =
+        pending.target === "active" ? { status: "active", approval_confirmed: true } : { status: pending.target }
       const response = await fetch(`/api/admin/national/brands/${encodeURIComponent(brand.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ status: pending.target }),
+        body: JSON.stringify(body),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.success) {
         setError(data?.message || "Failed to change status")
-        setPending(null)
+        closeDialog()
         return
       }
       onChanged(data.brand, Boolean(data.canActivate), {
         message: data.unchanged ? "Status is already set." : data.message || "Status changed.",
         isWarning: Boolean(data.partial),
       })
-      setPending(null)
+      closeDialog()
     } catch {
       setError("Network error. Please try again.")
-      setPending(null)
+      closeDialog()
     } finally {
       setIsSaving(false)
     }
@@ -547,7 +572,7 @@ function StatusCard({
                 variant={action.destructive ? "outline" : "outline"}
                 className={`justify-start ${action.destructive ? "text-red-700 border-red-200 hover:bg-red-50" : ""}`}
                 disabled={isSaving || isLocked}
-                onClick={() => setPending(action)}
+                onClick={() => openAction(action)}
                 aria-describedby={isLocked ? "activate-locked-note" : undefined}
               >
                 {isLocked && <Lock className="h-4 w-4 mr-2" aria-hidden="true" />}
@@ -559,22 +584,36 @@ function StatusCard({
 
         {brand.status !== "active" && !canActivate && (
           <p id="activate-locked-note" className="text-xs text-gray-500">
-            Activation needs an approved brand logo. Logo approval is not available yet.
+            {lockedReason}
           </p>
         )}
         <p className="text-xs text-gray-500">Brands are never permanently deleted.</p>
       </CardContent>
 
-      <AlertDialog open={pending !== null} onOpenChange={(open) => !open && !isSaving && setPending(null)}>
+      <AlertDialog open={pending !== null} onOpenChange={(open) => !open && !isSaving && closeDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
             <AlertDialogDescription>{pending?.description}</AlertDialogDescription>
           </AlertDialogHeader>
+          {isActivating && (
+            <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+              <Checkbox
+                id="brand-approval-confirm"
+                checked={approvalConfirmed}
+                onCheckedChange={(checked) => setApprovalConfirmed(checked === true)}
+                disabled={isSaving}
+                className="mt-0.5"
+              />
+              <Label htmlFor="brand-approval-confirm" className="text-sm font-normal leading-relaxed text-gray-800">
+                I confirm this brand and its logo are approved for use on EatinOut.
+              </Label>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={isSaving}
+              disabled={isSaving || (isActivating && !approvalConfirmed)}
               className={pending?.destructive ? "bg-red-600 hover:bg-red-700 text-white" : ""}
               onClick={(event) => {
                 event.preventDefault()
@@ -831,7 +870,16 @@ export default function AdminNationalBrandDetailPage() {
                 brandName={brand.name}
                 currentLogoUrl={brand.logo_url}
                 onUploaded={({ brand: updated, message, isWarning }) => {
-                  setDetail((prev) => (prev ? { ...prev, brand: updated } : prev))
+                  setDetail((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          brand: updated,
+                          canActivate:
+                            Boolean(updated.logo_url) && updated.status !== "archived" && updated.status !== "active",
+                        }
+                      : prev,
+                  )
                   setNotice({ message, isWarning })
                 }}
               />

@@ -84,10 +84,14 @@ function hostOf(value: string | null) {
   }
 }
 
-// Only approved logos may be used for activation. No approval workflow exists yet,
-// so no logo currently counts as approved.
-function hasApprovedLogo(_brand: BrandRow) {
-  return false
+// Logo approval is recorded per activation (explicit admin confirmation + audit log),
+// not as a column, so eligibility only requires a saved logo on a non-archived brand.
+function hasSavedLogo(brand: Pick<BrandRow, "logo_url">) {
+  return typeof brand.logo_url === "string" && brand.logo_url.trim() !== ""
+}
+
+function canActivate(brand: Pick<BrandRow, "logo_url" | "status">) {
+  return brand.status !== "archived" && brand.status !== "active" && hasSavedLogo(brand)
 }
 
 async function loadBrand(id: string) {
@@ -166,7 +170,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return json({
       success: true,
       brand,
-      canActivate: hasApprovedLogo(brand),
+      canActivate: canActivate(brand),
       offers: offersError ? [] : (offerRows ?? []).map(toOfferSummary),
       offerCount: offersError ? null : (count ?? offerRows?.length ?? 0),
       offersAvailable: !offersError,
@@ -231,10 +235,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
     const raw = body as Record<string, unknown>
 
-    const allowedKeys = new Set<string>([...EDITABLE_FIELDS, "status"])
+    const allowedKeys = new Set<string>([...EDITABLE_FIELDS, "status", "approval_confirmed"])
     const unknownKeys = Object.keys(raw).filter((key) => !allowedKeys.has(key))
     if (unknownKeys.length > 0) {
       return json({ success: false, message: `Fields cannot be updated: ${unknownKeys.join(", ")}` }, 400)
+    }
+    if ("approval_confirmed" in raw && raw.status !== "active") {
+      return json({ success: false, message: "approval_confirmed is only accepted when activating a brand" }, 400)
     }
 
     const isStatusChange = "status" in raw
@@ -258,6 +265,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     let changedFields: string[]
     let beforeSummary: Record<string, unknown>
     let afterSummary: Record<string, unknown>
+    let isActivation = false
 
     if (isStatusChange) {
       const nextStatus = raw.status
@@ -274,21 +282,46 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       if (nextStatus === current.status) {
         return json({ success: true, unchanged: true, brand: current, message: "Status is already set" })
       }
-      if (nextStatus === "active" && !hasApprovedLogo(current)) {
-        return json(
-          {
-            success: false,
-            message: "A brand cannot be activated until it has an approved logo.",
-            errors: { status: "Approved logo required" },
-          },
-          422,
-        )
+      if (nextStatus === "active") {
+        if (current.status === "archived") {
+          return json(
+            {
+              success: false,
+              message: "Archived brands must be restored to draft before they can be activated.",
+              errors: { status: "Restore to draft first" },
+            },
+            422,
+          )
+        }
+        if (!hasSavedLogo(current)) {
+          return json(
+            {
+              success: false,
+              message: "Upload a brand logo before activating this brand.",
+              errors: { status: "Saved logo required" },
+            },
+            422,
+          )
+        }
+        if (raw.approval_confirmed !== true) {
+          return json(
+            {
+              success: false,
+              message: "Confirm that this brand and its logo are approved for use on EatinOut.",
+              errors: { approval_confirmed: "Approval confirmation required" },
+            },
+            422,
+          )
+        }
+        isActivation = true
       }
       updatePayload = { status: nextStatus }
       action = "brand.status_changed"
       changedFields = ["status"]
       beforeSummary = { status: current.status }
-      afterSummary = { status: nextStatus }
+      afterSummary = isActivation
+        ? { status: nextStatus, has_logo: true, logo_approval_confirmed: true }
+        : { status: nextStatus }
     } else {
       const { updates, errors } = validateFieldUpdates(raw)
       if (Object.keys(errors).length > 0) {
@@ -307,18 +340,29 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       afterSummary = safeBrandSummary({ ...current, ...updatePayload } as BrandRow, changed)
     }
 
-    const { data: brand, error: updateError } = await supabaseAdmin
+    let updateQuery = supabaseAdmin
       .from("national_brands")
       .update({ ...updatePayload, updated_by: adminUserId, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select(BRAND_COLUMNS)
-      .maybeSingle<BrandRow>()
+    // Guard against the logo being removed or the brand archived between the checks above and this write.
+    if (isActivation) {
+      updateQuery = updateQuery.eq("status", current.status).not("logo_url", "is", null).neq("logo_url", "")
+    }
+    const { data: brand, error: updateError } = await updateQuery.select(BRAND_COLUMNS).maybeSingle<BrandRow>()
 
     if (updateError) {
       console.error("Error updating national brand:", updateError)
       return json({ success: false, message: "Failed to update national brand" }, 500)
     }
-    if (!brand) return json({ success: false, message: "Brand not found" }, 404)
+    if (!brand) {
+      if (isActivation) {
+        return json(
+          { success: false, message: "The brand changed while activating. Reload the page and try again." },
+          409,
+        )
+      }
+      return json({ success: false, message: "Brand not found" }, 404)
+    }
 
     const { error: auditError } = await supabaseAdmin.from("national_admin_audit_logs").insert({
       actor_user_id: adminUserId,
@@ -339,7 +383,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         partial: true,
         auditLogged: false,
         brand,
-        canActivate: hasApprovedLogo(brand),
+        canActivate: canActivate(brand),
         message: `${label} (ID: ${brand.id}), but the audit log entry could not be recorded.`,
       })
     }
@@ -349,7 +393,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       partial: false,
       auditLogged: true,
       brand,
-      canActivate: hasApprovedLogo(brand),
+      canActivate: canActivate(brand),
       message: `${label}.`,
     })
   } catch (error) {
