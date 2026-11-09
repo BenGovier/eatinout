@@ -3,8 +3,17 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, X } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -180,12 +189,14 @@ function RedemptionDetailsCard({
   savedMethod,
   pendingMethod,
   isArchived,
+  onSaved,
 }: {
   brandId: string
   offerId: string
   savedMethod: string | null
   pendingMethod: string
   isArchived: boolean
+  onSaved: () => void
 }) {
   const destinationsUrl = `/api/admin/national/brands/${encodeURIComponent(brandId)}/offers/${encodeURIComponent(offerId)}/destinations`
 
@@ -284,6 +295,7 @@ function RedemptionDetailsCard({
         return
       }
       if (data.destination) applySaved(data.destination as SavedDestination)
+      if (data.changed !== false) onSaved()
       setNotice({ tone: data.partial ? "warning" : "success", message: data.message || "Redemption details saved." })
     } catch {
       setSaveError("Failed to save redemption details. Please try again.")
@@ -491,6 +503,319 @@ function RedemptionDetailsCard({
   )
 }
 
+type ReadinessCheck = { key: string; label: string; ok: boolean; reason: string | null }
+type Readiness = { ready: boolean; checks: ReadinessCheck[] }
+type PublicationAction = "publish" | "pause" | "draft"
+type ScheduleLabel = "Scheduled" | "Live" | "Expired"
+
+// Calculated for display only; publication_status itself stays "published".
+function scheduleLabel(status: string, startsAt: string | null, endsAt: string | null, now = Date.now()): ScheduleLabel | null {
+  if (status !== "published") return null
+  const start = startsAt ? new Date(startsAt).getTime() : NaN
+  const end = endsAt ? new Date(endsAt).getTime() : NaN
+  if (!isNaN(end) && end <= now) return "Expired"
+  if (!isNaN(start) && start > now) return "Scheduled"
+  return "Live"
+}
+
+const SCHEDULE_STYLES: Record<ScheduleLabel, string> = {
+  Scheduled: "bg-blue-100 text-blue-800",
+  Live: "bg-green-100 text-green-800",
+  Expired: "bg-red-100 text-red-800",
+}
+
+const ACTION_COPY: Record<PublicationAction, { button: string; title: string; description: string; confirm: string }> = {
+  publish: {
+    button: "Publish Offer",
+    title: "Publish this offer?",
+    description:
+      "The offer's admin status will change to Published. Its start and expiry dates will not be changed. Customers cannot see national offers yet, because the public listing has not been built.",
+    confirm: "Publish Offer",
+  },
+  pause: {
+    button: "Pause Offer",
+    title: "Pause this offer?",
+    description: "The offer's admin status will change to Paused. You can publish it again later.",
+    confirm: "Pause Offer",
+  },
+  draft: {
+    button: "Unpublish to Draft",
+    title: "Move this offer to draft?",
+    description: "The offer's admin status will change to Draft. You can publish it again once it is ready.",
+    confirm: "Move to Draft",
+  },
+}
+
+function PublicationCard({
+  brandId,
+  offerId,
+  status,
+  startsAt,
+  endsAt,
+  refreshKey,
+  hasUnsavedChanges,
+  onChanged,
+}: {
+  brandId: string
+  offerId: string
+  status: string
+  startsAt: string | null
+  endsAt: string | null
+  refreshKey: number
+  hasUnsavedChanges: boolean
+  onChanged: (offer: EditorOffer) => void
+}) {
+  const publicationUrl = `/api/admin/national/brands/${encodeURIComponent(brandId)}/offers/${encodeURIComponent(offerId)}/publication`
+
+  const [readiness, setReadiness] = useState<Readiness | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [pending, setPending] = useState<PublicationAction | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const response = await fetch(publicationUrl, { credentials: "include", cache: "no-store" })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success || !data.readiness) {
+        setLoadError(data?.message || "Failed to load publication readiness")
+        return
+      }
+      setReadiness(data.readiness as Readiness)
+    } catch {
+      setLoadError("Failed to load publication readiness")
+    } finally {
+      setLoading(false)
+    }
+  }, [publicationUrl])
+
+  useEffect(() => {
+    void load()
+  }, [load, refreshKey])
+
+  const isArchived = status === "archived"
+  const label = scheduleLabel(status, startsAt, endsAt)
+  const actions: PublicationAction[] =
+    status === "published" ? ["pause", "draft"] : status === "paused" ? ["publish", "draft"] : status === "draft" ? ["publish"] : []
+  const publishBlocked = !readiness?.ready || hasUnsavedChanges
+
+  const runAction = async () => {
+    if (!pending || submitting) return
+    setSubmitting(true)
+    setActionError(null)
+    setNotice(null)
+    try {
+      const response = await fetch(publicationUrl, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: pending }),
+      })
+      const data = await response.json().catch(() => null)
+      if (data?.readiness) setReadiness(data.readiness as Readiness)
+      if (!response.ok || !data?.success) {
+        setActionError(data?.message || "Failed to change publication status.")
+        setPending(null)
+        return
+      }
+      if (data.offer) onChanged(data.offer as EditorOffer)
+      setNotice({ tone: data.partial ? "warning" : "success", message: data.message || "Publication status updated." })
+      setPending(null)
+    } catch {
+      setActionError("Failed to change publication status. Please try again.")
+      setPending(null)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const copy = pending ? ACTION_COPY[pending] : null
+  const draftLabel = status === "paused" ? "Move to Draft" : ACTION_COPY.draft.button
+
+  return (
+    <Card className="shadow-md">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-red-700">Publication</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[status] ?? STATUS_STYLES.draft}`}
+            >
+              {status}
+            </span>
+            {label ? (
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SCHEDULE_STYLES[label]}`}>{label}</span>
+            ) : null}
+          </div>
+        </div>
+        <CardDescription>
+          This is the admin publication status only. Customers cannot see national offers yet, because the public
+          listing and redemption journey have not been built.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        {notice ? (
+          <div
+            role="status"
+            className={cn(
+              "flex items-start gap-2 rounded-md border p-3 text-sm",
+              notice.tone === "success" ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800",
+            )}
+          >
+            {notice.tone === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
+            <p className="flex-1">{notice.message}</p>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="rounded p-0.5 hover:bg-black/5"
+              aria-label="Dismiss message"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+
+        {actionError ? (
+          <p role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {actionError}
+          </p>
+        ) : null}
+
+        {label === "Expired" ? (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            This offer&apos;s expiry date has passed. It stays Published in admin until you change it.
+          </p>
+        ) : null}
+
+        {loading && !readiness ? (
+          <div className="flex items-center gap-2 py-4 text-sm text-gray-500" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Checking publication readiness…
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="flex flex-col items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {loadError}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void load()} className="bg-white">
+              Try again
+            </Button>
+          </div>
+        ) : readiness ? (
+          <section aria-labelledby="publication-checklist-heading" className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 id="publication-checklist-heading" className="text-sm font-semibold text-gray-900">
+                Readiness checklist
+              </h3>
+              <span className={cn("text-xs font-medium", readiness.ready ? "text-green-700" : "text-gray-600")}>
+                {readiness.ready
+                  ? "Ready to publish"
+                  : `${readiness.checks.filter((check) => !check.ok).length} item(s) need attention`}
+              </span>
+            </div>
+            <ul className="flex flex-col divide-y divide-gray-100 rounded-md border border-gray-200">
+              {readiness.checks.map((check) => (
+                <li key={check.key} className="flex items-start gap-3 px-3 py-2.5 text-sm">
+                  {check.ok ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" aria-hidden="true" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
+                  )}
+                  <div className="flex flex-col">
+                    <span className={check.ok ? "text-gray-800" : "font-medium text-gray-900"}>
+                      <span className="sr-only">{check.ok ? "Done: " : "Missing: "}</span>
+                      {check.label}
+                    </span>
+                    {check.reason ? <span className="text-xs text-red-700">{check.reason}</span> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {isArchived ? (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            This offer is archived and locked. Its publication status cannot be changed.
+          </p>
+        ) : null}
+
+        {actions.includes("publish") && hasUnsavedChanges ? (
+          <p className="text-xs text-gray-600">Save your Offer details changes before publishing.</p>
+        ) : null}
+
+        {actions.length > 0 ? (
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {actions.includes("draft") ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPending("draft")}
+                disabled={submitting}
+                className="bg-transparent"
+              >
+                {draftLabel}
+              </Button>
+            ) : null}
+            {actions.includes("pause") ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPending("pause")}
+                disabled={submitting}
+                className="bg-transparent"
+              >
+                {ACTION_COPY.pause.button}
+              </Button>
+            ) : null}
+            {actions.includes("publish") ? (
+              <Button
+                type="button"
+                onClick={() => setPending("publish")}
+                disabled={submitting || loading || publishBlocked}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                {ACTION_COPY.publish.button}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+
+      <AlertDialog open={pending !== null} onOpenChange={(open) => !open && !submitting && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{copy?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={() => void runAction()}
+              disabled={submitting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+              {submitting ? "Working…" : pending === "draft" ? "Move to Draft" : copy?.confirm}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  )
+}
+
 export default function AdminNationalOfferEditorPage() {
   const params = useParams<{ id: string; offerId: string }>()
   const brandId = single(params.id)
@@ -505,6 +830,19 @@ export default function AdminNationalOfferEditorPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; notFound: boolean } | null>(null)
+  const [readinessKey, setReadinessKey] = useState(0)
+  const refreshReadiness = useCallback(() => setReadinessKey((key) => key + 1), [])
+
+  const onImageSaved = useCallback(
+    (saved: EditorOffer) => {
+      setOffer(saved)
+      refreshReadiness()
+    },
+    [refreshReadiness],
+  )
+
+  // Only the stored status changed, so unsaved form edits are kept.
+  const onPublicationChanged = useCallback((updated: EditorOffer) => setOffer(updated), [])
 
   const offerUrl = `/api/admin/national/brands/${encodeURIComponent(brandId)}/offers/${encodeURIComponent(offerId)}`
 
@@ -608,6 +946,7 @@ export default function AdminNationalOfferEditorPage() {
         setOffer(data.offer as EditorOffer)
         setForm(formFromOffer(data.offer as EditorOffer))
       }
+      if (data.changed !== false) refreshReadiness()
       setNotice({ tone: data.partial ? "warning" : "success", message: data.message || "Offer details saved." })
     } catch {
       setSaveError("Failed to save offer details. Please try again.")
@@ -662,6 +1001,7 @@ export default function AdminNationalOfferEditorPage() {
   const status = offer.publication_status ?? "draft"
   const isArchived = status === "archived"
   const disabled = saving || isArchived
+  const scheduleLabelForHeader = scheduleLabel(status, offer.starts_at, offer.ends_at)
 
   const errorProps = (key: keyof DetailsForm) =>
     fieldErrors[key]
@@ -688,13 +1028,20 @@ export default function AdminNationalOfferEditorPage() {
           >
             {status}
           </span>
+          {scheduleLabelForHeader ? (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SCHEDULE_STYLES[scheduleLabelForHeader]}`}>
+              {scheduleLabelForHeader}
+            </span>
+          ) : null}
         </div>
-        <p className="text-xs text-gray-500">Publishing is not available yet. Offers remain in their current status.</p>
+        <p className="text-xs text-gray-500">
+          Publication status is administrative only. National offers are not shown to customers yet.
+        </p>
       </header>
 
       {/* Constrains the uploader's saved/current image preview without altering the uploader or the stored image. */}
       <div className="[&_form_.aspect-video.rounded-md]:max-w-sm">
-        <OfferImageUploader offer={previewOffer} brand={brand} onSaved={setOffer} />
+        <OfferImageUploader offer={previewOffer} brand={brand} onSaved={onImageSaved} />
       </div>
 
       <Card className="shadow-md">
@@ -894,6 +1241,18 @@ export default function AdminNationalOfferEditorPage() {
         savedMethod={offer.redemption_method}
         pendingMethod={form.redemption_method}
         isArchived={isArchived}
+        onSaved={refreshReadiness}
+      />
+
+      <PublicationCard
+        brandId={brandId}
+        offerId={offerId}
+        status={status}
+        startsAt={offer.starts_at}
+        endsAt={offer.ends_at}
+        refreshKey={readinessKey}
+        hasUnsavedChanges={isDirty}
+        onChanged={onPublicationChanged}
       />
     </div>
   )
