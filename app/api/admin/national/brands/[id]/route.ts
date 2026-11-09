@@ -94,23 +94,26 @@ async function loadBrand(id: string) {
   return supabaseAdmin.from("national_brands").select(BRAND_COLUMNS).eq("id", id).maybeSingle<BrandRow>()
 }
 
-function pickString(row: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = row[key]
-    if (typeof value === "string" && value.trim()) return value
-  }
-  return null
+// Only non-sensitive display columns are selected; affiliate destinations are never included.
+const OFFER_SUMMARY_COLUMNS = "id, title, publication_status, starts_at, ends_at, created_at"
+
+type OfferRow = {
+  id: string
+  title: string | null
+  publication_status: string | null
+  starts_at: string | null
+  ends_at: string | null
+  created_at: string | null
 }
 
-// Only non-sensitive display fields are returned; affiliate destinations are never included.
-function toOfferSummary(row: Record<string, unknown>) {
+function toOfferSummary(row: OfferRow) {
   return {
-    id: String(row.id ?? ""),
-    title: pickString(row, ["headline", "title", "name"]) ?? "Untitled offer",
-    status: pickString(row, ["status"]),
-    starts_at: pickString(row, ["starts_at", "start_date"]),
-    ends_at: pickString(row, ["ends_at", "expires_at", "end_date"]),
-    created_at: pickString(row, ["created_at"]),
+    id: String(row.id),
+    title: row.title?.trim() || "Untitled offer",
+    publication_status: row.publication_status,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+    created_at: row.created_at,
   }
 }
 
@@ -152,10 +155,11 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       error: offersError,
     } = await supabaseAdmin
       .from("national_offers")
-      .select("*", { count: "exact" })
+      .select(OFFER_SUMMARY_COLUMNS, { count: "exact" })
       .eq("brand_id", id)
       .order("created_at", { ascending: false })
       .limit(OFFER_SUMMARY_LIMIT)
+      .returns<OfferRow[]>()
 
     if (offersError) console.error(`Error fetching offers for national brand ${id}:`, offersError)
 
@@ -163,7 +167,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       success: true,
       brand,
       canActivate: hasApprovedLogo(brand),
-      offers: offersError ? [] : (offerRows ?? []).map((row) => toOfferSummary(row as Record<string, unknown>)),
+      offers: offersError ? [] : (offerRows ?? []).map(toOfferSummary),
       offerCount: offersError ? null : (count ?? offerRows?.length ?? 0),
       offersAvailable: !offersError,
     })

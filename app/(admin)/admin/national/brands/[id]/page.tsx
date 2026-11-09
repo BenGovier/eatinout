@@ -47,10 +47,12 @@ interface NationalBrand {
   updated_at: string
 }
 
+type PublicationStatus = "draft" | "published" | "paused" | "archived"
+
 interface OfferSummary {
   id: string
   title: string
-  status: string | null
+  publication_status: PublicationStatus | null
   starts_at: string | null
   ends_at: string | null
   created_at: string | null
@@ -83,6 +85,28 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-50 text-gray-700 border-gray-200",
   paused: "bg-amber-50 text-amber-700 border-amber-200",
   archived: "bg-red-50 text-red-700 border-red-200",
+  published: "bg-blue-50 text-blue-700 border-blue-200",
+  scheduled: "bg-blue-50 text-blue-700 border-blue-200",
+  live: "bg-green-50 text-green-700 border-green-200",
+  expired: "bg-gray-100 text-gray-600 border-gray-300",
+}
+
+// Display-only: scheduled/live/expired are derived from published offers' dates and never written back.
+function offerDisplayState(offer: OfferSummary, now = Date.now()): string | null {
+  if (offer.publication_status !== "published") return offer.publication_status
+  const startsAt = offer.starts_at ? new Date(offer.starts_at).getTime() : NaN
+  const endsAt = offer.ends_at ? new Date(offer.ends_at).getTime() : NaN
+  if (!isNaN(startsAt) && startsAt > now) return "scheduled"
+  if (!isNaN(endsAt) && endsAt < now) return "expired"
+  return "live"
+}
+
+function offerDateLabel(offer: OfferSummary, state: string | null) {
+  if (state === "scheduled") return `Starts ${formatDate(offer.starts_at)}`
+  if (state === "expired") return `Ended ${formatDate(offer.ends_at)}`
+  if (offer.ends_at) return `Ends ${formatDate(offer.ends_at)}`
+  if (offer.starts_at) return `Started ${formatDate(offer.starts_at)}`
+  return `Added ${formatDate(offer.created_at)}`
 }
 
 type StatusAction = {
@@ -597,10 +621,10 @@ function OffersCard({ detail }: { detail: BrandDetail }) {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{offer.title}</p>
                   <p className="text-xs text-gray-500">
-                    {offer.ends_at ? `Ends ${formatDate(offer.ends_at)}` : `Added ${formatDate(offer.created_at)}`}
+                    {offerDateLabel(offer, offerDisplayState(offer))}
                   </p>
                 </div>
-                <StatusBadge status={offer.status} />
+                <StatusBadge status={offerDisplayState(offer)} />
               </li>
             ))}
           </ul>
