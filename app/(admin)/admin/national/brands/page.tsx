@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState, type FormEvent } from "react"
-import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, Plus, Store, X } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Loader2, Plus, Store, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -113,7 +115,6 @@ type BrandFormValues = {
   description: string
   website_url: string
   affiliate_network: string
-  logo_url: string
 }
 
 type FieldErrors = Partial<Record<keyof BrandFormValues | "form", string>>
@@ -123,7 +124,10 @@ const EMPTY_FORM: BrandFormValues = {
   description: "",
   website_url: "",
   affiliate_network: NO_NETWORK,
-  logo_url: "",
+}
+
+function brandHref(id: string) {
+  return `/admin/national/brands/${encodeURIComponent(id)}`
 }
 
 function isValidHttpUrl(value: string) {
@@ -144,8 +148,6 @@ function validateForm(values: BrandFormValues): FieldErrors {
   if (values.description.trim().length > 2000) errors.description = "Description must be 2000 characters or fewer"
   if (values.website_url.trim() && !isValidHttpUrl(values.website_url.trim()))
     errors.website_url = "Enter a full URL, e.g. https://example.com"
-  if (values.logo_url.trim() && !isValidHttpUrl(values.logo_url.trim()))
-    errors.logo_url = "Enter a full URL, e.g. https://example.com/logo.png"
   return errors
 }
 
@@ -199,7 +201,6 @@ function AddBrandDialog({ onCreated }: { onCreated: (message: string, isWarning:
           name: values.name.trim(),
           description: values.description.trim() || null,
           website_url: values.website_url.trim() || null,
-          logo_url: values.logo_url.trim() || null,
           affiliate_network: values.affiliate_network === NO_NETWORK ? null : values.affiliate_network,
         }),
       })
@@ -322,22 +323,6 @@ function AddBrandDialog({ onCreated }: { onCreated: (message: string, isWarning:
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="brand-logo">Logo URL</Label>
-            <Input
-              id="brand-logo"
-              type="url"
-              inputMode="url"
-              placeholder="https://example.com/logo.png"
-              value={values.logo_url}
-              onChange={(e) => update("logo_url", e.target.value)}
-              disabled={isSaving}
-              aria-invalid={Boolean(errors.logo_url)}
-              aria-describedby={errors.logo_url ? "brand-logo-error" : undefined}
-            />
-            <FieldError id="brand-logo-error" message={errors.logo_url} />
-          </div>
-
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSaving}>
               Cancel
@@ -360,6 +345,7 @@ function AddBrandDialog({ onCreated }: { onCreated: (message: string, isWarning:
 }
 
 export default function AdminNationalBrandsPage() {
+  const router = useRouter()
   const [brands, setBrands] = useState<NationalBrand[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -474,11 +460,21 @@ export default function AdminNationalBrandsPage() {
                   </TableHeader>
                   <TableBody>
                     {brands.map((brand) => (
-                      <TableRow key={brand.id} className="hover:bg-red-50/50">
+                      <TableRow
+                        key={brand.id}
+                        className="hover:bg-red-50/50 cursor-pointer"
+                        onClick={() => router.push(brandHref(brand.id))}
+                      >
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <BrandLogo brand={brand} size="sm" />
-                            <span className="font-medium text-gray-900">{brand.name}</span>
+                            <Link
+                              href={brandHref(brand.id)}
+                              className="font-medium text-gray-900 hover:text-red-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {brand.name}
+                            </Link>
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-700">{brand.affiliate_network || "—"}</TableCell>
@@ -494,18 +490,24 @@ export default function AdminNationalBrandsPage() {
 
               <ul className="md:hidden space-y-3">
                 {brands.map((brand) => (
-                  <li key={brand.id} className="border rounded-md p-3 flex items-start gap-3">
-                    <BrandLogo brand={brand} size="md" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h2 className="font-medium text-gray-900 truncate">{brand.name}</h2>
-                        <StatusBadge status={brand.status} />
+                  <li key={brand.id}>
+                    <Link
+                      href={brandHref(brand.id)}
+                      className="border rounded-md p-3 flex items-start gap-3 hover:bg-red-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    >
+                      <BrandLogo brand={brand} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h2 className="font-medium text-gray-900 truncate">{brand.name}</h2>
+                          <StatusBadge status={brand.status} />
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {brand.affiliate_network || "No affiliate network"}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">Added {formatDate(brand.created_at)}</p>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {brand.affiliate_network || "No affiliate network"}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">Added {formatDate(brand.created_at)}</p>
-                    </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400 self-center flex-shrink-0" aria-hidden="true" />
+                    </Link>
                   </li>
                 ))}
               </ul>
