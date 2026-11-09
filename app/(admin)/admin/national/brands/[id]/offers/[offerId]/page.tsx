@@ -103,6 +103,394 @@ function validateForm(form: DetailsForm): FieldErrors {
   return errors
 }
 
+type RedemptionMethod = "link" | "code" | "link_and_code"
+type DestinationField = "destination_url" | "voucher_code" | "tracking_reference"
+type DestinationForm = Record<DestinationField, string>
+type DestinationErrors = Partial<Record<DestinationField, string>>
+type SavedDestination = Record<DestinationField, string | null> & { exists: boolean }
+
+// Kept in step with the server rules in the destinations API route.
+const DESTINATION_LIMITS = { destination_url: 2048, voucher_code: 100, tracking_reference: 200 }
+
+function isRedemptionMethod(value: string | null): value is RedemptionMethod {
+  return value === "link" || value === "code" || value === "link_and_code"
+}
+
+function destinationNeeds(method: RedemptionMethod) {
+  return {
+    url: method === "link" || method === "link_and_code",
+    code: method === "code" || method === "link_and_code",
+  }
+}
+
+function destinationFormFrom(saved: SavedDestination | null): DestinationForm {
+  return {
+    destination_url: saved?.destination_url ?? "",
+    voucher_code: saved?.voucher_code ?? "",
+    tracking_reference: saved?.tracking_reference ?? "",
+  }
+}
+
+function isDestinationConfigured(saved: SavedDestination | null, method: string | null) {
+  if (!saved?.exists || !isRedemptionMethod(method)) return false
+  const needs = destinationNeeds(method)
+  return (!needs.url || Boolean(saved.destination_url)) && (!needs.code || Boolean(saved.voucher_code))
+}
+
+function validateDestinationForm(form: DestinationForm, method: RedemptionMethod): DestinationErrors {
+  const errors: DestinationErrors = {}
+  const needs = destinationNeeds(method)
+
+  if (needs.url) {
+    const url = form.destination_url.trim()
+    if (!url) errors.destination_url = "Affiliate destination URL is required for this redemption method"
+    else if (url.length > DESTINATION_LIMITS.destination_url)
+      errors.destination_url = `Destination URL must be ${DESTINATION_LIMITS.destination_url} characters or fewer`
+    else if (/\s/.test(url)) errors.destination_url = "Destination URL must not contain spaces"
+    else if (!/^https:\/\//i.test(url)) errors.destination_url = "Destination URL must start with https://"
+    else {
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol !== "https:") errors.destination_url = "Destination URL must use HTTPS"
+        else if (!parsed.hostname.includes(".")) errors.destination_url = "Destination URL must include a valid domain"
+        else if (parsed.username || parsed.password)
+          errors.destination_url = "Destination URL must not contain login details"
+      } catch {
+        errors.destination_url = "Enter a valid destination URL"
+      }
+    }
+  }
+
+  if (needs.code) {
+    const code = form.voucher_code.trim()
+    if (!code) errors.voucher_code = "Voucher or promo code is required for this redemption method"
+    else if (code.length > DESTINATION_LIMITS.voucher_code)
+      errors.voucher_code = `Voucher code must be ${DESTINATION_LIMITS.voucher_code} characters or fewer`
+  }
+
+  if (form.tracking_reference.trim().length > DESTINATION_LIMITS.tracking_reference)
+    errors.tracking_reference = `Tracking reference must be ${DESTINATION_LIMITS.tracking_reference} characters or fewer`
+
+  return errors
+}
+
+function RedemptionDetailsCard({
+  brandId,
+  offerId,
+  savedMethod,
+  pendingMethod,
+  isArchived,
+}: {
+  brandId: string
+  offerId: string
+  savedMethod: string | null
+  pendingMethod: string
+  isArchived: boolean
+}) {
+  const destinationsUrl = `/api/admin/national/brands/${encodeURIComponent(brandId)}/offers/${encodeURIComponent(offerId)}/destinations`
+
+  const [saved, setSaved] = useState<SavedDestination | null>(null)
+  const [form, setForm] = useState<DestinationForm>(destinationFormFrom(null))
+  const [errors, setErrors] = useState<DestinationErrors>({})
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const applySaved = (destination: SavedDestination) => {
+    setSaved(destination)
+    setForm(destinationFormFrom(destination))
+    setErrors({})
+  }
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const response = await fetch(destinationsUrl, { credentials: "include", cache: "no-store" })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success || !data.destination) {
+        setLoadError(data?.message || "Failed to load redemption details")
+        return
+      }
+      applySaved(data.destination as SavedDestination)
+    } catch {
+      setLoadError("Failed to load redemption details")
+    } finally {
+      setLoading(false)
+    }
+  }, [destinationsUrl])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const method = isRedemptionMethod(savedMethod) ? savedMethod : null
+  const needs = method ? destinationNeeds(method) : { url: false, code: false }
+  const configured = isDestinationConfigured(saved, savedMethod)
+  const methodChangePending = pendingMethod !== (savedMethod ?? "")
+
+  const savedForm = destinationFormFrom(saved)
+  const isDirty = (Object.keys(form) as DestinationField[]).some((key) => form[key] !== savedForm[key])
+  const disabled = saving || isArchived || loading || !method
+
+  const updateField = (key: DestinationField, value: string) => {
+    setForm((previous) => ({ ...previous, [key]: value }))
+    setErrors((previous) => {
+      if (!previous[key]) return previous
+      const next = { ...previous }
+      delete next[key]
+      return next
+    })
+    setSaveError(null)
+  }
+
+  const cancelEdits = () => {
+    setForm(destinationFormFrom(saved))
+    setErrors({})
+    setSaveError(null)
+  }
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!method || saving || isArchived) return
+    if (!isDirty && configured) return
+
+    const nextErrors = validateDestinationForm(form, method)
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    setSaving(true)
+    setSaveError(null)
+    setNotice(null)
+    try {
+      const response = await fetch(destinationsUrl, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destination_url: needs.url ? form.destination_url : null,
+          voucher_code: needs.code ? form.voucher_code : null,
+          tracking_reference: form.tracking_reference,
+        }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        if (data?.errors && typeof data.errors === "object") setErrors(data.errors as DestinationErrors)
+        setSaveError(
+          data?.message && data.message !== "Validation failed" ? data.message : "Please correct the highlighted fields.",
+        )
+        return
+      }
+      if (data.destination) applySaved(data.destination as SavedDestination)
+      setNotice({ tone: data.partial ? "warning" : "success", message: data.message || "Redemption details saved." })
+    } catch {
+      setSaveError("Failed to save redemption details. Please try again.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const errorProps = (key: DestinationField, extraDescribedBy?: string) => {
+    const describedBy = [errors[key] ? `redemption-${key}-error` : null, extraDescribedBy].filter(Boolean).join(" ")
+    return {
+      "aria-invalid": errors[key] ? (true as const) : undefined,
+      "aria-describedby": describedBy || undefined,
+    }
+  }
+
+  const fieldError = (key: DestinationField) =>
+    errors[key] ? (
+      <p id={`redemption-${key}-error`} className="text-xs text-red-600">
+        {errors[key]}
+      </p>
+    ) : null
+
+  return (
+    <Card className="shadow-md">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-red-700">Redemption details</CardTitle>
+          {loading ? null : (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                configured ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700",
+              )}
+            >
+              {configured ? (
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {configured ? "Configured" : "Not configured"}
+            </span>
+          )}
+        </div>
+        <CardDescription>
+          Private to admins. These details are never shown on the offer card or returned by the general offer API.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-gray-500" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Loading redemption details…
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="flex flex-col items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {loadError}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void load()} className="bg-white">
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
+            {notice ? (
+              <div
+                role="status"
+                className={cn(
+                  "flex items-start gap-2 rounded-md border p-3 text-sm",
+                  notice.tone === "success"
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : "border-amber-200 bg-amber-50 text-amber-800",
+                )}
+              >
+                {notice.tone === "success" ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
+                <p className="flex-1">{notice.message}</p>
+                <button
+                  type="button"
+                  onClick={() => setNotice(null)}
+                  className="rounded p-0.5 hover:bg-black/5"
+                  aria-label="Dismiss message"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+
+            {isArchived ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                This offer is archived, so its redemption details cannot be changed.
+              </p>
+            ) : null}
+
+            {!method ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Choose and save a redemption method in Offer details before adding redemption details.
+              </p>
+            ) : methodChangePending ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                You have an unsaved redemption method change. Save Offer details first; these fields follow the saved
+                method.
+              </p>
+            ) : null}
+
+            {saveError ? (
+              <p role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                {saveError}
+              </p>
+            ) : null}
+
+            {needs.url ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="redemption-destination-url">Affiliate destination URL</Label>
+                <Input
+                  id="redemption-destination-url"
+                  type="url"
+                  inputMode="url"
+                  value={form.destination_url}
+                  onChange={(event) => updateField("destination_url", event.target.value)}
+                  maxLength={DESTINATION_LIMITS.destination_url}
+                  placeholder="https://"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={disabled}
+                  required
+                  {...errorProps("destination_url", "redemption-destination-url-help")}
+                />
+                <p id="redemption-destination-url-help" className="text-xs text-gray-500">
+                  Must be a full HTTPS address.
+                </p>
+                {fieldError("destination_url")}
+              </div>
+            ) : null}
+
+            {needs.code ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="redemption-voucher-code">Voucher or promo code</Label>
+                <Input
+                  id="redemption-voucher-code"
+                  value={form.voucher_code}
+                  onChange={(event) => updateField("voucher_code", event.target.value)}
+                  maxLength={DESTINATION_LIMITS.voucher_code}
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={disabled}
+                  required
+                  className="font-mono"
+                  {...errorProps("voucher_code")}
+                />
+                {fieldError("voucher_code")}
+              </div>
+            ) : null}
+
+            {method ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="redemption-tracking-reference">
+                  Tracking reference <span className="font-normal text-gray-500">(optional)</span>
+                </Label>
+                <Input
+                  id="redemption-tracking-reference"
+                  value={form.tracking_reference}
+                  onChange={(event) => updateField("tracking_reference", event.target.value)}
+                  maxLength={DESTINATION_LIMITS.tracking_reference}
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={disabled}
+                  {...errorProps("tracking_reference")}
+                />
+                {fieldError("tracking_reference")}
+              </div>
+            ) : null}
+
+            {method ? (
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEdits}
+                  disabled={!isDirty || saving}
+                  className="bg-transparent"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={disabled || (!isDirty && configured)}
+                  className="bg-red-600 text-white hover:bg-red-700"
+                >
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  {saving ? "Saving…" : "Save Redemption Details"}
+                </Button>
+              </div>
+            ) : null}
+          </form>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function AdminNationalOfferEditorPage() {
   const params = useParams<{ id: string; offerId: string }>()
   const brandId = single(params.id)
@@ -499,6 +887,14 @@ export default function AdminNationalOfferEditorPage() {
           </form>
         </CardContent>
       </Card>
+
+      <RedemptionDetailsCard
+        brandId={brandId}
+        offerId={offerId}
+        savedMethod={offer.redemption_method}
+        pendingMethod={form.redemption_method}
+        isArchived={isArchived}
+      />
     </div>
   )
 }
