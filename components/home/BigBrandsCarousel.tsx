@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Tag } from "lucide-react"
 
 export type BigBrandOffer = {
@@ -97,6 +98,10 @@ export function BigBrandsCarousel() {
         <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-hide">
           {offers.map((offer) => (
             <li key={offer.id} className={CARD_CLASS}>
+              <Link
+                href={`/big-brands/${offer.id}`}
+                className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DC3545] focus-visible:ring-offset-2"
+              >
               <div className="relative aspect-video w-full bg-gray-100">
                 <Image src={offer.offer_image_url} alt={offer.title} fill sizes="320px" className="object-cover" />
                 <span className="absolute left-3 top-3 rounded-md bg-[#DC3545] px-2 py-1 text-xs font-bold text-white">
@@ -118,6 +123,7 @@ export function BigBrandsCarousel() {
                   <p className="truncate text-xs text-gray-500">{offer.brand.name}</p>
                 </div>
               </div>
+              </Link>
             </li>
           ))}
         </ul>
