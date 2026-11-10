@@ -66,14 +66,11 @@ export function BigBrandsCarousel({ offers = [] }: BigBrandsCarouselProps) {
           ))}
         </ul>
       ) : (
-        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-[#DC3545]/30 bg-white p-4">
+        <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#DC3545]/10">
             <Tag className="h-5 w-5 text-[#DC3545]" aria-hidden="true" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Big Brands offers are coming soon</p>
-            <p className="text-xs text-gray-600">{"We'll show national brand deals here as soon as they go live."}</p>
-          </div>
+          <p className="text-sm font-semibold text-gray-900">Big Brand deals are on their way.</p>
         </div>
       )}
     </section>

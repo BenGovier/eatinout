@@ -14,6 +14,13 @@ import {
 } from "lucide-react"
 import { BigBrandsHero } from "@/components/home/BigBrandsHero"
 import { BigBrandsCarousel } from "@/components/home/BigBrandsCarousel"
+
+const MOBILE_CUISINE_LABELS: Record<string, string> = {
+  "Indian & South Asian": "Indian",
+  "British & Pubs": "Pubs",
+  "Bar & Drinks": "Bars",
+  "Desserts & Sweet Treats": "Desserts",
+}
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -949,6 +956,8 @@ export default function RestaurantsPage() {
     return metaState.areas.find(area => area.value === filterState.selectedLocationId)
   }, [metaState.areas, filterState.selectedLocationId])
 
+  const selectedAreaName = selectedArea?.label || filterState.selectedLocation || ""
+
   const sectionTitle = useMemo(() => {
     const locationPart = selectedArea?.label || ''
     const categoriesPart = filterState.selectedCuisines.length > 0
@@ -1089,7 +1098,7 @@ export default function RestaurantsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 id="local-deals-heading" className="text-xl font-extrabold leading-tight text-gray-900">
-                Local deals near you
+                {selectedAreaName ? `Deals in ${selectedAreaName}` : "Local restaurant deals"}
               </h2>
               <p className="text-sm text-gray-600">Explore restaurant offers around you.</p>
             </div>
@@ -1267,7 +1276,14 @@ export default function RestaurantsPage() {
                           : "border-gray-200 bg-white text-gray-800 hover:border-[#DC3545]"
                           }`}
                       >
-                        {cuisine.label}
+                        {MOBILE_CUISINE_LABELS[cuisine.label] ? (
+                          <>
+                            <span className="md:hidden">{MOBILE_CUISINE_LABELS[cuisine.label]}</span>
+                            <span className="hidden md:inline">{cuisine.label}</span>
+                          </>
+                        ) : (
+                          cuisine.label
+                        )}
                       </button>
                     )
                   })}
