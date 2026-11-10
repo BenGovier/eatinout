@@ -3,9 +3,13 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
 import supabaseAdmin from "@/lib/supabase/admin";
-import { randomBytes } from "crypto";
 import dotenv from "dotenv";
-import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+import {
+  SOCIAL_SIGNUP_COOKIE,
+  createSocialSignupToken,
+  socialSignupCookieOptions,
+} from "@/lib/social-signup";
 
 dotenv.config();
 
@@ -48,29 +52,22 @@ export const authOptions = {
         let existingUser: any = mapUser(existingUserRow);
 
         if (!existingUser) {
-          // Create a new user if not found
-          const randomPassword = Math.random().toString(36).slice(-8);
-          const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
-          const { data: createdUserRow, error: createError } = await supabaseAdmin
-            .from("users")
-            .insert({
-              // 24-char hex id, same format as the migrated MongoDB ObjectId ids
-              id: randomBytes(12).toString("hex"),
-              first_name:
-                profile?.given_name || user.name?.split(" ")[0] || "",
-              last_name:
-                profile?.family_name || user.name?.split(" ")[1] || "",
-              email: normalizedEmail,
-              role: "user", // Default role
-              password_hash: hashedPassword,
-              subscription_status: "inactive", // Default subscription status
-              is_trialing: false,
-            })
-            .select(USER_COLUMNS)
-            .single();
-          if (createError) throw new Error(createError.message);
-          existingUser = mapUser(createdUserRow);
+          // New accounts are never created from a provider-supplied email.
+          // Hand off to the free registration page, which requires email OTP
+          // verification before any account exists.
+          const provider = account?.provider;
+          if (!normalizedEmail || (provider !== "google" && provider !== "facebook")) {
+            return false;
+          }
+          const token = createSocialSignupToken({
+            provider,
+            email: normalizedEmail,
+            firstName: String(profile?.given_name || user.name?.split(" ")[0] || "").slice(0, 255),
+          });
+          if (!token) return false;
+          const cookieStore = await cookies();
+          cookieStore.set(SOCIAL_SIGNUP_COOKIE, token, socialSignupCookieOptions);
+          return "/join?social=1";
         }
 
         // Attach the user's role and subscription status to the session

@@ -15,6 +15,8 @@ import { useSession } from "next-auth/react"
 import axios from "axios"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/context/auth-context"
+import { EmailOtpStep } from "@/components/auth/email-otp-step"
+import { passwordByteLength, requestEmailCode } from "@/lib/email-verification-client"
 
 function SignUpPageContent() {
   const router = useRouter()
@@ -23,7 +25,8 @@ function SignUpPageContent() {
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug || null
   const redirectUrl = searchParams.get("redirect")
   const [isLoading, setIsLoading] = useState(false)
-  const [step, setStep] = useState<'main' | 'register' | 'login'>('main')
+  const [step, setStep] = useState<'main' | 'register' | 'login' | 'verify'>('main')
+  const [otpCooldown, setOtpCooldown] = useState(60)
   const { data: session, status }: any = useSession()
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
@@ -242,43 +245,59 @@ function SignUpPageContent() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-          zipCode: formData.zipCode,
-          selectedPriceId,
-          referral,
-          source: slug,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
-
-      if (typeof window !== "undefined") {
-        const dataLayer = (window as Window & { dataLayer?: Record<string, unknown>[] }).dataLayer
-        dataLayer?.push({ event: "signup_complete" })
-      }
-
-      toast.success("Account created successfully!", { autoClose: 1500 });
-
-      sessionStorage.setItem('triggeredLogin', 'true');
-
-      goToCheckout(data.user.email || formData.email);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create account");
-    } finally {
+    if (passwordByteLength(formData.password) > 72) {
+      toast.error("Password is too long. Please use a shorter password.");
       setIsLoading(false);
+      return;
     }
+
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    const result = await requestEmailCode(normalizedEmail);
+    setIsLoading(false);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+    setFormData((prev) => ({ ...prev, email: normalizedEmail }));
+    setOtpCooldown(result.cooldownSeconds);
+    setStep('verify');
+  };
+
+  // Called by the OTP step once the email is verified. Errors are thrown so the
+  // OTP step can show them inline.
+  const createPaidAccount = async (verificationPass: string) => {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        zipCode: formData.zipCode,
+        selectedPriceId,
+        referral,
+        source: slug,
+        verificationPass,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Registration failed");
+    }
+
+    if (typeof window !== "undefined") {
+      const dataLayer = (window as Window & { dataLayer?: Record<string, unknown>[] }).dataLayer
+      dataLayer?.push({ event: "signup_complete" })
+    }
+
+    toast.success("Account created successfully!", { autoClose: 1500 });
+
+    sessionStorage.setItem('triggeredLogin', 'true');
+
+    goToCheckout(data.user?.email || formData.email);
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -505,6 +524,13 @@ function SignUpPageContent() {
                     )
                   })()}
                 </div>
+              ) : step === 'verify' ? (
+                <EmailOtpStep
+                  email={formData.email}
+                  initialCooldownSeconds={otpCooldown}
+                  onVerified={createPaidAccount}
+                  onChangeEmail={() => setStep('register')}
+                />
               ) : step === 'login' ? (
                 <div className="space-y-6">
                   <div className="space-y-2">

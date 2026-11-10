@@ -7,11 +7,19 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
+import {
+  VerificationUnavailableError,
+  consumeRegistrationPass,
+  normalizeEmail,
+  releaseRegistrationPass,
+  type ConsumedPass,
+} from "@/lib/email-verification";
+import { SOCIAL_SIGNUP_COOKIE } from "@/lib/social-signup";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FIELD_LENGTH = 255;
-// bcrypt only uses the first 72 bytes of a password
-const MAX_PASSWORD_LENGTH = 72;
+const MIN_PASSWORD_LENGTH = 8;
+// bcrypt only uses the first 72 BYTES of a password (multi-byte characters count more than once)
+const MAX_PASSWORD_BYTES = 72;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, email, password, zipCode } = requestBody;
+    const { firstName, email, password, zipCode, verificationPass } = requestBody;
 
     if (
       !isNonEmptyString(firstName) ||
@@ -63,13 +71,12 @@ export async function POST(req: NextRequest) {
     const trimmedFirstName = firstName.trim();
     const trimmedZipCode = zipCode.trim();
     // Same normalisation as the existing registration endpoint, plus trim
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
 
     if (
+      !normalizedEmail ||
       trimmedFirstName.length > MAX_FIELD_LENGTH ||
-      trimmedZipCode.length > MAX_FIELD_LENGTH ||
-      normalizedEmail.length > MAX_FIELD_LENGTH ||
-      !EMAIL_PATTERN.test(normalizedEmail)
+      trimmedZipCode.length > MAX_FIELD_LENGTH
     ) {
       return NextResponse.json(
         { success: false, message: "Invalid registration details" },
@@ -77,7 +84,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length > MAX_PASSWORD_LENGTH) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        { success: false, message: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
       return NextResponse.json(
         { success: false, message: "Password is too long" },
         { status: 400 }
@@ -105,6 +119,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Email OTP verification is mandatory: consume the single-use pass before
+    // creating anything so it cannot be replayed for a second account.
+    let consumedPass: ConsumedPass | null;
+    try {
+      consumedPass = await consumeRegistrationPass(normalizedEmail, verificationPass);
+    } catch (passError) {
+      if (passError instanceof VerificationUnavailableError) {
+        return NextResponse.json(
+          { success: false, message: "Registration is temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+      console.error("Error checking verification pass:", (passError as Error)?.message);
+      return NextResponse.json(
+        { success: false, message: "Registration failed" },
+        { status: 500 }
+      );
+    }
+    if (!consumedPass) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "email_not_verified",
+          message: "Please verify your email address before creating your account",
+        },
+        { status: 403 }
+      );
+    }
+
     const { data: createdUser, error: createError } = await supabaseAdmin
       .from("users")
       .insert({
@@ -121,6 +164,7 @@ export async function POST(req: NextRequest) {
         is_trialing: false,
         has_subscribed_before: false,
         selected_price_id: null,
+        email_verified_at: consumedPass.verifiedAt,
       })
       .select("id, first_name, last_name, email, zip_code, role, registration_type")
       .single();
@@ -134,6 +178,7 @@ export async function POST(req: NextRequest) {
         );
       }
       console.error("Error saving free user:", createError?.message);
+      await releaseRegistrationPass(consumedPass);
       return NextResponse.json(
         { success: false, message: "Error creating user" },
         { status: 500 }
@@ -209,8 +254,10 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       path: "/",
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365,
     });
+    response.cookies.delete(SOCIAL_SIGNUP_COOKIE);
 
     return response;
   } catch (error: any) {
