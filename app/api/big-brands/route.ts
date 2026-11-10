@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -10,9 +9,12 @@ const BRAND_LOOKUP_LIMIT = 200
 const PUBLIC_BRAND_COLUMNS = "id, name, slug, logo_url"
 const PUBLIC_OFFER_COLUMNS = "id, brand_id, title, deal_label, description, terms, offer_image_url, starts_at, ends_at"
 
+// Short shared cache with no stale-serving window, so paused or expired offers drop off within ~30s.
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+  "Cache-Control": "public, max-age=0, s-maxage=30, must-revalidate",
 }
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" }
 
 type BrandRow = { id: string; name: string; slug: string; logo_url: string | null }
 
@@ -54,11 +56,18 @@ function isLive(offer: OfferRow, now: number) {
 }
 
 function unavailable() {
-  return NextResponse.json({ error: "Big Brand offers are unavailable right now." }, { status: 503 })
+  return NextResponse.json(
+    { error: "Big Brand offers are unavailable right now." },
+    { status: 503, headers: NO_STORE_HEADERS },
+  )
 }
 
 export async function GET() {
   try {
+    // Imported lazily because the shared admin client throws while loading when credentials are missing;
+    // a static import would fail before this handler's error handling could run.
+    const { supabaseAdmin } = await import("@/lib/supabase/admin")
+
     const nowDate = new Date()
     const nowIso = nowDate.toISOString()
     const now = nowDate.getTime()
