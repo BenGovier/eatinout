@@ -12,6 +12,16 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
 
+// Signed-in customers can always manage their account, whatever their subscription status.
+const ACCOUNT_MANAGEMENT_PATHS = new Set([
+  "/account",
+  "/account/profile",
+  "/account/payment",
+  "/account/contact",
+  "/privacy-policy",
+  "/data-deletion",
+]);
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -22,6 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isVerifyingStatus, setIsVerifyingStatus] = useState(false);
 
   const isPublicRestaurantPage = pathname?.startsWith("/restaurant/") || pathname === "/restaurants" || pathname === "/map";
+  const isAccountManagementPage = !!pathname && ACCOUNT_MANAGEMENT_PATHS.has(pathname.replace(/\/+$/, "") || "/");
   console.log("user", user)
   useEffect(() => {
     if (isPublicRestaurantPage) {
@@ -36,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return;
       }
       if (user && user.role === "user") {
-        if (user.subscriptionStatus === "inactive" && !user.isTrialing) {
+        if (user.subscriptionStatus === "inactive" && !user.isTrialing && !isAccountManagementPage) {
           const verifyStatusAndRedirect = async () => {
             setIsVerifyingStatus(true);
             try {
@@ -64,7 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setLayoutReady(true);
       }
     }
-  }, [authLoading, user, router, isPublicRestaurantPage]);
+  }, [authLoading, user, router, isPublicRestaurantPage, isAccountManagementPage]);
 
   useEffect(() => {
     if (checkTimeoutRef.current) {
