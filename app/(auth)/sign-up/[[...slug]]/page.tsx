@@ -278,6 +278,7 @@ function SignUpPageContent() {
         selectedPriceId,
         referral,
         source: slug,
+        acceptedTerms: formData.agreeToTerms,
         verificationPass,
       }),
     });

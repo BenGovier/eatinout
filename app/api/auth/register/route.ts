@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass } = requestBody;
+    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms } = requestBody;
 
     // Log referral for debugging
     if (referral) {
@@ -79,6 +79,13 @@ export async function POST(req: NextRequest) {
       console.error("Missing required fields");
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        { success: false, message: "Please agree to the Terms and Privacy Policy." },
         { status: 400 }
       );
     }

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, zipCode, verificationPass } = requestBody;
+    const { firstName, lastName, email, password, mobile, zipCode, verificationPass, acceptedTerms } = requestBody;
 
     if (
       !isNonEmptyString(firstName) ||
@@ -65,6 +65,13 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        { success: false, message: "Please agree to the Terms and Privacy Policy." },
         { status: 400 }
       );
     }
