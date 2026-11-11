@@ -6,6 +6,7 @@ import { randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import Stripe from "stripe";
+import { buildMarketingConsentFields } from "@/lib/marketing-consent";
 import {
   VerificationUnavailableError,
   consumeRegistrationPass,
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms } = requestBody;
+    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms, marketingEmailConsent } = requestBody;
 
     // Log referral for debugging
     if (referral) {
@@ -91,6 +92,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    if (marketingEmailConsent !== undefined && typeof marketingEmailConsent !== "boolean") {
       return NextResponse.json(
         { success: false, message: "Invalid registration details" },
         { status: 400 }
@@ -234,6 +242,7 @@ export async function POST(req: NextRequest) {
           source: source || null,
           registration_type: "subscription",
           email_verified_at: consumedPass.verifiedAt,
+          ...buildMarketingConsentFields(marketingEmailConsent),
         })
         .select("id, first_name, last_name, email, mobile, zip_code, role, stripe_customer_id")
         .single();

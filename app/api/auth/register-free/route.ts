@@ -15,6 +15,7 @@ import {
   type ConsumedPass,
 } from "@/lib/email-verification";
 import { SOCIAL_SIGNUP_COOKIE } from "@/lib/social-signup";
+import { buildMarketingConsentFields } from "@/lib/marketing-consent";
 
 const MAX_FIELD_LENGTH = 255;
 const MIN_PASSWORD_LENGTH = 8;
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, zipCode, verificationPass, acceptedTerms } = requestBody;
+    const { firstName, lastName, email, password, mobile, zipCode, verificationPass, acceptedTerms, marketingEmailConsent } = requestBody;
 
     if (
       !isNonEmptyString(firstName) ||
@@ -77,6 +78,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    if (marketingEmailConsent !== undefined && typeof marketingEmailConsent !== "boolean") {
       return NextResponse.json(
         { success: false, message: "Invalid registration details" },
         { status: 400 }
@@ -207,6 +215,7 @@ export async function POST(req: NextRequest) {
         has_subscribed_before: false,
         selected_price_id: null,
         email_verified_at: consumedPass.verifiedAt,
+        ...buildMarketingConsentFields(marketingEmailConsent),
       })
       .select("id, first_name, last_name, email, zip_code, role, registration_type")
       .single();

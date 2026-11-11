@@ -40,6 +40,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const [password, setPassword] = useState("")
   const [zipCode, setZipCode] = useState("")
   const [agreeToTerms, setAgreeToTerms] = useState(false)
+  const [marketingEmailConsent, setMarketingEmailConsent] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -125,6 +126,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
       password,
       zipCode: zipCode.trim().toUpperCase(),
       acceptedTerms: agreeToTerms,
+      marketingEmailConsent,
       verificationPass,
     }
     const res = await fetch(isPremium ? "/api/auth/register" : "/api/auth/register-free", {
@@ -330,6 +332,18 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
                   <Link href="/terms" target="_blank" className="text-[#EB221C] underline underline-offset-2">Terms</Link>
                   {" & "}
                   <Link href="/privacy" target="_blank" className="text-[#EB221C] underline underline-offset-2">Privacy Policy</Link>
+                </label>
+              </div>
+
+              <div className="flex items-start gap-3 py-1">
+                <Checkbox
+                  id="join-marketing"
+                  checked={marketingEmailConsent}
+                  onCheckedChange={(checked) => setMarketingEmailConsent(checked === true)}
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-md border-[#EB221C] data-[state=checked]:border-[#EB221C] data-[state=checked]:bg-[#EB221C]"
+                />
+                <label htmlFor="join-marketing" className="text-sm leading-relaxed text-[#3A3A3A]">
+                  Keep me updated with exclusive restaurant offers, discounts and free giveaways from EatinOut.
                 </label>
               </div>
 
