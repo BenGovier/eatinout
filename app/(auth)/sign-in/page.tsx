@@ -14,6 +14,7 @@ import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 import { checkFirstLoginOnDevice } from "@/lib/deviceLogin";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
+import { getSafeReturnUrl } from "@/lib/safe-return-url";
 
 export default function SignInPage() {
   const { setAuthState } = useAuth();
@@ -22,6 +23,11 @@ export default function SignInPage() {
   const searchParams = useSearchParams();
   const fromRestaurants = searchParams.get("fromRestaurants") === "true";
   const redirectUrl = searchParams.get("redirect");
+  // National offers are free to claim, so customers return to them without a membership check.
+  const nationalOfferRedirect = (() => {
+    const safe = getSafeReturnUrl(redirectUrl, "");
+    return /^\/big-brands\/[^/?#]+$/.test(safe.split(/[?#]/)[0]) ? safe : null;
+  })();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility
@@ -55,6 +61,8 @@ export default function SignInPage() {
             router.push("/admin/dashboard");
           } else if (user?.role === "restaurant") {
             router.push("/dashboard");
+          } else if (user?.role === "user" && nationalOfferRedirect) {
+            router.push(nationalOfferRedirect);
           } else if (user?.role === "user") {
             // For users, check subscription access
             try {
@@ -100,6 +108,13 @@ export default function SignInPage() {
   const sessionCheck = async () => {
     setIsLoading(true);
     try {
+      const role = session?.user?.role;
+      if (nationalOfferRedirect && role !== "admin" && role !== "restaurant") {
+        sessionStorage.removeItem('triggeredLogin');
+        router.push(nationalOfferRedirect);
+        return;
+      }
+
       // Priority: Use redirect parameter if provided
       if (redirectUrl) {
         const subscriptionData = await fetchProfileAndSubscription();
@@ -222,6 +237,11 @@ export default function SignInPage() {
       };
 
       setAuthState(userData, true);
+
+      if (nationalOfferRedirect && data?.role !== "admin" && data?.role !== "restaurant") {
+        router.push(nationalOfferRedirect);
+        return;
+      }
 
       // If redirect URL is provided, handle it with priority (fast path)
       if (redirectUrl) {
