@@ -12,6 +12,7 @@ export type SocialSignupPrefill = {
   provider: "google" | "facebook";
   email: string;
   firstName: string;
+  lastName: string;
 };
 
 function getSecret(): string | null {
@@ -36,7 +37,13 @@ export function readSocialSignupToken(token: string | undefined): SocialSignupPr
     ) {
       return null;
     }
-    return { provider: payload.provider, email: payload.email, firstName: payload.firstName };
+    return {
+      provider: payload.provider,
+      email: payload.email,
+      firstName: payload.firstName,
+      // Tokens issued before surname prefill existed have no lastName
+      lastName: typeof payload.lastName === "string" ? payload.lastName : "",
+    };
   } catch {
     return null;
   }

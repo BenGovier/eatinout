@@ -59,10 +59,14 @@ export const authOptions = {
           if (!normalizedEmail || (provider !== "google" && provider !== "facebook")) {
             return false;
           }
+          const nameParts = String(user.name || "").trim().split(/\s+/).filter(Boolean);
           const token = createSocialSignupToken({
             provider,
             email: normalizedEmail,
-            firstName: String(profile?.given_name || user.name?.split(" ")[0] || "").slice(0, 255),
+            firstName: String(profile?.given_name || nameParts[0] || "").slice(0, 255),
+            lastName: String(
+              profile?.family_name || profile?.last_name || nameParts.slice(1).join(" ") || ""
+            ).slice(0, 255),
           });
           if (!token) return false;
           const cookieStore = await cookies();
