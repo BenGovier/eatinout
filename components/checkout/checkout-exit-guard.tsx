@@ -3,10 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ModalImageWithHotspots, type Hotspot } from "@/components/prototypes/eatinout-exit-demo/image-hotspot"
+import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
 const ASSET = "/design/checkout-exit-demo/eatinout_checkout_exit_modal_exact.png"
 
-export function CheckoutExitGuard({ active = true }: { active?: boolean }) {
+export function CheckoutExitGuard({
+  active = true,
+  returnUrl = "/restaurants",
+  busy = false,
+}: {
+  active?: boolean
+  returnUrl?: string
+  busy?: boolean
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [entered, setEntered] = useState(false)
@@ -58,9 +67,13 @@ export function CheckoutExitGuard({ active = true }: { active?: boolean }) {
   }, [])
 
   const leaveCheckout = useCallback(() => {
+    if (busy) {
+      continueCheckout()
+      return
+    }
     guardActiveRef.current = false
-    router.push("/restaurants")
-  }, [router])
+    router.push(getSafeReturnUrl(returnUrl, "/restaurants"))
+  }, [router, returnUrl, busy, continueCheckout])
 
   useEffect(() => {
     if (!open) return
