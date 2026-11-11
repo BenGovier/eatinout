@@ -1,16 +1,94 @@
 // api/payment/create-subscription/route.ts
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import jwt from "jsonwebtoken";
 import supabaseAdmin from "@/lib/supabase/admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+const CUSTOMER_MEMBERSHIP_PRICE_IDS = new Set(
+  [
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS,
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT,
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR,
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT,
+    process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_18MONTHS,
+  ].filter((id): id is string => typeof id === "string" && id.length > 0)
+);
+
+const RESTAURANT_PRICE_IDS = new Set(
+  [process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RESTURENT_1MONTH].filter(
+    (id): id is string => typeof id === "string" && id.length > 0
+  )
+);
+
+const PRICE_ID_PATTERN = /^price_[A-Za-z0-9]{1,250}$/;
+
+function stripeIdOf(value: string | { id: string } | null | undefined): string | undefined {
+  if (!value) return undefined;
+  return typeof value === "string" ? value : value.id;
+}
+
+// A price outside the current membership list is accepted only if this same
+// Stripe customer has already been billed on it (a grandfathered plan).
+async function customerHasHadPrice(stripeCustomerId: string, priceId: string): Promise<boolean> {
+  for await (const sub of stripe.subscriptions.list({
+    customer: stripeCustomerId,
+    status: "all",
+    limit: 100,
+  })) {
+    if (stripeIdOf(sub.customer) !== stripeCustomerId) continue;
+    if (sub.items.data.some((item) => item.price?.id === priceId)) return true;
+  }
+  return false;
+}
+
+async function isAllowedPriceForCustomer(
+  priceId: string,
+  stripeCustomerId: string | null | undefined
+): Promise<boolean> {
+  if (!PRICE_ID_PATTERN.test(priceId)) return false;
+  if (RESTAURANT_PRICE_IDS.has(priceId)) return false;
+  if (CUSTOMER_MEMBERSHIP_PRICE_IDS.has(priceId)) return true;
+  if (!stripeCustomerId) return false;
+  return customerHasHadPrice(stripeCustomerId, priceId);
+}
+
 export async function POST(request: Request) {
   try {
-    const { email, priceId, referral, voucherCode } = await request.json();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    let authenticatedUserId: string;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId?: unknown };
+      if (typeof decoded?.userId !== "string" || !decoded.userId) throw new Error("missing userId");
+      authenticatedUserId = decoded.userId;
+    } catch {
+      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 });
+    }
+
+    let body: { email?: unknown; priceId?: unknown; referral?: unknown; voucherCode?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+    const { email, priceId, referral, voucherCode } = body ?? {};
+
+    if (priceId !== undefined && priceId !== null && typeof priceId !== "string") {
+      return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
+    }
+    if (voucherCode !== undefined && voucherCode !== null && typeof voucherCode !== "string") {
+      return NextResponse.json({ error: "Invalid voucher code" }, { status: 400 });
+    }
+    if (referral !== undefined && referral !== null && typeof referral !== "string") {
+      return NextResponse.json({ error: "Invalid referral" }, { status: 400 });
     }
 
     // Start the voucher lookup right away so it runs in parallel with the DB
@@ -23,13 +101,10 @@ export async function POST(request: Request) {
           .catch((error: unknown) => ({ promo: null, error }))
       : null;
 
-    // Emails are stored lowercase (old User model used lowercase: true)
-    const normalizedEmail = String(email).toLowerCase();
-
     const { data: userRow, error: userError } = await supabaseAdmin
       .from("users")
       .select("id, email, first_name, last_name, stripe_customer_id, has_subscribed_before, rewardful_referral, selected_price_id")
-      .eq("email", normalizedEmail)
+      .eq("id", authenticatedUserId)
       .maybeSingle();
     if (userError) throw new Error(userError.message);
     const user = userRow && {
@@ -46,28 +121,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Ensure the user has a Stripe customer (should already exist from
-    // registration, but create one here as a fallback).
-    let stripeCustomerId = user.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: `${user.firstName} ${user.lastName}`,
-        metadata: { userId: user._id.toString() },
-      });
-      stripeCustomerId = customer.id;
-      user.stripeCustomerId = stripeCustomerId;
-      const { error: customerSaveError } = await supabaseAdmin
-        .from("users")
-        .update({ stripe_customer_id: stripeCustomerId })
-        .eq("id", user._id);
-      if (customerSaveError) throw new Error(customerSaveError.message);
+    if (email !== undefined && email !== null && email !== "") {
+      const submittedEmail = String(email).trim().toLowerCase();
+      const accountEmail = String(user.email ?? "").trim().toLowerCase();
+      if (!accountEmail || submittedEmail !== accountEmail) {
+        return NextResponse.json(
+          { error: "This checkout does not belong to the signed-in account" },
+          { status: 403 }
+        );
+      }
     }
 
     const hasSubscribedBefore = user.hasSubscribedBefore ?? false;
     const rewardfulReferral = referral || user.rewardfulReferral;
     const defaultPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
-    const selectedPriceId = priceId || user.selectedPriceId || defaultPriceId;
+
+    let selectedPriceId: string | undefined;
+    if (priceId) {
+      if (!(await isAllowedPriceForCustomer(priceId, user.stripeCustomerId))) {
+        return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
+      }
+      selectedPriceId = priceId;
+    } else if (
+      user.selectedPriceId &&
+      (await isAllowedPriceForCustomer(user.selectedPriceId, user.stripeCustomerId))
+    ) {
+      selectedPriceId = user.selectedPriceId;
+    } else {
+      selectedPriceId = defaultPriceId;
+    }
 
     if (!selectedPriceId) {
       return NextResponse.json({ error: "No valid price ID found" }, { status: 400 });
@@ -91,6 +173,24 @@ export async function POST(request: Request) {
       promoCoupon = promo.data[0].coupon;
     }
 
+    // Ensure the user has a Stripe customer (should already exist from
+    // registration, but create one here as a fallback).
+    let stripeCustomerId = user.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        metadata: { userId: user._id.toString() },
+      });
+      stripeCustomerId = customer.id;
+      user.stripeCustomerId = stripeCustomerId;
+      const { error: customerSaveError } = await supabaseAdmin
+        .from("users")
+        .update({ stripe_customer_id: stripeCustomerId })
+        .eq("id", user._id);
+      if (customerSaveError) throw new Error(customerSaveError.message);
+    }
+
     // Reuse an existing incomplete/trialing subscription instead of creating
     // a new one on every call (page load + every voucher apply/reapply).
     const [incompleteList, trialingList] = await Promise.all([
@@ -99,6 +199,11 @@ export async function POST(request: Request) {
     ]);
     const existingSub: Stripe.Subscription | undefined =
       incompleteList.data[0] ?? trialingList.data[0];
+
+    if (existingSub && stripeIdOf(existingSub.customer) !== stripeCustomerId) {
+      console.error("[create-subscription] Subscription/customer mismatch:", existingSub.id);
+      return NextResponse.json({ error: "Subscription does not belong to this account" }, { status: 403 });
+    }
 
     let subscription: Stripe.Subscription;
 
@@ -164,7 +269,7 @@ export async function POST(request: Request) {
           rewardful_referral: rewardfulReferral || null,
           used_voucher_code: appliedVoucherCode,
         })
-        .eq("email", normalizedEmail)
+        .eq("id", user._id)
         .then((res) => {
           if (res.error) throw new Error(res.error.message);
         }),
