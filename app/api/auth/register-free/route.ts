@@ -53,10 +53,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, email, password, zipCode, verificationPass } = requestBody;
+    const { firstName, lastName, email, password, mobile, zipCode, verificationPass } = requestBody;
 
     if (
       !isNonEmptyString(firstName) ||
+      !isNonEmptyString(lastName) ||
       !isNonEmptyString(email) ||
       typeof password !== "string" ||
       password.length === 0 ||
@@ -68,15 +69,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
     const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
     const trimmedZipCode = zipCode.trim();
+    const trimmedMobile = typeof mobile === "string" && mobile.trim() ? mobile.trim() : null;
     // Same normalisation as the existing registration endpoint, plus trim
     const normalizedEmail = normalizeEmail(email);
 
     if (
       !normalizedEmail ||
       trimmedFirstName.length > MAX_FIELD_LENGTH ||
-      trimmedZipCode.length > MAX_FIELD_LENGTH
+      trimmedLastName.length > MAX_FIELD_LENGTH ||
+      trimmedZipCode.length > MAX_FIELD_LENGTH ||
+      (trimmedMobile !== null && trimmedMobile.length > MAX_FIELD_LENGTH)
     ) {
       return NextResponse.json(
         { success: false, message: "Invalid registration details" },
@@ -119,6 +131,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (trimmedMobile) {
+      const { data: existingMobile, error: existingMobileError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("mobile", trimmedMobile)
+        .limit(1)
+        .maybeSingle();
+      if (existingMobileError) {
+        console.error("Error checking for existing mobile:", existingMobileError.message);
+        return NextResponse.json(
+          { success: false, message: "Error checking for existing user" },
+          { status: 500 }
+        );
+      }
+      if (existingMobile) {
+        return NextResponse.json(
+          { success: false, message: "Mobile number already in use" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Email OTP verification is mandatory: consume the single-use pass before
     // creating anything so it cannot be replayed for a second account.
     let consumedPass: ConsumedPass | null;
@@ -154,9 +188,10 @@ export async function POST(req: NextRequest) {
         // 24-char hex id, same format as the existing registration endpoint
         id: randomBytes(12).toString("hex"),
         first_name: trimmedFirstName,
-        last_name: "",
+        last_name: trimmedLastName,
         email: normalizedEmail,
         password_hash: await bcrypt.hash(password, 10),
+        mobile: trimmedMobile,
         zip_code: trimmedZipCode,
         role: "user",
         registration_type: "free",
@@ -203,7 +238,7 @@ export async function POST(req: NextRequest) {
       const stripe = new Stripe(stripeSecretKey);
       const customer = await stripe.customers.create({
         email: user.email,
-        name: user.firstName,
+        name: `${user.firstName} ${user.lastName}`,
         metadata: { userId: user._id, registrationType: "free" },
       });
       const { error: stripeSaveError } = await supabaseAdmin

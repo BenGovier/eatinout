@@ -16,8 +16,14 @@ import {
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const MAX_FIELD_LENGTH = 255;
+const MIN_PASSWORD_LENGTH = 8;
 // bcrypt only uses the first 72 bytes of a password
 const MAX_PASSWORD_BYTES = 72;
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 export async function POST(req: NextRequest) {
   const JWT_SECRET = process.env.JWT_SECRET;
@@ -61,8 +67,15 @@ export async function POST(req: NextRequest) {
       console.log('ℹ️ No Rewardful referral in registration request');
     }
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password || !zipCode) {
+    // Validate required fields (same rules as /api/auth/register-free)
+    if (
+      !isNonEmptyString(firstName) ||
+      !isNonEmptyString(lastName) ||
+      !isNonEmptyString(email) ||
+      typeof password !== "string" ||
+      password.length === 0 ||
+      !isNonEmptyString(zipCode)
+    ) {
       console.error("Missing required fields");
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
@@ -70,7 +83,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof password !== "string" || Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
+    if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedZipCode = zipCode.trim();
+    const trimmedMobile = typeof mobile === "string" && mobile.trim() ? mobile.trim() : null;
+
+    if (
+      trimmedFirstName.length > MAX_FIELD_LENGTH ||
+      trimmedLastName.length > MAX_FIELD_LENGTH ||
+      trimmedZipCode.length > MAX_FIELD_LENGTH ||
+      (trimmedMobile !== null && trimmedMobile.length > MAX_FIELD_LENGTH)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        { success: false, message: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
       return NextResponse.json(
         { success: false, message: "Password is too long" },
         { status: 400 }
@@ -103,16 +147,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (mobile) {
+      if (trimmedMobile) {
         const { data: existingMobile, error: existingMobileError } = await supabaseAdmin
           .from("users")
           .select("id")
-          .eq("mobile", mobile)
+          .eq("mobile", trimmedMobile)
           .limit(1)
           .maybeSingle();
         if (existingMobileError) throw new Error(existingMobileError.message);
         if (existingMobile) {
-          console.log("Mobile number already in use:", mobile);
+          console.log("Mobile number already in use");
           return NextResponse.json(
             { success: false, message: "Mobile number already in use" },
             { status: 400 }
@@ -168,13 +212,13 @@ export async function POST(req: NextRequest) {
         .insert({
           // 24-char hex id, same format as the migrated MongoDB ObjectId ids
           id: randomBytes(12).toString("hex"),
-          first_name: firstName,
-          last_name: lastName,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           email: normalizedEmail,
           // password was bcrypt-hashed on save by the old User model
           password_hash: await bcrypt.hash(password, 10),
-          mobile,
-          zip_code: zipCode,
+          mobile: trimmedMobile,
+          zip_code: trimmedZipCode,
           role: "user",
           // Store selected price ID for reference
           selected_price_id: selectedPriceId || null,

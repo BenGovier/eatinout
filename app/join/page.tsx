@@ -26,7 +26,12 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
     <main className="min-h-screen bg-background">
       <JoinForm
         returnUrl={returnUrl}
-        socialPrefill={prefill ? { provider: prefill.provider, email: prefill.email, firstName: prefill.firstName } : null}
+        socialPrefill={prefill ? {
+                provider: prefill.provider,
+                email: prefill.email,
+                firstName: prefill.firstName,
+                lastName: prefill.lastName,
+              } : null}
       />
     </main>
   )

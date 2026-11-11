@@ -14,7 +14,12 @@ import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
 type JoinFormProps = {
   returnUrl: string
-  socialPrefill: { provider: "google" | "facebook"; email: string; firstName: string } | null
+  socialPrefill: {
+    provider: "google" | "facebook"
+    email: string
+    firstName: string
+    lastName: string
+  } | null
 }
 
 const MAX_PASSWORD_BYTES = 72
@@ -22,6 +27,7 @@ const MAX_PASSWORD_BYTES = 72
 export function JoinForm({ returnUrl, socialPrefill }: JoinFormProps) {
   const [step, setStep] = useState<"details" | "verify">("details")
   const [firstName, setFirstName] = useState(socialPrefill?.firstName ?? "")
+  const [lastName, setLastName] = useState(socialPrefill?.lastName ?? "")
   const [email, setEmail] = useState(socialPrefill?.email ?? "")
   const [password, setPassword] = useState("")
   const [zipCode, setZipCode] = useState("")
@@ -40,7 +46,7 @@ export function JoinForm({ returnUrl, socialPrefill }: JoinFormProps) {
     event.preventDefault()
     setFormError(null)
     const trimmedEmail = email.trim().toLowerCase()
-    if (!firstName.trim() || !trimmedEmail || !password || !zipCode.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !trimmedEmail || !password || !zipCode.trim()) {
       setFormError("Please fill in all fields.")
       return
     }
@@ -75,6 +81,7 @@ export function JoinForm({ returnUrl, socialPrefill }: JoinFormProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email,
         password,
         zipCode: zipCode.trim().toUpperCase(),
@@ -140,6 +147,18 @@ export function JoinForm({ returnUrl, socialPrefill }: JoinFormProps) {
                 autoComplete="given-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                className="h-14 rounded-xl text-base"
+                maxLength={255}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="join-last-name" className="text-sm font-medium text-foreground">Last name</label>
+              <Input
+                id="join-last-name"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 className="h-14 rounded-xl text-base"
                 maxLength={255}
                 required
