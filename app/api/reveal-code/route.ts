@@ -1,11 +1,40 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+function getAuthenticatedUserId(token: string | undefined): string | null {
+  if (!token || !process.env.JWT_SECRET) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+      userId?: unknown;
+    };
+    return typeof decoded.userId === "string" && decoded.userId
+      ? decoded.userId
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const { walletId } = await request.json();
+    const cookieStore = await cookies();
+    const userId = getAuthenticatedUserId(cookieStore.get("auth_token")?.value);
 
-    if (!walletId) {
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const walletId = body?.walletId;
+
+    if (!walletId || typeof walletId !== "string") {
       return NextResponse.json(
         { success: false, message: "Missing walletId" },
         { status: 400 }
@@ -15,6 +44,8 @@ export async function POST(request: Request) {
     // Code expiry set to 2 minutes from now (as in original logic)
     const redeemCodeExpiry = new Date(Date.now() + 2 * 60 * 1000).toISOString();
 
+    // Ownership is enforced in the same statement, so a wallet belonging to
+    // another user is never modified and cannot be distinguished from a missing one.
     const { data: updatedWallet, error } = await supabaseAdmin
       .from("wallets")
       .update({
@@ -22,6 +53,7 @@ export async function POST(request: Request) {
         redeem_code_expiry: redeemCodeExpiry,
       })
       .eq("id", walletId)
+      .eq("user_id", userId)
       .select("id, redeem_status, redeem_code_expiry")
       .maybeSingle();
 
