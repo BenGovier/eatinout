@@ -60,7 +60,7 @@ export function HeroSection() {
                         className="h-14 w-full rounded-full bg-[#EB221C] text-base font-semibold text-white shadow-md hover:bg-[#cf1d18]"
                     >
                         <Link
-                            href="/sign-up"
+                            href="/join?plan=premium"
                             onClick={() => trackAsignupEvent("asignup_start_trial_click")}
                         >
                             Start my 30-day free trial

@@ -18,7 +18,7 @@ export function FinalCTA() {
                     <div className="flex flex-col items-center gap-3">
                         <Button asChild size="lg" className="h-auto w-full max-w-sm rounded-full bg-primary py-7 text-lg font-bold text-primary-foreground shadow-lg hover:bg-primary/90">
                             <Link
-                                href="/sign-up"
+                                href="/join?plan=premium"
                                 onClick={() => trackAsignupEvent("asignup_start_trial_click")}
                             >
                                 Start my 30-day free trial
