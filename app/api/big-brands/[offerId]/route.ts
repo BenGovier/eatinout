@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { OFFER_ID_PATTERN, hasText, isOfferLive as isLive } from "@/lib/national/public-offer-rules"
 
 export const dynamic = "force-dynamic"
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic"
 const PUBLIC_BRAND_COLUMNS = "id, name, slug, logo_url"
 const PUBLIC_OFFER_COLUMNS = "id, brand_id, title, deal_label, description, terms, offer_image_url, starts_at, ends_at"
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_PATTERN = OFFER_ID_PATTERN
 
 const CACHE_HEADERS = {
   "Cache-Control": "public, max-age=0, s-maxage=30, must-revalidate",
@@ -38,19 +39,6 @@ export type PublicBigBrandOfferDetail = {
   starts_at: string
   ends_at: string | null
   brand: { name: string; slug: string; logo_url: string }
-}
-
-function hasText(value: string | null | undefined): value is string {
-  return typeof value === "string" && value.trim() !== ""
-}
-
-function isLive(offer: OfferRow, now: number) {
-  if (!hasText(offer.starts_at)) return false
-  const startsAt = Date.parse(offer.starts_at)
-  if (Number.isNaN(startsAt) || startsAt > now) return false
-  if (offer.ends_at === null || offer.ends_at === "") return true
-  const endsAt = Date.parse(offer.ends_at)
-  return !Number.isNaN(endsAt) && endsAt > now
 }
 
 function notFound() {
