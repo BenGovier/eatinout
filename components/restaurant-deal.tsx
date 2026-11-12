@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles, Loader2, RefreshCw } from "lucide-react"
+import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles, Loader2, RefreshCw, Ticket } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 
@@ -42,7 +42,173 @@ export type PremiumAccessState = "checking" | "granted" | "denied" | "error"
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-function parseValidDays(validDaysStr: string): string[] {
+export type OfferDeal = Deal & { isPinned?: boolean }
+
+interface OfferActionProps {
+  deal: Deal
+  canViewFullTerms: boolean
+  premiumAccess?: PremiumAccessState
+  onRedeem: (offerId: string, associatedId: string) => void
+  onUnlock?: (offerId: string) => void
+  onRetryAccess?: () => void
+  isLoading: string | null
+  loggedOutLabel?: string
+}
+
+/** The single membership-dependent action for an offer. Shared by every offer surface. */
+export function OfferAction({
+  deal,
+  canViewFullTerms,
+  premiumAccess,
+  onRedeem,
+  onUnlock,
+  onRetryAccess,
+  isLoading,
+  loggedOutLabel = "Unlock this offer",
+}: OfferActionProps) {
+  if (canViewFullTerms && premiumAccess === "checking") {
+    return (
+      <Button
+        disabled
+        aria-live="polite"
+        className="w-full bg-primary/80 text-white font-bold py-3 text-base rounded-lg"
+      >
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+        Checking your membership...
+      </Button>
+    )
+  }
+
+  if (canViewFullTerms && premiumAccess === "error") {
+    return (
+      <div role="status" className="rounded-xl border border-lines bg-soft-bg/60 p-4 flex flex-col gap-3">
+        <p className="text-sm text-dark-ink/80 leading-relaxed">
+          We couldn&apos;t check your membership just now. Please try again in a moment.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onRetryAccess}
+          className="w-full rounded-lg border-primary/30 text-primary font-semibold hover:bg-primary/5 hover:text-primary"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  if (canViewFullTerms && premiumAccess === "denied") {
+    return (
+      <Button
+        type="button"
+        onClick={() => onUnlock?.(deal.id)}
+        className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
+      >
+        <Lock className="h-4 w-4 mr-2" aria-hidden="true" />
+        Unlock this offer
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      onClick={() => onRedeem(deal.id, deal.restaurantId || "")}
+      className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
+      disabled={isLoading === deal.id}
+    >
+      {isLoading === deal.id ? "Adding..." : !canViewFullTerms ? loggedOutLabel : "Add to wallet"}
+    </Button>
+  )
+}
+
+/** Short, human summary of the configured days, e.g. "Every day" or "Mon, Tue, Wed". */
+export function summariseValidDays(validDays?: string): string | null {
+  if (!validDays?.trim()) return null
+  const days = parseValidDays(validDays)
+  return days.length === 7 ? "Every day" : days.join(", ")
+}
+
+interface RestaurantOfferCardProps {
+  deal: OfferDeal
+  onView: (offerId: string) => void
+  premiumAccess?: PremiumAccessState
+  style?: React.CSSProperties
+}
+
+/** Compact, scannable offer row. All details and actions live in the offer-detail sheet. */
+export function RestaurantOfferCard({ deal, onView, premiumAccess, style }: RestaurantOfferCardProps) {
+  const daysSummary = summariseValidDays(deal.validDays)
+  const isLocked = premiumAccess === "denied"
+
+  return (
+    <button
+      type="button"
+      onClick={() => onView(deal.id)}
+      aria-haspopup="dialog"
+      style={style}
+      className="group flex w-full items-start gap-3.5 rounded-2xl border border-lines bg-white p-4 text-left shadow-[0_2px_10px_rgba(15,23,42,0.05)] transition-[border-color,box-shadow] animate-in fade-in slide-in-from-bottom-2 duration-500 hover:border-primary/30 hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+    >
+      <span className="mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
+        <Ticket className="h-5 w-5 text-primary" aria-hidden="true" />
+      </span>
+
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {(deal.isPinned || isLocked) && (
+          <span className="flex flex-wrap items-center gap-1.5">
+            {deal.isPinned && (
+              <Badge className="border-0 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10">
+                <Sparkles className="mr-1 h-3 w-3" aria-hidden="true" />
+                Featured
+              </Badge>
+            )}
+            {isLocked && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-soft-bg px-2 py-0.5 text-[11px] font-semibold text-dark-ink/70">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                Premium
+              </span>
+            )}
+          </span>
+        )}
+
+        <span
+          className="text-base font-bold leading-snug text-dark-ink text-pretty break-words"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          {deal.offerTitle}
+        </span>
+
+        {deal.description && (
+          <span className="line-clamp-2 text-sm leading-relaxed text-dark-ink/65">{deal.description}</span>
+        )}
+
+        {(daysSummary || deal.validHours) && (
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-dark-ink/70">
+            {daysSummary && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                {daysSummary}
+              </span>
+            )}
+            {deal.validHours && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                {deal.validHours}
+              </span>
+            )}
+          </span>
+        )}
+
+        <span className="mt-1 inline-flex items-center gap-0.5 text-sm font-semibold text-primary">
+          View offer
+          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </span>
+      </span>
+    </button>
+  )
+}
+
+export function parseValidDays(validDaysStr: string): string[] {
   if (validDaysStr.toLowerCase().trim() === "all week") {
     return weekDays
   }
@@ -189,52 +355,16 @@ export function RestaurantDeal({
         </div>
       )}
 
-      {canViewFullTerms && premiumAccess === "checking" ? (
-        <Button
-          disabled
-          aria-live="polite"
-          className="w-full bg-primary/80 text-white font-bold py-3 text-base rounded-lg"
-        >
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-          Checking your membership...
-        </Button>
-      ) : canViewFullTerms && premiumAccess === "error" ? (
-        <div role="status" className="rounded-xl border border-lines bg-soft-bg/60 p-4 flex flex-col gap-3">
-          <p className="text-sm text-dark-ink/80 leading-relaxed">
-            We couldn&apos;t check your membership just now. Please try again in a moment.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onRetryAccess}
-            className="w-full rounded-lg border-primary/30 text-primary font-semibold hover:bg-primary/5 hover:text-primary"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
-            Try again
-          </Button>
-        </div>
-      ) : canViewFullTerms && premiumAccess === "denied" ? (
-        <Button
-          type="button"
-          onClick={() => onUnlock?.(deal.id)}
-          className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
-        >
-          <Lock className="h-4 w-4 mr-2" aria-hidden="true" />
-          Unlock this offer
-        </Button>
-      ) : (
-        <Button
-          onClick={() => onRedeem(deal.id, deal.restaurantId || "")}
-          className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          disabled={isLoading === deal.id}
-        >
-          {isLoading === deal.id
-            ? "Adding..."
-            : !canViewFullTerms
-              ? (featured ? "Start 30 days free to unlock this offer" : "Unlock this offer")
-              : "Add to wallet"}
-        </Button>
-      )}
+      <OfferAction
+        deal={deal}
+        canViewFullTerms={canViewFullTerms}
+        premiumAccess={premiumAccess}
+        onRedeem={onRedeem}
+        onUnlock={onUnlock}
+        onRetryAccess={onRetryAccess}
+        isLoading={isLoading}
+        loggedOutLabel={featured ? "Start 30 days free to unlock this offer" : "Unlock this offer"}
+      />
     </div>
   )
 

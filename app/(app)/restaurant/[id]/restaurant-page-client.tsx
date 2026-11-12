@@ -23,7 +23,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RedeemAnimation } from "@/components/redeem-animation"
 import { useAuth } from "@/context/auth-context"
-import { RestaurantDeal, type PremiumAccessState } from "@/components/restaurant-deal"
+import { RestaurantOfferCard, type PremiumAccessState } from "@/components/restaurant-deal"
+import { RestaurantOfferDetailSheet } from "@/components/restaurant-offer-detail-sheet"
 import { PremiumUnlockSheet } from "@/components/premium-unlock-sheet"
 import useSWR from "swr"
 
@@ -176,7 +177,7 @@ export function RestaurantPageClient({
     activeTab: offerId ? "offers" : "offers"
   })
 
-  const offerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
+  const offerRefs = useRef<{ [key: string]: HTMLElement | null }>({})
 
   // All memoized derived data must be before any conditional returns (Rules of Hooks)
   const restaurant = restaurantState.data
@@ -209,6 +210,22 @@ export function RestaurantPageClient({
     }
     return null
   }, [offerId, offerSlug, offers])
+
+  const [detailOfferId, setDetailOfferId] = useState<string | null>(null)
+  const detailOffer = detailOfferId ? offers.find((offer: any) => offer.id === detailOfferId) ?? null : null
+
+  const openedDeepLinkRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!deepLinkOfferId || openedDeepLinkRef.current === deepLinkOfferId) return
+    if (!offers.some((offer: any) => offer.id === deepLinkOfferId)) return
+    openedDeepLinkRef.current = deepLinkOfferId
+    setDetailOfferId(deepLinkOfferId)
+  }, [deepLinkOfferId, offers])
+
+  // Hand over to the upgrade sheet or the redeem animation instead of stacking modals.
+  useEffect(() => {
+    if (unlockOfferId || redeemState.showAnimation) setDetailOfferId(null)
+  }, [unlockOfferId, redeemState.showAnimation])
 
 
   useEffect(() => {
@@ -320,6 +337,37 @@ export function RestaurantPageClient({
       router.push(`/wallet`);
     }, 300);
   }, [router]);
+
+  const detailSheet = (
+    <RestaurantOfferDetailSheet
+      deal={detailOffer}
+      open={!!detailOffer}
+      onOpenChange={(open) => { if (!open) setDetailOfferId(null) }}
+      restaurantName={restaurant?.name}
+      phoneNumber={phone}
+      premiumAccess={premiumAccess}
+      onRedeem={handleRedeem}
+      onUnlock={setUnlockOfferId}
+      onRetryAccess={retryAccess}
+      isLoading={redeemState.loadingId}
+    />
+  )
+
+  const offerList = (
+    <ul className="flex flex-col gap-3" aria-label="Available offers">
+      {offers.map((offer: any, index: number) => (
+        <li key={offer.id} ref={(el) => { offerRefs.current[offer.id] = el }} className="rounded-2xl">
+          <RestaurantOfferCard
+            deal={offer}
+            onView={setDetailOfferId}
+            premiumAccess={premiumAccess}
+            style={{ animationDelay: `${index * 60}ms` }}
+          />
+        </li>
+      ))}
+    </ul>
+  )
+
 
   // Optimized auto-scroll to specific offer if offerId or offer slug is in URL
   useEffect(() => {
@@ -447,27 +495,10 @@ export function RestaurantPageClient({
               <p className="font-medium text-dark-ink">No active offers right now</p>
             </div>
           ) : (
-            offers.map((offer: any, index: number) => (
-              <div key={offer.id}>
-                <div ref={(el) => { offerRefs.current[offer.id] = el }}>
-                  <RestaurantDeal
-                    deal={offer}
-                    phoneNumber={phone}
-                    membersUsed={membersUsed}
-                    onRedeem={handleRedeem}
-                  premiumAccess={premiumAccess}
-                  onUnlock={setUnlockOfferId}
-                  onRetryAccess={retryAccess}
-                    isLoading={redeemState.loadingId}
-                    style={{ animationDelay: `${index * 100}ms` }}
-                    featured={index === 0}
-                    defaultExpanded={offer.id === deepLinkOfferId}
-                  />
-                </div>
-              </div>
-            ))
+            <div className="px-2">{offerList}</div>
           )}
         </div>
+        {detailSheet}
       </div>
     )
   }
@@ -479,8 +510,9 @@ export function RestaurantPageClient({
     <div className="min-h-screen bg-[#FFFBF7] pb-24 lg:pb-0">
       <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
       {unlockSheet}
+      {detailSheet}
 
-      <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
+      <div className="relative h-60 animate-in fade-in duration-500 overflow-hidden">
         <Image
           src={heroImage}
           alt={restaurant.name}
@@ -515,9 +547,15 @@ export function RestaurantPageClient({
               {offers.length} {offers.length === 1 ? "offer" : "offers"} available
             </Badge>
           )}
-          <h1 className="text-2xl font-bold text-white mb-2 text-balance drop-shadow-sm" style={{ fontFamily: "var(--font-heading)" }}>
+          <h1 className="text-3xl font-bold leading-tight text-white text-balance drop-shadow-sm" style={{ fontFamily: "var(--font-heading)" }}>
             {restaurant.name}
           </h1>
+          {(restaurant.address || restaurant.location) && (
+            <p className="mt-1 mb-2.5 flex items-start gap-1.5 text-sm font-medium text-white/90 drop-shadow-sm">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="line-clamp-2">{restaurant.address || restaurant.location}</span>
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {cuisines.map((cuisine: string) => (
               <Badge key={cuisine} className="bg-white/95 text-[#475569] border-0 text-xs font-medium">
@@ -584,28 +622,13 @@ export function RestaurantPageClient({
               <p className="text-sm text-dark-ink/60 mt-1">Check back later for new deals!</p>
             </div>
           ) : (
-            offers.map((offer: any, index: number) => (
-            <div key={offer.id}>
-              <div ref={(el) => { offerRefs.current[offer.id] = el }}>
-                <RestaurantDeal
-                  deal={offer}
-                  phoneNumber={phone}
-                  membersUsed={membersUsed}
-                  onRedeem={handleRedeem}
-                  premiumAccess={premiumAccess}
-                  onUnlock={setUnlockOfferId}
-                  onRetryAccess={retryAccess}
-                  isLoading={redeemState.loadingId}
-                  style={{ animationDelay: `${index * 100}ms` }}
-                  featured={index === 0}
-                  defaultExpanded={offer.id === deepLinkOfferId}
-                />
-              </div>
+            <>
+              {offerList}
 
-              {/* Compact unlock explainer, placed directly under the featured offer */}
-              {index === 0 && !canViewFullDetails && (
+              {/* Compact unlock explainer, placed below the full list so every offer stays scannable */}
+              {!canViewFullDetails && (
                 <Card
-                  className="mt-6 rounded-2xl shadow-md border-lines p-5 bg-gradient-to-br from-white to-soft-bg animate-in fade-in duration-700"
+                  className="mt-2 rounded-2xl shadow-md border-lines p-5 bg-gradient-to-br from-white to-soft-bg animate-in fade-in duration-700"
                   style={{ animationDelay: "150ms" }}
                 >
                   <h3
@@ -657,8 +680,8 @@ export function RestaurantPageClient({
                   </div>
                 </Card>
               )}
-            </div>
-          )))}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="information" className="px-4 py-6">
