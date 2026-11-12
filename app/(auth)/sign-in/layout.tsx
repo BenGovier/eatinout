@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 import { Spinner } from "@/components/ui/spinner"
+import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
 export default function DashboardLayout({
     children,
@@ -20,7 +21,8 @@ export default function DashboardLayout({
       if (!authLoading && isAuthenticated && user) {
         // Redirect authenticated users to their appropriate portal
         if (user.role === "user") {
-          router.push("/restaurants")
+          const redirect = new URLSearchParams(window.location.search).get("redirect")
+          router.push(getSafeReturnUrl(redirect, "/restaurants"))
         } else if (user.role === "restaurant") {
           router.push("/dashboard")
         } else if (user.role === "admin") {

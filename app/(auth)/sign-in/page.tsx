@@ -235,56 +235,23 @@ export default function SignInPage() {
         subscriptionStatus: data.subscriptionStatus || "inactive",
         isTrialing: data.isTrialing || false,
       };
-
       setAuthState(userData, true);
+
 
       if (nationalOfferRedirect && data?.role !== "admin" && data?.role !== "restaurant") {
         router.push(nationalOfferRedirect);
         return;
       }
 
-      // If redirect URL is provided, handle it with priority (fast path)
+      // Customers are never sent to checkout on login, whatever their membership;
+      // checkout is only reached when they choose to start or upgrade Premium.
       if (redirectUrl) {
-        // For non-admin and non-restaurant users, check subscription access first
         if (data?.role !== "restaurant" && data?.role !== "admin") {
-          const subscriptionData = await fetchProfileAndSubscription();
-          console.log("Subscription access check:", subscriptionData);
-
-          if (!subscriptionData.hasAccess) {
-            console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
-            sessionStorage.setItem('triggeredLogin', 'true');
-            const checkoutEmail = data.email || email;
-            if (checkoutEmail) {
-              sessionStorage.setItem('checkoutEmail', checkoutEmail);
-            }
-            sessionStorage.setItem('redirectUrl', redirectUrl);
-            router.push('/checkout');
-            return;
-          }
-        }
-        // User has access or is admin/restaurant - redirect immediately (no delay)
-        router.push(decodeURIComponent(redirectUrl));
-        return;
-      }
-
-      // For non-admin and non-restaurant users, check subscription access
-      if (data?.role !== "restaurant" && data?.role !== "admin") {
-        const subscriptionData = await fetchProfileAndSubscription();
-        console.log("Subscription access check:", subscriptionData);
-
-        if (!subscriptionData.hasAccess) {
-          console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
-          sessionStorage.setItem('triggeredLogin', 'true');
-          // Store email for checkout and redirect to the checkout page
-          const checkoutEmail = data.email || email;
-          if (checkoutEmail) {
-            sessionStorage.setItem('checkoutEmail', checkoutEmail);
-          }
-          router.push('/checkout');
-          return;
+          router.push(getSafeReturnUrl(redirectUrl, "/restaurants"));
         } else {
-          console.log("Access granted:", subscriptionData.accessReason);
+          router.push(decodeURIComponent(redirectUrl));
         }
+        return;
       }
 
       // Redirect based on fromRestaurants or role (no delay)
