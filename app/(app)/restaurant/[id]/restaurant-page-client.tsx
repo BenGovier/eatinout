@@ -36,6 +36,7 @@ async function fetchMembershipStatus([url]: [string, string]): Promise<Membershi
   return response.json()
 }
 import { generateSlug } from "@/lib/utils"
+import { markCheckoutOrigin } from "@/lib/checkout-history"
 import type { PublicRestaurantDetail } from "@/lib/get-public-restaurant-detail"
 
 // Consolidated state interfaces
@@ -120,6 +121,7 @@ export function RestaurantPageClient({
     if (unlockOfferId) returnUrl.searchParams.set("offerId", unlockOfferId)
     sessionStorage.setItem("redirectUrl", returnUrl.pathname + returnUrl.search)
     setUnlockOfferId(null)
+    markCheckoutOrigin()
     router.push("/checkout")
   }, [router, unlockOfferId])
 
@@ -470,7 +472,7 @@ export function RestaurantPageClient({
           <h2 className="text-lg font-semibold text-gray-900">Restaurant not found</h2>
           <p className="text-sm text-gray-500 mt-1">We couldn&apos;t load this restaurant&apos;s details.</p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>Go Back</Button>
+        <Button variant="outline" onClick={() => router.push("/restaurants")}>Go Back</Button>
       </div>
     )
   }
@@ -534,7 +536,8 @@ export function RestaurantPageClient({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.back()}
+            onClick={() => router.push("/restaurants")}
+            aria-label="Back to restaurants"
             className="bg-white/90 hover:bg-white text-gray-900 backdrop-blur-sm shadow-lg border-0 rounded-full h-10 w-10 p-0"
           >
             <ArrowLeft className="h-5 w-5" />

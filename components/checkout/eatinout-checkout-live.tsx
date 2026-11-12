@@ -16,6 +16,7 @@ import {
 } from "@stripe/react-stripe-js"
 import { ViewReveal } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
+import { leaveCheckout } from "@/lib/checkout-history"
 import { useAuth } from "@/context/auth-context"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
@@ -127,7 +128,7 @@ function BackToOffers({ returnUrl, disabled }: { returnUrl: string; disabled: bo
     <button
       type="button"
       onClick={() => {
-        if (!disabled) router.push(returnUrl)
+        if (!disabled) leaveCheckout(router, returnUrl)
       }}
       disabled={disabled}
       aria-disabled={disabled}

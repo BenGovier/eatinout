@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ModalImageWithHotspots, type Hotspot } from "@/components/prototypes/eatinout-exit-demo/image-hotspot"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
+import { isLeavingCheckout, leaveCheckout as leaveCheckoutHistory, registerCheckoutEntry } from "@/lib/checkout-history"
 
 const ASSET = "/design/checkout-exit-demo/eatinout_checkout_exit_modal_exact.png"
 
@@ -24,13 +25,19 @@ export function CheckoutExitGuard({
 
   // Push a dummy history entry so the browser Back button triggers a
   // popstate we can intercept, instead of navigating away immediately.
+  const entryRegisteredRef = useRef(false)
+
   useEffect(() => {
     if (!active) return
+    if (!entryRegisteredRef.current) {
+      entryRegisteredRef.current = true
+      registerCheckoutEntry()
+    }
     window.history.pushState({ checkoutGuard: true }, "")
     guardActiveRef.current = true
 
     const handlePopState = () => {
-      if (!guardActiveRef.current) return
+      if (!guardActiveRef.current || isLeavingCheckout()) return
       window.history.pushState({ checkoutGuard: true }, "")
       setOpen(true)
     }
@@ -72,7 +79,7 @@ export function CheckoutExitGuard({
       return
     }
     guardActiveRef.current = false
-    router.push(getSafeReturnUrl(returnUrl, "/restaurants"))
+    leaveCheckoutHistory(router, getSafeReturnUrl(returnUrl, "/restaurants"))
   }, [router, returnUrl, busy, continueCheckout])
 
   useEffect(() => {
