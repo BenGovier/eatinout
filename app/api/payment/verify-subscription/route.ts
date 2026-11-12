@@ -4,13 +4,17 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import supabaseAdmin from "@/lib/supabase/admin";
 import { activateSubscription } from "@/lib/activate-subscription";
+import { startTrialFromSetupIntent } from "@/lib/start-trial";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export async function POST(request: Request) {
   try {
-    const { subscriptionId } = await request.json();
-    if (!subscriptionId) {
+    const { subscriptionId: rawSubscriptionId, setupIntentId } = await request.json();
+    if (
+      (typeof rawSubscriptionId !== "string" || !rawSubscriptionId) &&
+      (typeof setupIntentId !== "string" || !setupIntentId)
+    ) {
       return NextResponse.json({ error: "Subscription ID is required" }, { status: 400 });
     }
 
@@ -36,6 +40,21 @@ export async function POST(request: Request) {
     const current = currentRow && { stripeCustomerId: currentRow.stripe_customer_id };
     if (!current || !current.stripeCustomerId) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // New trial checkouts send the confirmed SetupIntent; paid checkouts and
+    // checkouts opened before this change still send a subscriptionId.
+    let subscriptionId: string = rawSubscriptionId;
+    if (typeof setupIntentId === "string" && setupIntentId) {
+      let trial = await startTrialFromSetupIntent(setupIntentId, current.stripeCustomerId);
+      if (!trial.ok && trial.retryable) {
+        await new Promise((r) => setTimeout(r, 1500));
+        trial = await startTrialFromSetupIntent(setupIntentId, current.stripeCustomerId);
+      }
+      if (!trial.ok) {
+        return NextResponse.json({ error: trial.reason }, { status: 400 });
+      }
+      subscriptionId = trial.subscriptionId;
     }
 
     let result = await activateSubscription(subscriptionId, current.stripeCustomerId);

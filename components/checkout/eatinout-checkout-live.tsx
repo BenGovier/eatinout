@@ -182,7 +182,7 @@ function PremiumBenefit({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* ── INTRO ──────────────────────────────────────────────────────────────── */
+/* ── INTRO ──────────────���───────────────────────────────────────────────── */
 // `isTrial` is null until create-subscription responds, so returning
 // customers (mode "payment") never see free-trial wording.
 function CheckoutIntro({ isTrial }: { isTrial: boolean | null }) {
@@ -699,6 +699,9 @@ function WalletButtons({
               }))
               setEceSupport({ applePay, googlePay })
             }}
+            // Required by ExpressCheckoutElementProps. This element is hidden and
+            // used only for wallet detection; payments go through paymentRequest.
+            onConfirm={() => {}}
             onLoadError={(event: any) => {
               console.error("[checkout][debug][ECE] onLoadError — ECE treats both wallets as unsupported:", event)
               const error = { type: event?.error?.type ?? null, message: event?.error?.message ?? null }
@@ -1218,6 +1221,7 @@ export function EatinOutCheckoutLive() {
   const { user, authLoading } = useAuth()
   const [checkoutData, setCheckoutData] = useState<{ clientSecret: string; mode: "setup" | "payment" } | null>(null)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
+  const [setupIntentId, setSetupIntentId] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [postcode, setPostcode] = useState<string | undefined>(undefined)
@@ -1298,6 +1302,7 @@ export function EatinOutCheckoutLive() {
         })
         setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
         setSubscriptionId(data.subscriptionId ?? null)
+        setSetupIntentId(data.setupIntentId ?? null)
         setPricing(data.pricing ?? null)
       })
       .catch((err) => {
@@ -1312,6 +1317,7 @@ export function EatinOutCheckoutLive() {
     const data = await fetchSubscription(email, voucherCode)
     setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
     setSubscriptionId(data.subscriptionId ?? null)
+    setSetupIntentId(data.setupIntentId ?? null)
     setPricing(data.pricing ?? null)
   }
 
@@ -1323,7 +1329,7 @@ export function EatinOutCheckoutLive() {
       await fetch("/api/payment/verify-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriptionId }),
+        body: JSON.stringify(setupIntentId ? { setupIntentId } : { subscriptionId }),
         signal: controller.signal,
       })
     } catch (err) {
