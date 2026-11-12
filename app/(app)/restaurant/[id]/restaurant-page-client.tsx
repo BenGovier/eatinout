@@ -294,7 +294,8 @@ export function RestaurantPageClient({
           await fetch("/api/auth/logout", {
             method: "POST",
           });
-          await signOut({ callbackUrl: "/sign-in" });
+          await signOut({ redirect: false });
+          window.location.assign("/sign-in");
         } else {
           toast.error(data.error || "Failed to add offer to wallet");
         }
