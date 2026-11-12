@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles } from "lucide-react"
+import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles, Loader2, RefreshCw } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 
@@ -32,7 +32,13 @@ interface RestaurantDealProps {
   style?: React.CSSProperties
   featured?: boolean
   defaultExpanded?: boolean
+  /** Signed-in customers only. When omitted, the original Redeem behaviour is kept. */
+  premiumAccess?: PremiumAccessState
+  onUnlock?: (offerId: string) => void
+  onRetryAccess?: () => void
 }
+
+export type PremiumAccessState = "checking" | "granted" | "denied" | "error"
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -59,6 +65,9 @@ export function RestaurantDeal({
   style,
   featured = false,
   defaultExpanded = false,
+  premiumAccess,
+  onUnlock,
+  onRetryAccess,
 }: RestaurantDealProps) {
   const [showScrollArrow, setShowScrollArrow] = useState(true)
   const [expanded, setExpanded] = useState(featured || defaultExpanded)
@@ -180,17 +189,52 @@ export function RestaurantDeal({
         </div>
       )}
 
-      <Button
-        onClick={() => onRedeem(deal.id, deal.restaurantId || "")}
-        className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
-        disabled={isLoading === deal.id}
-      >
-        {isLoading === deal.id
-          ? "Adding..."
-          : !canViewFullTerms
-            ? (featured ? "Start 30 days free to unlock this offer" : "Unlock this offer")
-            : "Add to wallet"}
-      </Button>
+      {canViewFullTerms && premiumAccess === "checking" ? (
+        <Button
+          disabled
+          aria-live="polite"
+          className="w-full bg-primary/80 text-white font-bold py-3 text-base rounded-lg"
+        >
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+          Checking your membership...
+        </Button>
+      ) : canViewFullTerms && premiumAccess === "error" ? (
+        <div role="status" className="rounded-xl border border-lines bg-soft-bg/60 p-4 flex flex-col gap-3">
+          <p className="text-sm text-dark-ink/80 leading-relaxed">
+            We couldn&apos;t check your membership just now. Please try again in a moment.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRetryAccess}
+            className="w-full rounded-lg border-primary/30 text-primary font-semibold hover:bg-primary/5 hover:text-primary"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+            Try again
+          </Button>
+        </div>
+      ) : canViewFullTerms && premiumAccess === "denied" ? (
+        <Button
+          type="button"
+          onClick={() => onUnlock?.(deal.id)}
+          className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        >
+          <Lock className="h-4 w-4 mr-2" aria-hidden="true" />
+          Unlock this offer
+        </Button>
+      ) : (
+        <Button
+          onClick={() => onRedeem(deal.id, deal.restaurantId || "")}
+          className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          disabled={isLoading === deal.id}
+        >
+          {isLoading === deal.id
+            ? "Adding..."
+            : !canViewFullTerms
+              ? (featured ? "Start 30 days free to unlock this offer" : "Unlock this offer")
+              : "Add to wallet"}
+        </Button>
+      )}
     </div>
   )
 

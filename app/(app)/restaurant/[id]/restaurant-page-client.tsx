@@ -23,7 +23,17 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RedeemAnimation } from "@/components/redeem-animation"
 import { useAuth } from "@/context/auth-context"
-import { RestaurantDeal } from "@/components/restaurant-deal"
+import { RestaurantDeal, type PremiumAccessState } from "@/components/restaurant-deal"
+import { PremiumUnlockSheet } from "@/components/premium-unlock-sheet"
+import useSWR from "swr"
+
+type MembershipStatus = { access: "granted" | "denied" | "unverifiable" }
+
+async function fetchMembershipStatus([url]: [string, string]): Promise<MembershipStatus> {
+  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
+  if (!response.ok) throw new Error(`Membership status request failed (${response.status})`)
+  return response.json()
+}
 import { generateSlug } from "@/lib/utils"
 import type { PublicRestaurantDetail } from "@/lib/get-public-restaurant-detail"
 
@@ -67,6 +77,50 @@ export function RestaurantPageClient({
   const offerSlug = searchParams?.get("offer") ?? null
   const router = useRouter()
   const { isAuthenticated, user } = useAuth()
+
+  const isCustomer = isAuthenticated && user?.role === "user"
+  const {
+    data: accessData,
+    error: accessError,
+    isLoading: accessLoading,
+    isValidating: accessValidating,
+    mutate: mutateAccess,
+  } = useSWR<MembershipStatus>(
+    isCustomer && user?.userId ? ["/api/membership/status", user.userId] : null,
+    fetchMembershipStatus,
+    { revalidateOnFocus: true, revalidateOnReconnect: true, shouldRetryOnError: false, dedupingInterval: 0 },
+  )
+
+  const accessFailed = !!accessError || accessData?.access === "unverifiable"
+  const premiumAccess: PremiumAccessState | undefined = !isCustomer
+    ? undefined
+    : accessLoading || !accessData && !accessError || (accessFailed && accessValidating)
+      ? "checking"
+      : accessFailed
+        ? "error"
+        : accessData?.access === "granted"
+          ? "granted"
+          : "denied"
+
+  // Re-check when the page is restored from the back-forward cache (e.g. Back from checkout).
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) mutateAccess()
+    }
+    window.addEventListener("pageshow", handlePageShow)
+    return () => window.removeEventListener("pageshow", handlePageShow)
+  }, [mutateAccess])
+
+  const [unlockOfferId, setUnlockOfferId] = useState<string | null>(null)
+  const retryAccess = useCallback(() => { mutateAccess() }, [mutateAccess])
+
+  const handleStartPremium = useCallback(() => {
+    const returnUrl = new URL(window.location.href)
+    if (unlockOfferId) returnUrl.searchParams.set("offerId", unlockOfferId)
+    sessionStorage.setItem("redirectUrl", returnUrl.pathname + returnUrl.search)
+    setUnlockOfferId(null)
+    router.push("/checkout")
+  }, [router, unlockOfferId])
 
   const [restaurantState, setRestaurantState] = useState<RestaurantState>({
     data: initialRestaurant || null,
@@ -131,6 +185,16 @@ export function RestaurantPageClient({
   const fullAddress = useMemo(() => restaurant?.address || "Address not available", [restaurant?.address])
   const phone = useMemo(() => restaurant?.phone || "Phone not available", [restaurant?.phone])
   const offers = useMemo(() => restaurant?.offers || [], [restaurant?.offers])
+  const unlockOffer = unlockOfferId ? offers.find((offer: any) => offer.id === unlockOfferId) : null
+  const unlockSheet = (
+    <PremiumUnlockSheet
+      open={!!unlockOfferId}
+      onOpenChange={(open) => { if (!open) setUnlockOfferId(null) }}
+      offerTitle={unlockOffer?.offerTitle || unlockOffer?.title}
+      restaurantName={restaurant?.name}
+      onStartPremium={handleStartPremium}
+    />
+  )
   const membersUsed = 1274
 
   // Presentational only: which offer (if any) is deep-linked, so its compact
@@ -216,13 +280,15 @@ export function RestaurantPageClient({
           // Already redeemed by this user
           toast.error("You have already redeemed this offer");
         } else if (response.status === 403 && data?.error === "premium_required") {
-          toast.error(data.message || "This offer is for Premium members");
-          sessionStorage.setItem("redirectUrl", window.location.pathname + window.location.search);
+          // Expected for non-members: lock the offers and explain Premium instead of erroring.
           setRedeemState(prev => ({ ...prev, loadingId: null }));
-          router.push("/checkout");
+          mutateAccess({ access: "denied" }, { revalidate: false });
+          setUnlockOfferId(offerId);
           return;
         } else if (response.status === 503 && data?.error === "entitlement_unverifiable") {
-          toast.error(data.message || "We couldn't confirm your membership. Please try again.");
+          setRedeemState(prev => ({ ...prev, loadingId: null }));
+          mutateAccess({ access: "unverifiable" }, { revalidate: false });
+          return;
         } else if (response.status === 403 && data?.error === "Only users can redeem offers") {
           toast.error("Only users can add offers to wallet");
           await fetch("/api/auth/logout", {
@@ -244,7 +310,7 @@ export function RestaurantPageClient({
       toast.error("An error occurred while redeeming the offer");
       setRedeemState(prev => ({ ...prev, error: true, loadingId: null }));
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, mutateAccess]);
 
   const handleAnimationComplete = useCallback(() => {
     setRedeemState(prev => ({ ...prev, showAnimation: false, loadingId: null }));
@@ -369,6 +435,7 @@ export function RestaurantPageClient({
           </button>
         )}
         <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+      {unlockSheet}
         <div className="px-1 py-4 space-y-4 flex-1 overflow-y-auto">
           <div className="sticky top-0 bg-white/95 backdrop-blur z-10 pb-2 border-b border-gray-100 mb-4 px-2 pt-2">
              <h2 className="text-xl font-bold text-dark-ink pr-8">{restaurant.name}</h2>
@@ -387,6 +454,9 @@ export function RestaurantPageClient({
                     phoneNumber={phone}
                     membersUsed={membersUsed}
                     onRedeem={handleRedeem}
+                  premiumAccess={premiumAccess}
+                  onUnlock={setUnlockOfferId}
+                  onRetryAccess={retryAccess}
                     isLoading={redeemState.loadingId}
                     style={{ animationDelay: `${index * 100}ms` }}
                     featured={index === 0}
@@ -407,6 +477,7 @@ export function RestaurantPageClient({
   return (
     <div className="min-h-screen bg-[#FFFBF7] pb-24 lg:pb-0">
       <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+      {unlockSheet}
 
       <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
         <Image
@@ -520,6 +591,9 @@ export function RestaurantPageClient({
                   phoneNumber={phone}
                   membersUsed={membersUsed}
                   onRedeem={handleRedeem}
+                  premiumAccess={premiumAccess}
+                  onUnlock={setUnlockOfferId}
+                  onRetryAccess={retryAccess}
                   isLoading={redeemState.loadingId}
                   style={{ animationDelay: `${index * 100}ms` }}
                   featured={index === 0}
