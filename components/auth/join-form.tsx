@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -29,7 +28,9 @@ const PLAN_STORAGE_KEY = "eio_join_plan"
 const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? null
 
 const inputClassName =
-  "h-12 w-full rounded-xl border border-[#D9D2CA] bg-[#FFFCF9] px-4 text-base text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9A928A] focus:border-[#1F5A3A] focus:ring-2 focus:ring-[#1F5A3A]/20 aria-[invalid=true]:border-[#EB221C]"
+  "h-12 w-full rounded-xl border border-[#ecdfcb] bg-[#faf7f1] px-4 text-base text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9A928A] focus:border-[#EB221C]/60 focus:ring-2 focus:ring-[#EB221C]/20 aria-[invalid=true]:border-[#EB221C]"
+
+const cardClassName = "rounded-2xl border border-[#ecdfcb] bg-white p-6 shadow-md shadow-black/5 md:p-7"
 
 export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, socialPrefill }: JoinFormProps) {
   const [plan, setPlan] = useState<MembershipPlan>(initialPlan ?? "premium")
@@ -171,33 +172,9 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl)}`
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-      <header className="flex items-center justify-between">
-        <Link href="/" aria-label="EatinOut home">
-          <Image src="/eatinout-logo.webp" alt="EatinOut" width={160} height={40} className="h-8 w-auto sm:h-9" priority />
-        </Link>
-        <Link href={signInHref} className="text-base font-medium text-[#EB221C] hover:underline">
-          Sign in
-        </Link>
-      </header>
-
-      <div className="relative overflow-hidden rounded-2xl">
-        <Image
-          src="/images/eatinout-join-hero.webp"
-          alt="Friends laughing over dinner and wine at a candlelit restaurant table"
-          width={1200}
-          height={428}
-          sizes="(max-width: 672px) 100vw, 640px"
-          className="h-40 w-full object-cover sm:h-52"
-          priority
-        />
-        <span className="absolute bottom-3 left-3 rounded-full bg-[#F8EBC4] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#1F4D2E] sm:bottom-4 sm:left-4 sm:text-sm">
-          Good food. Better savings.
-        </span>
-      </div>
-
+    <div className="flex w-full flex-col gap-5">
       {step === "verify" ? (
-        <section className="flex flex-col gap-4 rounded-2xl bg-[#FFFDFB] p-5 shadow-sm ring-1 ring-[#EFE7DF] sm:p-7">
+        <section className={`flex flex-col gap-4 ${cardClassName}`}>
           <p className="w-fit rounded-full bg-[#EAF4EC] px-3 py-1 text-xs font-semibold text-[#1F5A3A]">
             {isPremium ? "Premium membership · 30-day free trial" : "Free account"}
           </p>
@@ -214,10 +191,9 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
         </section>
       ) : (
         <>
-          <div className="flex flex-col gap-2 px-1">
-            <p className="text-sm font-bold uppercase tracking-wider text-[#1F5A3A]">Join EatinOut</p>
-            <h1 className="text-3xl font-bold tracking-tight text-[#1A1A1A] text-balance sm:text-4xl">Create your account</h1>
-            <p className="text-base leading-relaxed text-[#5C5650]">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-balance text-2xl font-bold tracking-tight text-[#1A1A1A]">Create your EatinOut account</h1>
+            <p className="text-pretty text-sm leading-relaxed text-[#5C5650]">
               Discover restaurant offers, show them when you visit, and save on your bill.
             </p>
           </div>
@@ -226,9 +202,9 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
 
           <section
             aria-labelledby="join-details-heading"
-            className="rounded-2xl bg-[#FFFDFB] p-5 shadow-sm ring-1 ring-[#EFE7DF] sm:p-7"
+            className={cardClassName}
           >
-            <h2 id="join-details-heading" className="mb-4 text-xl font-bold text-[#1A1A1A] sm:text-2xl">
+            <h2 id="join-details-heading" className="mb-4 text-lg font-bold text-[#1A1A1A]">
               {"A few details and you're in"}
             </h2>
 
@@ -354,7 +330,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
               <button
                 type="submit"
                 disabled={isSending}
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#EB221C] text-lg font-semibold text-white transition-colors hover:bg-[#D11D17] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EB221C] focus-visible:ring-offset-2 disabled:opacity-60"
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#EB221C] text-lg font-semibold text-white transition-colors hover:bg-[#D11D17] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EB221C] focus-visible:ring-offset-2 disabled:opacity-60"
               >
                 {isSending ? "Sending code..." : isPremium ? "Continue with 30-day trial" : "Create my free account"}
                 {!isSending && <ArrowRight className="h-5 w-5" aria-hidden="true" />}
