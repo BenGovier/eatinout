@@ -6,7 +6,7 @@ import Link from "next/link"
 import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { EmailOtpStep } from "@/components/auth/email-otp-step"
-import { MembershipSelector, type MembershipPlan } from "@/components/auth/membership-selector"
+import { MembershipSelector, type BillingOption, type MembershipPlan } from "@/components/auth/membership-selector"
 import { passwordByteLength, requestEmailCode } from "@/lib/email-verification-client"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
@@ -25,7 +25,44 @@ type JoinFormProps = {
 
 const MAX_PASSWORD_BYTES = 72
 const PLAN_STORAGE_KEY = "eio_join_plan"
-const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? null
+const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || null
+const IS_STRIPE_TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "").startsWith("pk_test_")
+const TEST_MODE_PRICE = "Test mode"
+
+const BILLING_OPTIONS: BillingOption[] = [
+  {
+    priceId: MONTHLY_PRICE_ID ?? "",
+    label: "Monthly",
+    price: "£4.99/month",
+  },
+  {
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_6MONTHS_DISCOUNT || "",
+    label: "6 months",
+    price: "£25.45 every 6 months",
+    monthlyEquivalent: "£4.24/month equivalent",
+    saving: "Save 15% vs monthly",
+  },
+  {
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_1YEAR_DISCOUNT || "",
+    label: "Annual",
+    price: "£47.90/year",
+    monthlyEquivalent: "£3.99/month equivalent",
+    saving: "Save 20% vs monthly",
+  },
+]
+  .filter((option) => option.priceId)
+  .map((option) =>
+    IS_STRIPE_TEST_MODE
+      ? { priceId: option.priceId, label: option.label, price: TEST_MODE_PRICE }
+      : option,
+  )
+
+function getPremiumSummary(priceId: string | null) {
+  const option = BILLING_OPTIONS.find((candidate) => candidate.priceId === priceId)
+  if (!option) return "Plan price confirmed at checkout · Cancel anytime"
+  if (IS_STRIPE_TEST_MODE) return "Test mode: amount and currency confirmed at checkout · Cancel anytime"
+  return `Then ${option.price} · Cancel anytime`
+}
 
 const inputClassName =
   "h-12 w-full rounded-xl border border-[#ecdfcb] bg-[#faf7f1] px-4 text-base text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9A928A] focus:border-[#EB221C]/60 focus:ring-2 focus:ring-[#EB221C]/20 aria-[invalid=true]:border-[#EB221C]"
@@ -47,10 +84,11 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const [formError, setFormError] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(60)
   const [referral, setReferral] = useState<string | null>(null)
+  const [selectedPriceId, setSelectedPriceId] = useState<string | null>(
+    initialPlan === "free" ? MONTHLY_PRICE_ID : priceId || MONTHLY_PRICE_ID,
+  )
   const creatingRef = useRef(false)
 
-  const selectedPriceId = priceId || MONTHLY_PRICE_ID
-  const showMonthlyPrice = !priceId || priceId === MONTHLY_PRICE_ID
   const passwordBytes = passwordByteLength(password)
   const passwordTooShort = password.length > 0 && password.length < 8
   const passwordTooLong = passwordBytes > MAX_PASSWORD_BYTES
@@ -58,9 +96,17 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const isPremium = plan === "premium"
 
   useEffect(() => {
+    let startingPlan = initialPlan
     if (!initialPlan) {
       const saved = sessionStorage.getItem(PLAN_STORAGE_KEY)
-      if (saved === "premium" || saved === "free") setPlan(saved)
+      if (saved === "premium" || saved === "free") {
+        setPlan(saved)
+        startingPlan = saved
+      }
+    }
+    if (startingPlan === "free") {
+      setSelectedPriceId(MONTHLY_PRICE_ID)
+      clearPremiumPrice()
     }
 
     const rewardfulWindow = window as Window & {
@@ -77,6 +123,18 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
     sessionStorage.setItem(PLAN_STORAGE_KEY, next)
     const url = new URL(window.location.href)
     url.searchParams.set("plan", next)
+    if (next === "free") {
+      url.searchParams.delete("priceId")
+      sessionStorage.removeItem("selectedPriceId")
+      setSelectedPriceId(MONTHLY_PRICE_ID)
+    }
+    window.history.replaceState(window.history.state, "", url)
+  }
+
+  const changePrice = (nextPriceId: string) => {
+    setSelectedPriceId(nextPriceId)
+    const url = new URL(window.location.href)
+    url.searchParams.set("priceId", nextPriceId)
     window.history.replaceState(window.history.state, "", url)
   }
 
@@ -161,6 +219,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
         return
       }
 
+      sessionStorage.removeItem("selectedPriceId")
       dataLayer?.push({ event: "free_signup_complete" })
       window.location.assign(getSafeReturnUrl(returnUrl))
     } catch (error) {
@@ -198,7 +257,15 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
             </p>
           </div>
 
-          <MembershipSelector value={plan} onChange={changePlan} showMonthlyPrice={showMonthlyPrice} disabled={isSending} />
+          <MembershipSelector
+            value={plan}
+            onChange={changePlan}
+            billingOptions={BILLING_OPTIONS}
+            selectedPriceId={selectedPriceId}
+            onPriceChange={changePrice}
+            premiumSummary={getPremiumSummary(selectedPriceId)}
+            disabled={isSending}
+          />
 
           <section
             aria-labelledby="join-details-heading"
@@ -365,6 +432,14 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
       )}
     </div>
   )
+}
+
+function clearPremiumPrice() {
+  sessionStorage.removeItem("selectedPriceId")
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has("priceId")) return
+  url.searchParams.delete("priceId")
+  window.history.replaceState(window.history.state, "", url)
 }
 
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
