@@ -215,6 +215,14 @@ export function RestaurantPageClient({
         } else if (response.status === 409) {
           // Already redeemed by this user
           toast.error("You have already redeemed this offer");
+        } else if (response.status === 403 && data?.error === "premium_required") {
+          toast.error(data.message || "This offer is for Premium members");
+          sessionStorage.setItem("redirectUrl", window.location.pathname + window.location.search);
+          setRedeemState(prev => ({ ...prev, loadingId: null }));
+          router.push("/checkout");
+          return;
+        } else if (response.status === 503 && data?.error === "entitlement_unverifiable") {
+          toast.error(data.message || "We couldn't confirm your membership. Please try again.");
         } else if (response.status === 403 && data?.error === "Only users can redeem offers") {
           toast.error("Only users can add offers to wallet");
           await fetch("/api/auth/logout", {

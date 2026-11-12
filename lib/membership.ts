@@ -10,7 +10,24 @@ export type PremiumAccessResult =
 type StripeSubscriptionLike = {
   status?: string | null;
   cancel_at_period_end?: boolean | null;
+  pending_setup_intent?: unknown;
+  default_payment_method?: unknown;
 };
+
+/**
+ * Opening /checkout creates a first-time subscription with a 30-day trial and
+ * `default_incomplete`, so Stripe reports it as `trialing` before any card is
+ * collected. Such a trial (SetupIntent still pending, no saved payment method)
+ * must not grant access; it only becomes entitled once the card is confirmed.
+ */
+export function isEntitledSubscription(subscription: StripeSubscriptionLike): boolean {
+  if (!resolveMembershipFromStripe(subscription).hasAccess) return false;
+  const isUnconfirmedTrial =
+    subscription.status === "trialing" &&
+    !!subscription.pending_setup_intent &&
+    !subscription.default_payment_method;
+  return !isUnconfirmedTrial;
+}
 
 export interface MembershipDeps {
   getUserBilling: (
@@ -77,7 +94,7 @@ export async function checkPremiumAccess(
 
     if (billing.subscriptionId) {
       const subscription = await deps.retrieveSubscription(billing.subscriptionId);
-      if (resolveMembershipFromStripe(subscription).hasAccess) {
+      if (isEntitledSubscription(subscription)) {
         return { status: "granted", stripeStatus: subscription.status ?? "" };
       }
     }
@@ -85,7 +102,7 @@ export async function checkPremiumAccess(
     // Covers a stored subscription_id that is stale or not yet written by the webhook.
     if (billing.stripeCustomerId) {
       const subscriptions = await deps.listCustomerSubscriptions(billing.stripeCustomerId);
-      const entitled = subscriptions.find((s) => resolveMembershipFromStripe(s).hasAccess);
+      const entitled = subscriptions.find((s) => isEntitledSubscription(s));
       if (entitled) return { status: "granted", stripeStatus: entitled.status ?? "" };
     }
 

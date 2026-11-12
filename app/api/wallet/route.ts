@@ -375,6 +375,13 @@ export async function GET(req: Request) {
       });
     });
 
+    // Saved wallet entries must not expose a usable code without current entitlement.
+    const access = await checkPremiumAccess(decodedToken.userId);
+    if (access.status === "unverifiable") {
+      console.error("[wallet] Premium entitlement check failed:", access.reason);
+    }
+    const canSeeCodes = access.status === "granted";
+
     const now = new Date();
     const redeemedOffersAll: any[] = [];
     const activeOffersAll: any[] = [];
@@ -412,7 +419,8 @@ export async function GET(req: Request) {
         isUnlimited: offer.is_unlimited,
         bookingRequirement: offer.booking_requirement || "mandatory",
         redeemed: true,
-        redeemCode: walletEntry.redeem_code,
+        redeemCode: canSeeCodes ? walletEntry.redeem_code : null,
+        premiumRequired: !canSeeCodes,
         redeemStatus: walletEntry.redeem_status,
         redeemCodeExpiry: walletEntry.redeem_code_expiry,
         walletId: walletEntry.id,
@@ -437,6 +445,7 @@ export async function GET(req: Request) {
       {
         redeemed: redeemedOffers,
         active: activeOffers,
+        premiumAccess: access.status,
         pagination: {
           redeemed: {
             total: redeemedOffersAll.length,

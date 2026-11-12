@@ -130,7 +130,7 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
           toast.error("You have already redeemed this offer")
         } else {
           // Generic error
-          toast.error(data.error || "Failed to add offer to wallet")
+          toast.error(data.message || data.error || "Failed to add offer to wallet")
         }
         setRedeemError(true)
         return
@@ -373,7 +373,7 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
                         <div className="flex items-center justify-center gap-3">
                           <Ticket className="h-7 w-7 text-red-600" />
                           <p className="text-xl font-mono font-bold tracking-wider text-gray-900">
-                            {offer.redeemCode}
+                            {offer.redeemCode || "Premium only"}
                           </p>
                         </div>
 
@@ -406,7 +406,7 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
                           <div className="flex items-center justify-center gap-3">
                             <Ticket className="h-7 w-7 text-red-600 mx-3" />
                             <p className="text-xl font-mono font-bold tracking-wider text-gray-900">
-                              {offer.redeemCode}
+                              {offer.redeemCode || "Premium only"}
                             </p>
                           </div>
                         )}

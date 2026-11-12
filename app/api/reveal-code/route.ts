@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkPremiumAccess } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,29 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, message: "Missing walletId" },
         { status: 400 }
+      );
+    }
+
+    const access = await checkPremiumAccess(userId);
+    if (access.status === "unverifiable") {
+      console.error("[reveal-code] Premium entitlement check failed:", access.reason);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "entitlement_unverifiable",
+          message: "We couldn't confirm your membership right now. Please try again shortly.",
+        },
+        { status: 503 }
+      );
+    }
+    if (access.status !== "granted") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "premium_required",
+          message: "This offer is for Premium members. Upgrade to Premium to use this code.",
+        },
+        { status: 403 }
       );
     }
 
