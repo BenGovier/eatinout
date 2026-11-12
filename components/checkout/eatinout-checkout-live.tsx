@@ -699,6 +699,9 @@ function WalletButtons({
               }))
               setEceSupport({ applePay, googlePay })
             }}
+            // Required by ExpressCheckoutElementProps. This element is hidden and
+            // used only for wallet detection; payments go through paymentRequest.
+            onConfirm={() => {}}
             onLoadError={(event: any) => {
               console.error("[checkout][debug][ECE] onLoadError — ECE treats both wallets as unsupported:", event)
               const error = { type: event?.error?.type ?? null, message: event?.error?.message ?? null }
