@@ -184,6 +184,10 @@ export async function activateSubscription(subscriptionId: string, expectedCusto
   if (subscription.status !== "trialing" && subscription.status !== "active") {
     return { ok: false as const, reason: `Subscription status is ${subscription.status}` };
   }
+  // An abandoned checkout trial (no card ever confirmed) must never be recorded as a member.
+  if (subscription.status === "trialing" && !subscription.default_payment_method) {
+    return { ok: false as const, reason: "Payment method not confirmed" };
+  }
 
   // Voucher code
   let usedVoucherCode: string | null | undefined = undefined;

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import supabaseAdmin from "@/lib/supabase/admin";
+import { TRIAL_SETUP_PURPOSE, findConfirmedSubscription, stripeIdOf } from "@/lib/start-trial";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -26,9 +27,95 @@ const RESTAURANT_PRICE_IDS = new Set(
 
 const PRICE_ID_PATTERN = /^price_[A-Za-z0-9]{1,250}$/;
 
-function stripeIdOf(value: string | { id: string } | null | undefined): string | undefined {
-  if (!value) return undefined;
-  return typeof value === "string" ? value : value.id;
+// The "after trial" / "charged today" amount shown on checkout, in minor units.
+function buildPricing(priceObj: Stripe.Price | undefined, promoCoupon: Stripe.Coupon | undefined) {
+  const baseAmount = priceObj?.unit_amount ?? 0;
+  const currency = priceObj?.currency ?? "gbp";
+  const interval = priceObj?.recurring?.interval ?? "month";
+  const intervalCount = priceObj?.recurring?.interval_count ?? 1;
+
+  let discountedAmount = baseAmount;
+  let discountLabel: string | null = null;
+  if (promoCoupon) {
+    if (promoCoupon.percent_off) {
+      discountedAmount = Math.round(baseAmount * (1 - promoCoupon.percent_off / 100));
+      discountLabel = `${promoCoupon.percent_off}% off`;
+    } else if (promoCoupon.amount_off) {
+      discountedAmount = Math.max(0, baseAmount - promoCoupon.amount_off);
+      discountLabel = `${(promoCoupon.amount_off / 100).toFixed(2)} off`;
+    }
+  }
+  return { baseAmount, discountedAmount, currency, interval, intervalCount, discountLabel };
+}
+
+const REUSABLE_SETUP_STATUSES = new Set(["requires_payment_method", "requires_confirmation"]);
+
+/**
+ * First-time trial checkout: collect the card on a tagged SetupIntent only.
+ * No subscription exists until the card is confirmed, when
+ * lib/start-trial.ts creates the 30-day trial from the SetupIntent's metadata.
+ */
+async function startTrialCheckout({
+  userId,
+  stripeCustomerId,
+  selectedPriceId,
+  promotionCodeId,
+  promoCoupon,
+  rewardfulReferral,
+}: {
+  userId: string;
+  stripeCustomerId: string;
+  selectedPriceId: string;
+  promotionCodeId: string | undefined;
+  promoCoupon: Stripe.Coupon | undefined;
+  rewardfulReferral: string | null | undefined;
+}) {
+  const metadata = {
+    purpose: TRIAL_SETUP_PURPOSE,
+    user_id: userId,
+    price_id: selectedPriceId,
+    promotion_code_id: promotionCodeId ?? "",
+    rewardful_referral: rewardfulReferral ?? "",
+  };
+
+  const [setupIntents, price] = await Promise.all([
+    stripe.setupIntents.list({ customer: stripeCustomerId, limit: 20 }),
+    stripe.prices.retrieve(selectedPriceId),
+  ]);
+  const reusable = setupIntents.data.find(
+    (si) =>
+      si.metadata?.purpose === TRIAL_SETUP_PURPOSE &&
+      stripeIdOf(si.customer as any) === stripeCustomerId &&
+      REUSABLE_SETUP_STATUSES.has(si.status)
+  );
+
+  const setupIntent = reusable
+    ? await stripe.setupIntents.update(reusable.id, { metadata, payment_method_types: ["card"] })
+    : await stripe.setupIntents.create({
+        customer: stripeCustomerId,
+        usage: "off_session",
+        payment_method_types: ["card"],
+        metadata,
+      });
+
+  const { error: saveError } = await supabaseAdmin
+    .from("users")
+    .update({ selected_price_id: selectedPriceId, rewardful_referral: rewardfulReferral || null })
+    .eq("id", userId);
+  if (saveError) throw new Error(saveError.message);
+
+  if (!setupIntent.client_secret) {
+    console.error("No client secret returned from setup intent:", setupIntent.id);
+    return NextResponse.json({ error: "Could not initialize payment" }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    clientSecret: setupIntent.client_secret,
+    setupIntentId: setupIntent.id,
+    subscriptionId: null,
+    mode: "setup",
+    pricing: buildPricing(price, promoCoupon),
+  });
 }
 
 // A price outside the current membership list is accepted only if this same
@@ -191,14 +278,37 @@ export async function POST(request: Request) {
       if (customerSaveError) throw new Error(customerSaveError.message);
     }
 
-    // Reuse an existing incomplete/trialing subscription instead of creating
-    // a new one on every call (page load + every voucher apply/reapply).
-    const [incompleteList, trialingList] = await Promise.all([
-      stripe.subscriptions.list({ customer: stripeCustomerId, status: "incomplete", limit: 1 }),
-      stripe.subscriptions.list({ customer: stripeCustomerId, status: "trialing", limit: 1 }),
-    ]);
-    const existingSub: Stripe.Subscription | undefined =
-      incompleteList.data[0] ?? trialingList.data[0];
+    // Never touch an existing member's subscription from checkout: updating it
+    // here would change their price, strip their voucher or reset trial dates.
+    const confirmedSub = await findConfirmedSubscription(stripeCustomerId);
+    if (confirmedSub) {
+      return NextResponse.json(
+        { error: "You already have an EatinOut membership.", code: "already_subscribed" },
+        { status: 409 }
+      );
+    }
+
+    if (!hasSubscribedBefore) {
+      return startTrialCheckout({
+        userId: user._id,
+        stripeCustomerId,
+        selectedPriceId,
+        promotionCodeId,
+        promoCoupon,
+        rewardfulReferral,
+      });
+    }
+
+    // Returning customers pay up front. Reuse an incomplete subscription
+    // instead of creating a new one on every page load / voucher reapply.
+    // Trialing subscriptions are never reused: confirmed ones were rejected
+    // above and unconfirmed ones are abandoned trial checkouts.
+    const incompleteList = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "incomplete",
+      limit: 1,
+    });
+    const existingSub: Stripe.Subscription | undefined = incompleteList.data[0];
 
     if (existingSub && stripeIdOf(existingSub.customer) !== stripeCustomerId) {
       console.error("[create-subscription] Subscription/customer mismatch:", existingSub.id);
@@ -231,7 +341,6 @@ export async function POST(request: Request) {
       subscription = await stripe.subscriptions.create({
         customer: stripeCustomerId,
         items: [{ price: selectedPriceId }],
-        ...(hasSubscribedBefore ? {} : { trial_period_days: 30 }),
         ...(promotionCodeId ? { discounts: [{ promotion_code: promotionCodeId }] } : {}),
         payment_behavior: "default_incomplete",
         payment_settings: {
@@ -241,9 +350,6 @@ export async function POST(request: Request) {
           // we don't want Stripe silently offering Klarna, Cash App, Link, etc.
           payment_method_types: ["card"],
         },
-        ...(hasSubscribedBefore
-          ? {}
-          : { trial_settings: { end_behavior: { missing_payment_method: "cancel" } } }),
         metadata: {
           ...(rewardfulReferral ? { rewardful_referral: rewardfulReferral } : {}),
         },
@@ -311,40 +417,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Work out the base price and, if a voucher was applied, the
-    // discounted price — so the frontend can show the real "after trial"
-    // amount instead of a hardcoded number.
-    const priceObj = subscription.items.data[0]?.price as Stripe.Price | undefined;
-    const baseAmount = priceObj?.unit_amount ?? 0; // in minor units (pence)
-    const currency = priceObj?.currency ?? "gbp";
-    const interval = priceObj?.recurring?.interval ?? "month";
-    const intervalCount = priceObj?.recurring?.interval_count ?? 1;
-
-    let discountedAmount = baseAmount;
-    let discountLabel: string | null = null;
-
-    if (promoCoupon) {
-      if (promoCoupon.percent_off) {
-        discountedAmount = Math.round(baseAmount * (1 - promoCoupon.percent_off / 100));
-        discountLabel = `${promoCoupon.percent_off}% off`;
-      } else if (promoCoupon.amount_off) {
-        discountedAmount = Math.max(0, baseAmount - promoCoupon.amount_off);
-        discountLabel = `${(promoCoupon.amount_off / 100).toFixed(2)} off`;
-      }
-    }
-
     return NextResponse.json({
       clientSecret,
       subscriptionId: subscription.id,
       mode: subscription.pending_setup_intent ? "setup" : "payment",
-      pricing: {
-        baseAmount,
-        discountedAmount,
-        currency,
-        interval,
-        intervalCount,
-        discountLabel,
-      },
+      pricing: buildPricing(subscription.items.data[0]?.price as Stripe.Price | undefined, promoCoupon),
     });
   } catch (error: any) {
     console.error("Error creating subscription:", error);
