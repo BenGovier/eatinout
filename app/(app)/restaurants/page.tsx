@@ -1453,10 +1453,10 @@ export default function RestaurantsPage() {
 
 
         <section aria-label={sectionTitle} className="mx-auto max-w-6xl px-4 pb-8 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 min-[340px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
             {showMainListSkeleton &&
               [1, 2, 3, 4, 5, 6].map((i) => (
-                <RestaurantCardSkeleton key={i} />
+                <RestaurantCardSkeleton key={i} compact />
               ))}
             {!pageState.loadingListReset &&
               visibleRestaurants.map((restaurant) => {
@@ -1474,156 +1474,93 @@ export default function RestaurantsPage() {
                 const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
                   (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
+                const restaurantHref = restaurant.slug || restaurant.id
+                const offerCount = offers.length
+                const isFavorite = favorites.has(restaurant.id)
+                const isFavoriteLoading = favoritesLoading.has(restaurant.id)
+
                 return (
-                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.slug || restaurant.id)} className="w-full">
-                    <div className="w-full">
-                      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
-                        <div className="relative h-[130px] w-full overflow-hidden">
-                          <Image
-                            src={restaurant.imageUrl || "/placeholder.svg"}
-                            alt={restaurant.name}
-                            fill
-                            className="object-cover"
-                            loading="lazy"
-                            quality={75}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          />
-
-                          <div className="absolute top-2 left-0 flex items-stretch">
-                            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                              {/* {offers[0].discount} */}
-                              {heroOffer?.discount}
-                            </div>
-                            {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
-                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                              {offers[0].remainingCount} left!
-                            </div>
-                          )} */}
-                            {!heroOffer?.unlimited && (
-                              heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
-                                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                  {heroOffer.remainingCount} left!
-                                </div>
-                              ) : (
-                                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                  More coming soon
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="p-3 space-y-1.5 relative">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
-                            {/* Line ~1119 ke aas paas - Update heart button */}
-                            <button
-                              className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                                ? "text-[#eb221c]"
-                                : "text-gray-300 hover:text-[#eb221c]"
-                                }`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleHeartClick(e, restaurant.id, restaurant.name);
-                              }}
-                              disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
-                              aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
-                            >
-                              {favoritesLoading.has(restaurant.id) ? (
-                                // ✅ Loading spinner
-                                <svg
-                                  className="animate-spin h-4 w-4 text-[#eb221c]"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  />
-                                </svg>
-                              ) : (
-                                <Heart
-                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
-                                    }`}
-                                />
-                              )}
-                            </button>
-                          </div>
-
-                          <p className="text-gray-500 text-xs flex items-center gap-1">
-                            <span className="inline-block w-3 h-3 text-gray-400">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                <circle cx="12" cy="10" r="3" />
-                              </svg>
-                            </span>
-                            {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
-                          </p>
-
-                          {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => (
-                              
-                              <div
-                                key={index}
-                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                    {offer.remainingCount} left
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div> */}
-                          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                            <div className="flex items-center gap-1.5">
-                              {offers.map((offer, index) => {
-                                const isComingSoon = !offer.unlimited &&
-                                  (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
-
-                                return (
-                                  <div
-                                    key={index}
-                                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                  >
-                                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                      {offer.discount}
-                                    </span>
-                                    {!offer.unlimited && (
-                                      offer.remainingCount && offer.remainingCount > 0 ? (
-                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                          {offer.remainingCount} left
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                          More coming soon
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  <article
+                    key={restaurant.id}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`View ${restaurant.name}`}
+                    onClick={() => handleRestaurantNavigate(restaurantHref)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        handleRestaurantNavigate(restaurantHref)
+                      }
+                    }}
+                    className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2"
+                  >
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                      <Image
+                        src={restaurant.imageUrl || "/placeholder.svg"}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        loading="lazy"
+                        quality={75}
+                        sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                      />
+                      <button
+                        type="button"
+                        className={`absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors ${isFavorite ? "text-[#eb221c]" : "text-gray-500 hover:text-[#eb221c]"}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleHeartClick(e, restaurant.id, restaurant.name)
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        disabled={isFavoriteLoading}
+                        aria-pressed={isFavorite}
+                        aria-label={isFavorite ? `Remove ${restaurant.name} from favourites` : `Add ${restaurant.name} to favourites`}
+                      >
+                        {isFavoriteLoading ? (
+                          <svg
+                            className="h-4 w-4 animate-spin text-[#eb221c]"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : (
+                          <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#eb221c]" : ""}`} aria-hidden="true" />
+                        )}
+                      </button>
                     </div>
-                  </div>
+
+                    <div className="flex flex-1 flex-col gap-1 p-2.5">
+                      <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900 sm:text-sm">
+                        {restaurant.name}
+                      </h3>
+                      {restaurant.city && (
+                        <p className="flex min-w-0 items-center gap-1 text-[11px] text-gray-500 sm:text-xs">
+                          <MapPin className="h-3 w-3 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{restaurant.city}</span>
+                        </p>
+                      )}
+                      {heroOffer?.discount && (
+                        <p className="mt-auto line-clamp-1 pt-0.5 text-[12px] font-semibold leading-snug text-[#eb221c] sm:text-[13px]">
+                          {heroOffer.discount}
+                        </p>
+                      )}
+                      {offerCount > 0 && (
+                        <p className={`text-[11px] font-medium text-gray-500 ${heroOffer?.discount ? "" : "mt-auto"}`}>
+                          {offerCount} {offerCount === 1 ? "offer" : "offers"} available
+                        </p>
+                      )}
+                    </div>
+                  </article>
                 )
               })}
             {!pageState.loading &&
@@ -1671,9 +1608,9 @@ export default function RestaurantsPage() {
           {pageState.loading &&
             pageState.restaurants.length > 0 &&
             !pageState.loadingListReset && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 min-[340px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 mt-4">
                 {[1, 2, 3].map((i) => (
-                  <RestaurantCardSkeleton key={i} />
+                  <RestaurantCardSkeleton key={i} compact />
                 ))}
               </div>
             )}
