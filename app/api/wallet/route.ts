@@ -390,7 +390,7 @@ export async function GET(req: Request) {
     // 1. Fetch wallet entries for the user
     const { data: walletEntriesData, error: walletError } = await supabaseAdmin
       .from("wallets")
-      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, period_start, voucher_expires_at, created_at, updated_at")
+      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, period_start, voucher_expires_at, retired_at, created_at, updated_at")
       .eq("user_id", decodedToken.userId)
       .order("created_at", { ascending: false });
 
@@ -508,6 +508,16 @@ export async function GET(req: Request) {
     const redeemedOffersAll: any[] = [];
     const activeOffersAll: any[] = [];
 
+    // Legacy weekly vouchers (no stored expiry) only become unusable once the
+    // cutover has begun, so settings are read only when one is present.
+    const hasLegacyWeekly = walletEntries.some((w: any) => {
+      const o = offersMap.get(w.offer_id);
+      return o && isWeeklyLimitedOffer(o) && !(w.period_start && w.voucher_expires_at);
+    });
+    const voucherSettings = hasLegacyWeekly ? await getVoucherSettings() : null;
+    const legacyWeeklyRetired =
+      voucherSettings !== null && hasWeeklyV2CutoverBegun(voucherSettings, now);
+
     for (const walletEntry of walletEntries) {
       const offer = offersMap.get(walletEntry.offer_id);
       if (!offer) continue;
@@ -521,6 +531,15 @@ export async function GET(req: Request) {
       const isWeeklyVoucher = Boolean(walletEntry.period_start && voucherExpiresAt);
       const isVoucherExpired =
         isWeeklyVoucher && new Date(voucherExpiresAt as string) <= now;
+      const retiredAt: string | null = walletEntry.retired_at ?? null;
+      const isWeeklyLimited = isWeeklyLimitedOffer(offer);
+
+      let voucherState: "active" | "expired" | "retired" | "unavailable" | null = null;
+      if (isWeeklyLimited) {
+        if (retiredAt) voucherState = "retired";
+        else if (isWeeklyVoucher) voucherState = isVoucherExpired ? "expired" : "active";
+        else voucherState = legacyWeeklyRetired ? "unavailable" : "active";
+      }
 
       if (expiryDate && isExpired && !isWeeklyVoucher) continue; // skip fully expired offers
 
@@ -556,14 +575,20 @@ export async function GET(req: Request) {
         isWeeklyVoucher,
         voucherExpiresAt,
         isVoucherExpired,
+        retiredAt,
+        voucherState,
         phone: restaurant?.phone || null,
         userPhone: userPhone,
         restaurant: restaurant,
       };
 
+      // A code already revealed keeps its running timer in Active; otherwise an
+      // unusable weekly voucher moves to history so it is never shown as valid.
       const weeklyInHistory =
-        isWeeklyVoucher &&
-        (walletEntry.redeem_status === true ? Boolean(isRedeemCodeExpired) : isVoucherExpired);
+        voucherState !== null &&
+        (walletEntry.redeem_status === true
+          ? Boolean(isRedeemCodeExpired)
+          : voucherState !== "active");
 
       if (weeklyInHistory || (walletEntry.redeem_status === true && isRedeemCodeExpired)) {
         redeemedOffersAll.push(offerData);

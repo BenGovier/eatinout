@@ -21,18 +21,10 @@ const REVEAL_FAILURES: Record<
   used: { status: 409, message: "This voucher has already been used" },
 };
 
-async function revealWeeklyVoucher(walletId: string) {
-  const auth = await getAuthenticatedCustomer();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { success: false, message: auth.error },
-      { status: auth.status }
-    );
-  }
-
+async function revealWeeklyVoucher(walletId: string, userId: string) {
   const { data, error } = await supabaseAdmin.rpc(DB.revealFn, {
     p_wallet_id: walletId,
-    p_user_id: auth.customer.userId,
+    p_user_id: userId,
   });
 
   if (error) {
@@ -70,20 +62,40 @@ async function revealWeeklyVoucher(walletId: string) {
 
 export async function POST(request: Request) {
   try {
-    const { walletId } = await request.json();
+    const auth = await getAuthenticatedCustomer();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { success: false, message: auth.error },
+        { status: auth.status }
+      );
+    }
+    const userId = auth.customer.userId;
 
-    if (!walletId) {
+    const body = await request.json().catch(() => null);
+    const walletId = body?.walletId;
+
+    if (!walletId || typeof walletId !== "string") {
       return NextResponse.json(
         { success: false, message: "Missing walletId" },
         { status: 400 }
       );
     }
 
+    // Scoped to the session user, so another customer's wallet is
+    // indistinguishable from a wallet that does not exist.
     const { data: walletLookup, error: lookupError } = await supabaseAdmin
       .from("wallets")
       .select("id, offer_id, period_start")
       .eq("id", walletId)
+      .eq("user_id", userId)
       .maybeSingle();
+
+    if (!lookupError && !walletLookup) {
+      return NextResponse.json(
+        { success: false, message: "Wallet entry not found" },
+        { status: 404 }
+      );
+    }
 
     const { data: lookupOffer, error: offerLookupError } = walletLookup?.offer_id
       ? await supabaseAdmin
@@ -108,7 +120,7 @@ export async function POST(request: Request) {
       // Vouchers claimed through V2 always use the database function; legacy
       // weekly vouchers switch over at the cutover time.
       if (walletLookup.period_start) {
-        return revealWeeklyVoucher(walletId);
+        return revealWeeklyVoucher(walletId, userId);
       }
       const settings = await getVoucherSettings();
       if (!settings) {
@@ -118,7 +130,7 @@ export async function POST(request: Request) {
         );
       }
       if (hasWeeklyV2CutoverBegun(settings)) {
-        return revealWeeklyVoucher(walletId);
+        return revealWeeklyVoucher(walletId, userId);
       }
     }
 
@@ -132,6 +144,7 @@ export async function POST(request: Request) {
         redeem_code_expiry: redeemCodeExpiry,
       })
       .eq("id", walletId)
+      .eq("user_id", userId)
       .select("id, redeem_status, redeem_code_expiry")
       .maybeSingle();
 
