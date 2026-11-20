@@ -4,8 +4,140 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStorageUrl } from "@/lib/storage-url";
+import {
+  DB,
+  type ClaimResult,
+  generateRedeemCode,
+  generateWalletId,
+  getVoucherSettings,
+  hasWeeklyV2CutoverBegun,
+  isWeeklyLimitedOffer,
+  verifyClaimIntent,
+} from "@/lib/weekly-vouchers";
 
 export const dynamic = "force-dynamic";
+
+const CLAIM_FAILURES: Record<
+  Exclude<ClaimResult, "claimed">,
+  { status: number; message: string }
+> = {
+  bad_request: { status: 400, message: "The claim request was invalid." },
+  claims_closed: { status: 503, message: "Weekly voucher claims are currently closed." },
+  not_found: { status: 404, message: "Offer not found." },
+  not_weekly_limited: {
+    status: 409,
+    message: "This offer has changed. Please refresh and try again.",
+  },
+  offer_unavailable: { status: 410, message: "This offer is not currently available." },
+  offer_expired: { status: 410, message: "This offer has expired." },
+  period_changed: {
+    status: 409,
+    message: "A new voucher week has started. Please review the voucher again.",
+  },
+  preview_expired: {
+    status: 409,
+    message: "This confirmation has expired. Please review the voucher again.",
+  },
+  already_claimed: {
+    status: 409,
+    message: "You have already claimed this voucher this week.",
+  },
+  sold_out: {
+    status: 410,
+    message: "All vouchers for this week have been claimed. It resets on Monday.",
+  },
+};
+
+function claimFailure(code: Exclude<ClaimResult, "claimed">) {
+  const { status, message } = CLAIM_FAILURES[code];
+  return NextResponse.json({ error: message, message, code }, { status });
+}
+
+async function claimWeeklyVoucherV2(
+  userId: string,
+  offerId: string,
+  claimToken: unknown
+) {
+  if (typeof claimToken !== "string" || !claimToken) {
+    return NextResponse.json(
+      {
+        error: "Claim confirmation required",
+        message: "Please confirm this voucher before claiming it.",
+        code: "confirmation_required",
+      },
+      { status: 428 }
+    );
+  }
+
+  const verification = verifyClaimIntent(claimToken);
+  if (!verification.ok) {
+    return verification.reason === "expired"
+      ? claimFailure("preview_expired")
+      : claimFailure("bad_request");
+  }
+  const { intent } = verification;
+  if (intent.userId !== userId || intent.offerId !== offerId) {
+    return claimFailure("bad_request");
+  }
+
+  // One retry with fresh identifiers if a generated ID/code collides; the
+  // function rejects duplicate claims itself, so a retry cannot double-claim.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const walletId = generateWalletId();
+    const redeemCode = generateRedeemCode();
+
+    const { data, error } = await supabaseAdmin.rpc(DB.claimFn, {
+      p_user_id: userId,
+      p_offer_id: offerId,
+      p_wallet_id: walletId,
+      p_redeem_code: redeemCode,
+      p_expected_period_start: intent.periodStart,
+      p_expected_expires_at: intent.expiresAt,
+      p_preview_issued_at: intent.previewIssuedAt,
+    });
+
+    if (error) {
+      if (error.code === "23505" && attempt === 0) continue;
+      console.error("Error calling claim_weekly_voucher:", error);
+      return NextResponse.json(
+        { error: "Failed to add offer to wallet" },
+        { status: 500 }
+      );
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const result = row?.result as ClaimResult | undefined;
+
+    if (result === "claimed") {
+      return NextResponse.json(
+        {
+          message: "Wallet entry created successfully",
+          code: "claimed",
+          redeemCode,
+          walletId,
+          periodStart: row.period_start,
+          voucherExpiresAt: row.voucher_expires_at,
+          remaining: row.remaining,
+        },
+        { status: 201 }
+      );
+    }
+    if (result && result in CLAIM_FAILURES) {
+      return claimFailure(result);
+    }
+
+    console.error("Unexpected claim_weekly_voucher result:", row);
+    return NextResponse.json(
+      { error: "Failed to add offer to wallet" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: "Failed to add offer to wallet" },
+    { status: 500 }
+  );
+}
 
 // POST: Add offer to user's wallet
 export async function POST(req: NextRequest) {
@@ -33,9 +165,9 @@ export async function POST(req: NextRequest) {
       subscriptionStatus?: string;
     };
 
-    const { offerId, offerStatus, offerRestaurantId } = await req.json();
+    const { offerId, offerStatus, offerRestaurantId, claimToken } = await req.json();
 
-    if (!offerId || !offerStatus) {
+    if (!offerId || (!offerStatus && !claimToken)) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -57,6 +189,31 @@ export async function POST(req: NextRequest) {
 
     if (offerError || !offer) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
+    }
+
+    if (isWeeklyLimitedOffer(offer)) {
+      const settings = await getVoucherSettings();
+      if (!settings) {
+        return NextResponse.json(
+          {
+            error: "Weekly vouchers are temporarily unavailable",
+            code: "claims_closed",
+          },
+          { status: 503 }
+        );
+      }
+      // Once the cutover time is reached, weekly claims only go through the
+      // atomic database function; the legacy path below is never used for them.
+      if (hasWeeklyV2CutoverBegun(settings)) {
+        return claimWeeklyVoucherV2(decodedToken.userId, offerId, claimToken);
+      }
+    }
+
+    if (!offerStatus) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     // 2. Check and handle recurring limit reset
@@ -233,7 +390,7 @@ export async function GET(req: Request) {
     // 1. Fetch wallet entries for the user
     const { data: walletEntriesData, error: walletError } = await supabaseAdmin
       .from("wallets")
-      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, created_at, updated_at")
+      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, period_start, voucher_expires_at, created_at, updated_at")
       .eq("user_id", decodedToken.userId)
       .order("created_at", { ascending: false });
 
@@ -358,7 +515,14 @@ export async function GET(req: Request) {
       const expiryDate = offer.expiry_date ? new Date(offer.expiry_date) : null;
       const isExpired = expiryDate && expiryDate <= now;
 
-      if (expiryDate && isExpired) continue; // skip fully expired offers
+      // Weekly V2 vouchers carry their own saved expiry; they move to history
+      // rather than disappearing so the record stays visible to the customer.
+      const voucherExpiresAt: string | null = walletEntry.voucher_expires_at ?? null;
+      const isWeeklyVoucher = Boolean(walletEntry.period_start && voucherExpiresAt);
+      const isVoucherExpired =
+        isWeeklyVoucher && new Date(voucherExpiresAt as string) <= now;
+
+      if (expiryDate && isExpired && !isWeeklyVoucher) continue; // skip fully expired offers
 
       const redeemCodeExpiry = walletEntry.redeem_code_expiry
         ? new Date(walletEntry.redeem_code_expiry)
@@ -389,12 +553,19 @@ export async function GET(req: Request) {
         redeemCodeExpiry: walletEntry.redeem_code_expiry,
         walletId: walletEntry.id,
         isRedeemCodeExpired,
+        isWeeklyVoucher,
+        voucherExpiresAt,
+        isVoucherExpired,
         phone: restaurant?.phone || null,
         userPhone: userPhone,
         restaurant: restaurant,
       };
 
-      if (walletEntry.redeem_status === true && isRedeemCodeExpired) {
+      const weeklyInHistory =
+        isWeeklyVoucher &&
+        (walletEntry.redeem_status === true ? Boolean(isRedeemCodeExpired) : isVoucherExpired);
+
+      if (weeklyInHistory || (walletEntry.redeem_status === true && isRedeemCodeExpired)) {
         redeemedOffersAll.push(offerData);
       } else {
         activeOffersAll.push(offerData);

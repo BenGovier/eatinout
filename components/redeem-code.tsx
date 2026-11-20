@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Store, Clock, Calendar, Ticket, CheckCircle, Eye, MapPin } from "lucide-react"
 import { RedeemAnimation } from "./redeem-animation"
+import { useWeeklyClaim } from "./weekly-claim/use-weekly-claim"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "react-toastify"
 import {
@@ -64,6 +65,7 @@ interface RedeemCodeProps {
 
 export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = true, onCodeExpired }: RedeemCodeProps) {
   const [redeemLoading, setRedeemLoading] = useState(false)
+  const { requestClaim, pendingOfferId, confirmation } = useWeeklyClaim()
   const [redeemError, setRedeemError] = useState(false)
   const [isCodeRevealed, setIsCodeRevealed] = useState(offer.redeemStatus || false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -109,7 +111,17 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
     }
   }, [offer.redeemStatus, offer.redeemCodeExpiry, revealedInSession, onCodeExpired])
 
-  const handleRedeem = async (offerId: string) => {
+  const handleRedeem = (offerId: string) => {
+    requestClaim(offerId, undefined, {
+      onLegacyClaim: legacyClaim,
+      onClaimed: () => {
+        onMarkAsUsed()
+        window.location.href = `/wallet`
+      },
+    })
+  }
+
+  const legacyClaim = async (offerId: string) => {
     setRedeemLoading(true)
     try {
       const response = await fetch('/api/wallet', {
@@ -476,14 +488,15 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
               variant="outline"
               className="w-full sm:w-36 bg-gray-600 hover:bg-gray-700 text-white border-0 py-3 rounded-xl font-medium transition-colors shadow-sm hover:shadow-md"
               onClick={() => handleRedeem(offer._id)}
-              disabled={redeemLoading}
+              disabled={redeemLoading || pendingOfferId === offer._id}
             >
               <CheckCircle className="h-5 w-5 mr-2" />
               <RedeemAnimation isVisible={redeemError} onComplete={() => setRedeemError(false)} />
-              {redeemLoading ? "Loading..." : "Add to wallet"}
+              {redeemLoading || pendingOfferId === offer._id ? "Loading..." : "Add to wallet"}
             </Button>
           </CardFooter>
         )}
+        {confirmation}
       </Card>
     </>
   )

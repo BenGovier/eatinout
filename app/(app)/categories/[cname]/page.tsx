@@ -10,6 +10,7 @@ import { RedeemAnimation } from "@/components/redeem-animation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ArrowLeft } from "lucide-react";
+import { useWeeklyClaim } from "@/components/weekly-claim/use-weekly-claim";
 
 interface Restaurant {
     _id: string;
@@ -88,6 +89,7 @@ export default function CategoryDetailPage() {
     const [redeemLoadingId, setRedeemLoadingId] = useState<string | null>(null);
     const [redeemError, setRedeemError] = useState(false)
     const [openDialogId, setOpenDialogId] = useState<string | null>(null);
+    const { requestClaim, pendingOfferId, confirmation } = useWeeklyClaim();
     
     // Request deduplication - prevent multiple simultaneous requests
     const fetchingRef = useRef(false);
@@ -200,7 +202,22 @@ export default function CategoryDetailPage() {
         );
     }
 
-    const handleRedeem = async (offerId: string, offerRestaurantId: string) => {
+    const goToWalletAfterClaim = () => {
+        setRedeemError(true);
+        setOpenDialogId(null);
+        setTimeout(() => {
+            window.location.href = `/wallet`;
+        }, 500);
+    };
+
+    const handleRedeem = (offerId: string, offerRestaurantId: string) => {
+        requestClaim(offerId, offerRestaurantId, {
+            onLegacyClaim: legacyClaim,
+            onClaimed: goToWalletAfterClaim,
+        });
+    };
+
+    const legacyClaim = async (offerId: string, offerRestaurantId?: string) => {
         setRedeemLoadingId(offerId);
         try {
             const response = await fetch("/api/wallet", {
@@ -232,14 +249,7 @@ export default function CategoryDetailPage() {
                 return;
             }
 
-            setRedeemError(true);
-
-            // Close the dialog
-            setOpenDialogId(null);
-
-            setTimeout(() => {
-                window.location.href = `/wallet`;
-            }, 500);
+            goToWalletAfterClaim();
         } catch (err) {
             toast.error("An error occurred while redeeming the offer");
             console.error("Error redeeming offer:", err);
@@ -252,6 +262,7 @@ export default function CategoryDetailPage() {
     return (
         <div className="container px-4 py-6">
             <RedeemAnimation isVisible={redeemError} onComplete={() => setRedeemError(false)} />
+            {confirmation}
 
             <div className="flex items-center gap-4 mb-6">
                 <Button
@@ -360,9 +371,9 @@ export default function CategoryDetailPage() {
                                                                         <Button
                                                                             onClick={() => handleRedeem(offer._id, offer.restaurantId || restaurant._id)}
                                                                             className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg"
-                                                                            disabled={redeemLoadingId === offer._id}
+                                                                            disabled={redeemLoadingId === offer._id || pendingOfferId === offer._id}
                                                                         >
-                                                                            {redeemLoadingId === offer._id ? "Loading..." : "Add to wallet"}
+                                                                            {redeemLoadingId === offer._id || pendingOfferId === offer._id ? "Loading..." : "Add to wallet"}
                                                                         </Button>
                                                                     </div>
                                                                 </div>
