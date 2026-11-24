@@ -4,6 +4,8 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Store, Clock, Calendar, Ticket, CheckCircle, Eye, MapPin } from "lucide-react"
 import { RedeemAnimation } from "./redeem-animation"
+import { useWeeklyClaim } from "./weekly-claim/use-weekly-claim"
+import { getUseByParts } from "@/lib/voucher-expiry-format"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "react-toastify"
 import {
@@ -52,7 +54,14 @@ interface Offer {
   isRedeemCodeExpired: boolean
   restaurant?: Restaurant
   bookingRequirement:string
+  voucherExpiresAt?: string | null
+  voucherState?: "active" | "expired" | "retired" | "unavailable" | null
 }
+
+const UNUSABLE_MESSAGES = {
+  retired: "This voucher is no longer available.",
+  unavailable: "This voucher is no longer available. Weekly vouchers now need to be claimed each week.",
+} as const
 
 interface RedeemCodeProps {
   offer: Offer
@@ -64,6 +73,7 @@ interface RedeemCodeProps {
 
 export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = true, onCodeExpired }: RedeemCodeProps) {
   const [redeemLoading, setRedeemLoading] = useState(false)
+  const { requestClaim, pendingOfferId, confirmation } = useWeeklyClaim()
   const [redeemError, setRedeemError] = useState(false)
   const [isCodeRevealed, setIsCodeRevealed] = useState(offer.redeemStatus || false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -72,6 +82,16 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
   const [revealedInSession, setRevealedInSession] = useState(false)
   const [loading, setLoading] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const useBy = offer.voucherExpiresAt
+    ? getUseByParts(offer.voucherExpiresAt, currentTime ?? new Date())
+    : null
+  // The saved expiry is re-checked against the live clock so a card left open
+  // past midnight stops offering the reveal button. The server still decides.
+  const voucherState =
+    offer.voucherState === "active" && useBy?.isPast ? "expired" : offer.voucherState ?? null
+  const isVoucherUnusable =
+    !offer.redeemStatus && voucherState !== null && voucherState !== "active"
 
 
 
@@ -109,7 +129,17 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
     }
   }, [offer.redeemStatus, offer.redeemCodeExpiry, revealedInSession, onCodeExpired])
 
-  const handleRedeem = async (offerId: string) => {
+  const handleRedeem = (offerId: string) => {
+    requestClaim(offerId, undefined, {
+      onLegacyClaim: legacyClaim,
+      onClaimed: () => {
+        onMarkAsUsed()
+        window.location.href = `/wallet`
+      },
+    })
+  }
+
+  const legacyClaim = async (offerId: string) => {
     setRedeemLoading(true)
     try {
       const response = await fetch('/api/wallet', {
@@ -155,6 +185,10 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
 
 
   const handleRevealCode = async () => {
+    if (isVoucherUnusable) {
+      setIsDialogOpen(false)
+      return
+    }
     try {
       setLoading(true)
       const res = await fetch("/api/reveal-code", {
@@ -353,12 +387,31 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
                   <span className="text-gray-800 font-bold">Hours:</span> {offer.validHours}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-red-600" />
-                <p className="text-sm font-medium">
-                  <span className="text-gray-800 font-bold">Expiry:</span> {formatDate(offer.expiryDate)}
-                </p>
-              </div>
+              {useBy ? (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-red-600" />
+                  <p className="text-sm font-medium">
+                    {voucherState === "expired" ? (
+                      <span className="text-gray-800 font-bold">
+                        Expired {useBy.day}, {useBy.time}
+                      </span>
+                    ) : useBy.isToday ? (
+                      <span className="text-red-700 font-bold">Expires today, {useBy.time}</span>
+                    ) : (
+                      <>
+                        <span className="text-gray-800 font-bold">Valid until</span> {useBy.day}, {useBy.time}
+                      </>
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-red-600" />
+                  <p className="text-sm font-medium">
+                    <span className="text-gray-800 font-bold">Expiry:</span> {formatDate(offer.expiryDate)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -366,7 +419,18 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
             <div className="p-2 mt-3 bg-gradient-to-r from-red-50 to-red-50 rounded-xl text-center mb-2">
               <p className="text-sm text-red-600 font-semibold mb-3">Your Code</p>
               <div className="flex items-center justify-center gap-2 flex-col">
-                {showRedeemCode ? (
+                {isVoucherUnusable ? (
+                  <div
+                    role="status"
+                    className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700"
+                  >
+                    {voucherState === "expired"
+                      ? useBy
+                        ? `This voucher expired on ${useBy.day} at ${useBy.time} and can't be used.`
+                        : "This voucher has expired and can't be used."
+                      : UNUSABLE_MESSAGES[voucherState as keyof typeof UNUSABLE_MESSAGES]}
+                  </div>
+                ) : showRedeemCode ? (
                   <>
                     {isCodeRevealed ? (
                       <>
@@ -476,14 +540,15 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
               variant="outline"
               className="w-full sm:w-36 bg-gray-600 hover:bg-gray-700 text-white border-0 py-3 rounded-xl font-medium transition-colors shadow-sm hover:shadow-md"
               onClick={() => handleRedeem(offer._id)}
-              disabled={redeemLoading}
+              disabled={redeemLoading || pendingOfferId === offer._id}
             >
               <CheckCircle className="h-5 w-5 mr-2" />
               <RedeemAnimation isVisible={redeemError} onComplete={() => setRedeemError(false)} />
-              {redeemLoading ? "Loading..." : "Add to wallet"}
+              {redeemLoading || pendingOfferId === offer._id ? "Loading..." : "Add to wallet"}
             </Button>
           </CardFooter>
         )}
+        {confirmation}
       </Card>
     </>
   )
