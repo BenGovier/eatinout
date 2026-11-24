@@ -8,7 +8,7 @@ import { SignedInNotice } from "@/components/auth/signed-in-notice"
 import type { MembershipPlan } from "@/components/auth/membership-selector"
 import { SOCIAL_SIGNUP_COOKIE, readSocialSignupToken } from "@/lib/social-signup"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
-import { ONE_POUND_CAMPAIGN_PARAM, isOnePoundCampaignParam } from "@/lib/one-pound-campaign"
+import { ONE_POUND_CAMPAIGN_PARAM, isOnePoundCampaignParam, isOnePoundCheckoutEnabled } from "@/lib/one-pound-campaign"
 
 export const metadata: Metadata = {
   title: "Join EatinOut | Create your account",
@@ -160,7 +160,7 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
           explicitReturnUrl={explicitReturnUrl}
           initialPlan={parsePlan(firstValue(params.plan))}
           priceId={priceId}
-          campaign={isOnePoundCampaignParam(firstValue(params.campaign)) ? ONE_POUND_CAMPAIGN_PARAM : null}
+          campaign={isOnePoundCheckoutEnabled() && isOnePoundCampaignParam(firstValue(params.campaign)) ? ONE_POUND_CAMPAIGN_PARAM : null}
           socialPrefill={
             prefill
               ? {
