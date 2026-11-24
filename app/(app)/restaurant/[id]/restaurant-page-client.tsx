@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RedeemAnimation } from "@/components/redeem-animation"
 import { useAuth } from "@/context/auth-context"
 import { RestaurantDeal } from "@/components/restaurant-deal"
+import { useWeeklyClaim } from "@/components/weekly-claim/use-weekly-claim"
 import { generateSlug } from "@/lib/utils"
 import type { PublicRestaurantDetail } from "@/lib/get-public-restaurant-detail"
 
@@ -183,14 +184,9 @@ export function RestaurantPageClient({
     }
   }, [])
 
-  const handleRedeem = useCallback(async (offerId: string, offerRestaurantId: string) => {
-    if (!isAuthenticated) {
-      // Redirect new visitors to sign-up with current URL as redirect parameter
-      const currentUrl = window.location.pathname + window.location.search;
-      router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
-      return;
-    }
-    
+  const { requestClaim, pendingOfferId, confirmation } = useWeeklyClaim();
+
+  const legacyClaim = useCallback(async (offerId: string, offerRestaurantId?: string) => {
     setRedeemState(prev => ({ ...prev, loadingId: offerId }));
     
     try {
@@ -236,7 +232,20 @@ export function RestaurantPageClient({
       toast.error("An error occurred while redeeming the offer");
       setRedeemState(prev => ({ ...prev, error: true, loadingId: null }));
     }
-  }, [isAuthenticated, router]);
+  }, []);
+
+  const handleRedeem = useCallback((offerId: string, offerRestaurantId: string) => {
+    if (!isAuthenticated) {
+      // Redirect new visitors to sign-up with current URL as redirect parameter
+      const currentUrl = window.location.pathname + window.location.search;
+      router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+    requestClaim(offerId, offerRestaurantId, {
+      onLegacyClaim: legacyClaim,
+      onClaimed: () => setRedeemState(prev => ({ ...prev, showAnimation: true })),
+    });
+  }, [isAuthenticated, router, requestClaim, legacyClaim]);
 
   const handleAnimationComplete = useCallback(() => {
     setRedeemState(prev => ({ ...prev, showAnimation: false, loadingId: null }));
@@ -360,7 +369,8 @@ export function RestaurantPageClient({
             <X className="h-4 w-4 text-gray-500" />
           </button>
         )}
-        <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+      <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+      {confirmation}
         <div className="px-1 py-4 space-y-4 flex-1 overflow-y-auto">
           <div className="sticky top-0 bg-white/95 backdrop-blur z-10 pb-2 border-b border-gray-100 mb-4 px-2 pt-2">
              <h2 className="text-xl font-bold text-dark-ink pr-8">{restaurant.name}</h2>
@@ -379,7 +389,7 @@ export function RestaurantPageClient({
                     phoneNumber={phone}
                     membersUsed={membersUsed}
                     onRedeem={handleRedeem}
-                    isLoading={redeemState.loadingId}
+                    isLoading={pendingOfferId ?? redeemState.loadingId}
                     style={{ animationDelay: `${index * 100}ms` }}
                     featured={index === 0}
                     defaultExpanded={offer.id === deepLinkOfferId}
@@ -399,6 +409,7 @@ export function RestaurantPageClient({
   return (
     <div className="min-h-screen bg-[#FFFBF7] pb-24 lg:pb-0">
       <RedeemAnimation isVisible={redeemState.showAnimation} onComplete={handleAnimationComplete} />
+      {confirmation}
 
       <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
         <Image
@@ -512,7 +523,7 @@ export function RestaurantPageClient({
                   phoneNumber={phone}
                   membersUsed={membersUsed}
                   onRedeem={handleRedeem}
-                  isLoading={redeemState.loadingId}
+                  isLoading={pendingOfferId ?? redeemState.loadingId}
                   style={{ animationDelay: `${index * 100}ms` }}
                   featured={index === 0}
                   defaultExpanded={offer.id === deepLinkOfferId}

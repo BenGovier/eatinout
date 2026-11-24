@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RedeemAnimation } from "@/components/redeem-animation"
 import { useAuth } from "@/context/auth-context"
 import { RestaurantDeal } from "@/components/restaurant-deal"
+import { useWeeklyClaim } from "@/components/weekly-claim/use-weekly-claim"
 
 const testimonialPool = [
   { name: "Katie", location: "Preston", quote: "Saved £40 in my first week!", avatar: "/new-img/testimonial-1.webp" },
@@ -77,6 +78,7 @@ export default function RestaurantPage() {
   const [activeTab, setActiveTab] = useState(offerId ? "offers" : "offers")
   const offerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const { isAuthenticated } = useAuth();
+  const { requestClaim, pendingOfferId, confirmation } = useWeeklyClaim();
 
   // Compute the visible 6 testimonials based on current index
   const visibleTestimonials = Array.from({ length: 3 }, (_, i) => {
@@ -109,12 +111,25 @@ export default function RestaurantPage() {
   }, [])
 
 
-  const handleRedeem = async (offerId: string, offerRestaurantId: string) => {
+  const goToWalletAfterClaim = () => {
+    setTimeout(() => {
+      window.location.href = `/wallet`;
+    }, 500);
+  };
+
+  const handleRedeem = (offerId: string, offerRestaurantId: string) => {
     if (!isAuthenticated) {
       // Redirect to sign-in page for restaurants
       window.location.href = `/sign-in?fromRestaurants=true&restaurantId=${id}`;
       return;
     }
+    requestClaim(offerId, offerRestaurantId, {
+      onLegacyClaim: legacyClaim,
+      onClaimed: goToWalletAfterClaim,
+    });
+  };
+
+  const legacyClaim = async (offerId: string, offerRestaurantId?: string) => {
     setRedeemLoadingId(offerId);
     try {
       const response = await fetch("/api/wallet", {
@@ -152,9 +167,7 @@ export default function RestaurantPage() {
       }
 
       // Success - redirect to wallet
-      setTimeout(() => {
-        window.location.href = `/wallet`;
-      }, 500);
+      goToWalletAfterClaim();
     } catch (err: any) {
       console.error("Error redeeming offer:", err);
       toast.error("An error occurred while redeeming the offer");
@@ -298,6 +311,7 @@ export default function RestaurantPage() {
   return (
     <div className="min-h-screen bg-soft-bg bg-gray-50">
       <RedeemAnimation isVisible={redeemError} onComplete={() => setRedeemError(false)} />
+      {confirmation}
 
       <div className="relative h-56 animate-in fade-in duration-500 overflow-hidden">
         <img
@@ -398,7 +412,7 @@ export default function RestaurantPage() {
                 phoneNumber={phone}
                 membersUsed={membersUsed}
                 onRedeem={handleRedeem}
-                isLoading={redeemLoadingId}
+                isLoading={pendingOfferId ?? redeemLoadingId}
                 style={{ animationDelay: `${index * 100}ms` }}
               />
             </div>
