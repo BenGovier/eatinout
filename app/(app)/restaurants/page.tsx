@@ -12,8 +12,9 @@ import {
   Heart,
   ChevronDown,
 } from "lucide-react"
-import { BigBrandsHero } from "@/components/home/BigBrandsHero"
 import { BigBrandsCarousel } from "@/components/home/BigBrandsCarousel"
+import { LocalDealCard } from "@/components/home/local-deal-card"
+import { RestaurantFiltersSheet } from "@/components/home/restaurant-filters-sheet"
 
 const MOBILE_CUISINE_LABELS: Record<string, string> = {
   "Indian & South Asian": "Indian",
@@ -358,7 +359,7 @@ export default function RestaurantsPage() {
       if (savedFilters) {
         const savedState = JSON.parse(savedFilters)
         const newState = {
-          searchTerm: savedState.searchTerm || "",
+          searchTerm: "",
           locationSearch: "",
           selectedLocation: savedState.selectedLocation || "",
           selectedLocationId: savedState.selectedLocationId || "",
@@ -370,7 +371,7 @@ export default function RestaurantsPage() {
           selectedMealTimes: savedState.selectedMealTimes || []
         }
         setFilterState(newState)
-        setUIState(prev => ({ ...prev, showFilters: savedState.showFilters || false }))
+        setUIState(prev => ({ ...prev, showFilters: false }))
         // Update ref immediately to avoid race conditions
         filtersRef.current = {
           selectedLocationId: newState.selectedLocationId,
@@ -942,6 +943,61 @@ export default function RestaurantsPage() {
     debouncedSearchTerm
   ])
 
+  const activeFilterCount = useMemo(() => {
+    const hasArea = !!filterState.selectedLocationId && filterState.selectedLocationId !== "all"
+    return (
+      (hasArea ? 1 : 0) +
+      filterState.selectedCuisineIds.length +
+      filterState.selectedDayValues.length +
+      filterState.selectedDining.length +
+      filterState.selectedMealTimes.length
+    )
+  }, [
+    filterState.selectedLocationId,
+    filterState.selectedCuisineIds.length,
+    filterState.selectedDayValues.length,
+    filterState.selectedDining.length,
+    filterState.selectedMealTimes.length
+  ])
+
+  const resetAllFilters = useCallback(() => {
+    setFilterState({
+      searchTerm: "",
+      locationSearch: "",
+      selectedLocation: "",
+      selectedLocationId: "",
+      selectedCuisines: [],
+      selectedCuisineIds: [],
+      selectedDays: [],
+      selectedDayValues: [],
+      selectedDining: [],
+      selectedMealTimes: []
+    })
+    clearScrollPosition()
+    clearFilterState()
+  }, [clearScrollPosition, clearFilterState])
+
+  const handleSheetAreaSelect = useCallback((area: AreaOption | null) => {
+    setFilterState(prev => ({
+      ...prev,
+      selectedLocation: area?.label ?? "",
+      selectedLocationId: area?.value ?? "all",
+      locationSearch: ""
+    }))
+    setPageState(prev => ({
+      ...prev,
+      pagination: { ...prev.pagination, currentPage: 1 }
+    }))
+  }, [])
+
+  const handleFiltersOpenChange = useCallback((open: boolean) => {
+    setUIState(prev => ({ ...prev, showFilters: open }))
+    if (!open) {
+      clearScrollPosition()
+      saveFilterState()
+    }
+  }, [clearScrollPosition, saveFilterState])
+
   // Compute the dynamic section title
   const selectedArea = useMemo(() => {
     return metaState.areas.find(area => area.value === filterState.selectedLocationId)
@@ -1080,24 +1136,40 @@ export default function RestaurantsPage() {
     <>
       {(!initialLoadComplete || !minLoaderTimeElapsed) && <RestaurantsLoader />}
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <div className="mx-auto max-w-6xl space-y-6 px-4 pt-4">
-          <BigBrandsHero />
+        <div className="mx-auto max-w-6xl px-4 pt-4 empty:hidden">
           <BigBrandsCarousel />
         </div>
 
-        <section aria-labelledby="local-deals-heading" className="mx-auto max-w-6xl space-y-3 px-4 pt-7">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 id="local-deals-heading" className="text-xl font-extrabold leading-tight text-gray-900">
-                {selectedAreaName ? `Deals in ${selectedAreaName}` : "Local restaurant deals"}
-              </h2>
-              <p className="text-sm text-gray-600">Explore restaurant offers around you.</p>
-            </div>
+        <section aria-labelledby="local-deals-heading" className="mx-auto max-w-6xl space-y-3 px-4 pt-5">
+          <h2 id="local-deals-heading" className="text-xl font-extrabold leading-tight text-gray-900">
+            Local restaurant deals
+          </h2>
 
-                <div className="relative z-40 shrink-0" ref={locationDropdownRef}>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUIState(prev => ({ ...prev, showFilters: true }))}
+              aria-haspopup="dialog"
+              aria-expanded={uiState.showFilters}
+              aria-label={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : "Filters"}
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors ${activeFilterCount > 0
+                ? "border-[#DC3545] bg-[#DC3545]/5 text-[#DC3545]"
+                : "border-gray-200 bg-white text-gray-800 hover:border-[#DC3545]"
+                }`}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#DC3545] px-1.5 text-[11px] font-bold text-white" aria-hidden="true">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+                <div className="relative z-40 min-w-0" ref={locationDropdownRef}>
                   <button
                     type="button"
-                    className="flex min-h-10 max-w-[140px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 shadow-sm transition-colors hover:border-[#DC3545]"
+                    className="flex h-10 max-w-[200px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 shadow-sm transition-colors hover:border-[#DC3545]"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
                     aria-haspopup="listbox"
                     aria-expanded={uiState.showLocationDropdown}
@@ -1109,7 +1181,7 @@ export default function RestaurantsPage() {
                   </button>
 
                   {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute right-0 top-full z-[100] mt-2 max-h-60 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="absolute left-0 top-full z-[100] mt-2 max-h-60 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                       {/* ✅ ALL LOCATIONS OPTION - Always at top */}
                       {/* <button
                         onClick={() => {
@@ -1198,45 +1270,9 @@ export default function RestaurantsPage() {
                 </div>
           </div>
 
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#DC3545]" aria-hidden="true" />
-            <Input
-              type="search"
-              placeholder="Search restaurants or offers"
-              aria-label="Search restaurants or offers"
-              value={filterState.searchTerm}
-              onChange={handleSearchChange}
-              className={`h-12 w-full rounded-full border-gray-200 bg-white pl-11 text-base shadow-sm focus-visible:ring-2 focus-visible:ring-[#DC3545] [&::-webkit-search-cancel-button]:hidden ${filterState.searchTerm ? "pr-24" : "pr-16"}`}
-            />
-            <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
-              {filterState.searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterState(prev => ({ ...prev, searchTerm: "" }))
-                    clearFilterState()
-                  }}
-                  className="flex h-10 w-10 items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-              <span className="h-6 w-px bg-gray-200" aria-hidden="true" />
-              <button
-                type="button"
-                onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                className="flex h-10 w-12 items-center justify-center rounded-full text-[#DC3545] transition-colors hover:bg-[#DC3545]/5"
-                aria-label="Filters"
-                aria-expanded={uiState.showFilters}
-              >
-                <SlidersHorizontal className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide" role="group" aria-label="Filter by cuisine">
-            <div className="flex min-w-max gap-2 pb-1">
+          <div>
+            <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide" role="group" aria-label="Filter by cuisine">
+            <div className="flex min-w-max gap-2">
               {metaState.cuisineTypesLoading ? (
                 [...Array(5)].map((_, i) => (
                   <div key={i} className="h-10 w-20 animate-pulse rounded-full bg-gray-200" />
@@ -1281,156 +1317,45 @@ export default function RestaurantsPage() {
                 </>
               )}
             </div>
-          </div>
-        </section>
-
-        {uiState.showFilters && (
-          <div className="bg-white border-b border-gray-100 px-4 pb-6 space-y-4 md:space-y-6">
-            {filterState.selectedLocation && (
-              <div className="flex items-center gap-2 pt-2">
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                  {filterState.selectedLocation}
-                </Badge>
-                <button
-                  onClick={() => {
-                    setFilterState(prev => ({
-                      ...prev,
-                      selectedLocation: "",
-                      selectedLocationId: ""
-                    }))
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {(filterState.selectedMealTimes.length > 0 || filterState.selectedCuisines.length > 0 || filterState.selectedDays.length > 0 || filterState.selectedDining.length > 0) && (
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                {filterState.selectedMealTimes.map((mealTime) => (
-                  <Badge key={mealTime} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {mealTime}
-                  </Badge>
-                ))}
-                {filterState.selectedCuisines.map((cuisine) => (
-                  <Badge key={cuisine} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {cuisine}
-                  </Badge>
-                ))}
-                {filterState.selectedDays.map((day) => (
-                  <Badge key={day} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {day}
-                  </Badge>
-                ))}
-                {filterState.selectedDining.map((dining) => (
-                  <Badge key={dining} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {dining === "dine-in" ? "Dine In" : "Takeaway"}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-4 pt-4 md:pt-5 pb-4">
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">Days Available</label>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS_AVAILABLE.map((day) => (
-                    <Button
-                      key={day.value}
-                      variant={filterState.selectedDayValues.includes(day.value) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleDay(day.value, day.label)}
-                      className={filterState.selectedDayValues.includes(day.value) ? "bg-primary hover:bg-primary/90 text-white rounded-2xl" : "rounded-2xl"}
-                    >
-                      {day.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">Dine In or Out</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={filterState.selectedDining.includes("dine-in") ? "default" : "outline"}
-                    onClick={() => toggleDining("dine-in")}
-                    className={filterState.selectedDining.includes("dine-in") ? "bg-primary hover:bg-primary/90 text-white rounded-2xl" : "rounded-2xl"}
-                  >
-                    Dine In
-                  </Button>
-                  <Button
-                    variant={filterState.selectedDining.includes("takeaway") ? "default" : "outline"}
-                    onClick={() => toggleDining("takeaway")}
-                    className={filterState.selectedDining.includes("takeaway") ? "bg-primary hover:bg-primary/90 text-white rounded-2xl" : "rounded-2xl "}
-                  >
-                    Takeaway
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block text-foreground">Meal Time</label>
-                <div className="flex flex-col gap-2">
-                  {MEAL_TIMES.map((mealTime) => (
-                    <Button
-                      key={mealTime}
-                      variant={filterState.selectedMealTimes.includes(mealTime) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleMealTime(mealTime)}
-                      className={filterState.selectedMealTimes.includes(mealTime) ? "bg-primary hover:bg-primary/90 text-white rounded-2xl" : "rounded-2xl"}
-                    >
-                      {mealTime}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={() => {
-                    setUIState(prev => ({ ...prev, showFilters: false }))
-                    clearScrollPosition()
-                    saveFilterState()
-                  }}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl"
-                >
-                  Apply Filters
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setFilterState({
-                      searchTerm: "",
-                      locationSearch: "",
-                      selectedLocation: "",
-                      selectedLocationId: "",
-                      selectedCuisines: [],
-                      selectedCuisineIds: [],
-                      selectedDays: [],
-                      selectedDayValues: [],
-                      selectedDining: [],
-                      selectedMealTimes: []
-                    })
-                    clearScrollPosition()
-                    clearFilterState()
-                  }}
-                  className="flex-1 rounded-2xl"
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setUIState(prev => ({ ...prev, showFilters: false }))}
-                  className="flex-shrink-0"
-                >
-                  ✕
-                </Button>
-              </div>
             </div>
           </div>
-        )}
+
+          {activeFilterCount > 0 && (
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <p className="text-gray-600">
+                {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"} applied
+              </p>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="min-h-9 font-semibold text-[#DC3545] underline-offset-2 hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </section>
+
+        <RestaurantFiltersSheet
+          open={uiState.showFilters}
+          onOpenChange={handleFiltersOpenChange}
+          areas={metaState.areas}
+          selectedAreaId={filterState.selectedLocationId}
+          onSelectArea={handleSheetAreaSelect}
+          cuisines={metaState.cuisineTypes}
+          selectedCuisineIds={filterState.selectedCuisineIds}
+          onToggleCuisine={toggleCuisine}
+          days={DAYS_AVAILABLE}
+          selectedDayValues={filterState.selectedDayValues}
+          onToggleDay={toggleDay}
+          selectedDining={filterState.selectedDining}
+          onToggleDining={toggleDining}
+          mealTimes={MEAL_TIMES}
+          selectedMealTimes={filterState.selectedMealTimes}
+          onToggleMealTime={toggleMealTime}
+          activeCount={activeFilterCount}
+          onClearAll={resetAllFilters}
+        />
 
         {/* Conditionally render AuthCarouselList */}
         {shouldShowCarousels && (
@@ -1464,103 +1389,24 @@ export default function RestaurantsPage() {
                   ? getAreaNames(restaurant.area, metaState.areas)
                   : restaurant.location
 
-                const offers = restaurant.offers?.map(offer => ({
-                  discount: offer.title,
-                  unlimited: !offer.totalCodes,
-                  remainingCount: offer.totalCodes ? offer.totalCodes - (offer.codesRedeemed || 0) : undefined
-                })) || []
-                //Helper: Check if coming soon (0 or undefined)
-                const heroOffer = offers[0]
-                const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
-                  (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
-
+                const availableOffers = (restaurant.offers ?? []).filter(offer =>
+                  !offer.totalCodes || offer.totalCodes - (offer.codesRedeemed || 0) > 0
+                )
                 const restaurantHref = restaurant.slug || restaurant.id
-                const offerCount = offers.length
-                const isFavorite = favorites.has(restaurant.id)
-                const isFavoriteLoading = favoritesLoading.has(restaurant.id)
 
                 return (
-                  <article
+                  <LocalDealCard
                     key={restaurant.id}
-                    role="link"
-                    tabIndex={0}
-                    aria-label={`View ${restaurant.name}`}
-                    onClick={() => handleRestaurantNavigate(restaurantHref)}
-                    onKeyDown={(e) => {
-                      if (e.target !== e.currentTarget) return
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        handleRestaurantNavigate(restaurantHref)
-                      }
-                    }}
-                    className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2"
-                  >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-                      <Image
-                        src={restaurant.imageUrl || "/placeholder.svg"}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        loading="lazy"
-                        quality={75}
-                        sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-                      />
-                      <button
-                        type="button"
-                        className={`absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors ${isFavorite ? "text-[#eb221c]" : "text-gray-500 hover:text-[#eb221c]"}`}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleHeartClick(e, restaurant.id, restaurant.name)
-                        }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        disabled={isFavoriteLoading}
-                        aria-pressed={isFavorite}
-                        aria-label={isFavorite ? `Remove ${restaurant.name} from favourites` : `Add ${restaurant.name} to favourites`}
-                      >
-                        {isFavoriteLoading ? (
-                          <svg
-                            className="h-4 w-4 animate-spin text-[#eb221c]"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                        ) : (
-                          <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#eb221c]" : ""}`} aria-hidden="true" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-1 flex-col gap-1 p-2.5">
-                      <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900 sm:text-sm">
-                        {restaurant.name}
-                      </h3>
-                      {restaurant.city && (
-                        <p className="flex min-w-0 items-center gap-1 text-[11px] text-gray-500 sm:text-xs">
-                          <MapPin className="h-3 w-3 shrink-0 text-gray-400" aria-hidden="true" />
-                          <span className="truncate">{restaurant.city}</span>
-                        </p>
-                      )}
-                      {heroOffer?.discount && (
-                        <p className="mt-auto line-clamp-1 pt-0.5 text-[12px] font-semibold leading-snug text-[#eb221c] sm:text-[13px]">
-                          {heroOffer.discount}
-                        </p>
-                      )}
-                      {offerCount > 0 && (
-                        <p className={`text-[11px] font-medium text-gray-500 ${heroOffer?.discount ? "" : "mt-auto"}`}>
-                          {offerCount} {offerCount === 1 ? "offer" : "offers"} available
-                        </p>
-                      )}
-                    </div>
-                  </article>
+                    name={restaurant.name}
+                    imageUrl={restaurant.imageUrl}
+                    location={restaurant.city || location}
+                    bestOfferTitle={availableOffers[0]?.title}
+                    offerCount={availableOffers.length}
+                    isFavorite={favorites.has(restaurant.id)}
+                    isFavoriteLoading={favoritesLoading.has(restaurant.id)}
+                    onOpen={() => handleRestaurantNavigate(restaurantHref)}
+                    onToggleFavorite={(e) => handleHeartClick(e, restaurant.id, restaurant.name)}
+                  />
                 )
               })}
             {!pageState.loading &&
@@ -1574,7 +1420,7 @@ export default function RestaurantsPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900">No matches found</h3>
                     <p className="mt-1 text-sm text-gray-600">
-                      Try changing your search or clearing a filter.
+                      Try a different area or clear a filter.
                     </p>
                     <div className="mt-4 flex justify-center">
                       <Button

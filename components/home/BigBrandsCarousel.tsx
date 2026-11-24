@@ -72,6 +72,8 @@ export function BigBrandsCarousel() {
   const offers = state.status === "ready" ? state.offers : []
   const hasOffers = offers.length > 0
 
+  if (state.status === "ready" && !hasOffers) return null
+
   return (
     <section id="big-brands" aria-labelledby="big-brands-heading" aria-busy={state.status === "loading"} className="scroll-mt-24">
       <div className="mb-3 flex items-end justify-between gap-3">
@@ -91,8 +93,6 @@ export function BigBrandsCarousel() {
       {state.status === "loading" && <LoadingCards />}
 
       {state.status === "error" && <NoticeCard message="Big Brand deals are unavailable right now. Please check back soon." />}
-
-      {state.status === "ready" && !hasOffers && <NoticeCard message="Big Brand deals are on their way." />}
 
       {hasOffers && (
         <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-hide">
