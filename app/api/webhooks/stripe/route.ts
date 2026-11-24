@@ -427,7 +427,10 @@ export async function POST(req: Request) {
       // Fires when a non-trial (returning customer) payment actually succeeds.
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = (invoice as any).subscription as string | undefined;
+        // API 2025-03-31+ moved invoice.subscription to parent.subscription_details.
+        const subscriptionId = stripeIdOf(
+          ((invoice as any).parent?.subscription_details?.subscription ?? (invoice as any).subscription) as any
+        );
         // Ignore the £0 trial invoice: it is created at page load, before any card is entered.
               if (
           subscriptionId &&

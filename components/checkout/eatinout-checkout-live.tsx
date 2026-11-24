@@ -75,6 +75,24 @@ type Pricing = {
   interval: string
   intervalCount: number
   discountLabel: string | null
+  /** Only returned for the £1 campaign: the server-verified first invoice amount. */
+  firstPaymentAmount?: number
+}
+
+const ONE_POUND_CAMPAIGN_PARAM = "one-pound"
+
+function readCampaignParam(): string | undefined {
+  try {
+    return new URLSearchParams(window.location.search).get("campaign") === ONE_POUND_CAMPAIGN_PARAM
+      ? ONE_POUND_CAMPAIGN_PARAM
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function firstChargeAmount(pricing: Pricing | null): number {
+  return pricing?.firstPaymentAmount ?? pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
 }
 
 const KNOWN_PLANS: Record<string, Pricing> = {}
@@ -511,10 +529,14 @@ function WalletButtons({
     successRef.current = onSuccess
   }, [clientSecret, mode, onSuccess])
 
-  const amount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
+  const amount = firstChargeAmount(pricing)
   const currency = (pricing?.currency ?? "gbp").toLowerCase()
   const isTrial = mode === "setup"
-  const label = isTrial ? "EatinOut membership — £0 today, 30 days free" : "EatinOut membership"
+  const label = isTrial
+    ? "EatinOut membership — £0 today, 30 days free"
+    : pricing?.firstPaymentAmount != null
+      ? "EatinOut membership — £1 first month"
+      : "EatinOut membership"
 
   // Build the Payment Request object — needed to OPEN the wallet sheet and
   // confirm the SetupIntent/PaymentIntent on click. CHANGED: it also runs
@@ -984,7 +1006,8 @@ function LiveCheckoutCardInner({
   const isTrialing = mode === "setup"
   const currency = pricing?.currency ?? "gbp"
   const renewalAmount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
-  const todayAmount = isTrialing ? 0 : renewalAmount
+  const isOnePoundCampaign = pricing?.firstPaymentAmount != null
+  const todayAmount = isTrialing ? 0 : firstChargeAmount(pricing)
   const suffix = intervalSuffix(pricing)
   const word = intervalWord(pricing)
   const renewalText = pricing ? formatMoney(renewalAmount, currency) : "—"
@@ -1048,7 +1071,8 @@ function LiveCheckoutCardInner({
 
       <CardFields />
 
-      <div className="mt-3">
+      {/* The £1 offer can't be combined with other discounts. */}
+      <div className="mt-3" hidden={isOnePoundCampaign}>
         <button
           type="button"
           onClick={() => setIsVoucherOpen((open) => !open)}
@@ -1138,7 +1162,17 @@ function LiveCheckoutCardInner({
               <span className="text-[var(--p-sep)]"> &bull; </span>
             </>
           )}
-          {showChargedCopy && (
+          {showChargedCopy && isOnePoundCampaign && (
+            <>
+              <span className="font-bold text-[var(--p-ink)]">£1 first month</span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+              <span className="text-[var(--p-body)]">
+                Then {renewalText}/{word}
+              </span>
+              <span className="text-[var(--p-sep)]"> &bull; </span>
+            </>
+          )}
+          {showChargedCopy && !isOnePoundCampaign && (
             <>
               <span className="font-bold text-[var(--p-ink)]">
                 {renewalText}/{word}
@@ -1183,7 +1217,7 @@ function LiveCheckoutCard({
   // Elements receives `options` with mode/amount/currency. This is required
   // for <ExpressCheckoutElement> (used inside WalletButtons for detection)
   // to mount at all — without it Stripe throws.
-  const renewalAmount = pricing?.discountedAmount ?? pricing?.baseAmount ?? 0
+  const renewalAmount = firstChargeAmount(pricing)
   const currency = (pricing?.currency ?? "gbp").toLowerCase()
 
   console.log("[checkout][debug][Elements] mounting with options:", { mode, amount: renewalAmount, currency, hasPricing: !!pricing })
@@ -1253,15 +1287,17 @@ export function EatinOutCheckoutLive() {
       : null
 
   const fetchSubscription = async (userEmail: string, voucherCode?: string) => {
-    const priceId = sessionStorage.getItem("selectedPriceId") || undefined
+    const campaign = readCampaignParam()
+    // The campaign price is chosen on the server, so no plan is sent.
+    const priceId = campaign ? undefined : sessionStorage.getItem("selectedPriceId") || undefined
     const referral = sessionStorage.getItem("checkoutReferral") || undefined
 
-    console.log("[checkout][debug][fetchSubscription] request:", { userEmail, priceId, referral, voucherCode })
+    console.log("[checkout][debug][fetchSubscription] request:", { userEmail, priceId, referral, voucherCode, campaign })
 
     const response = await fetch("/api/payment/create-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: userEmail, priceId, referral, voucherCode }),
+      body: JSON.stringify({ email: userEmail, priceId, referral, voucherCode, campaign }),
     })
     const data = await response.json()
 
@@ -1281,7 +1317,12 @@ export function EatinOutCheckoutLive() {
 
     if (!storedEmail) {
       console.warn("[checkout][debug][init] no checkoutEmail and no logged-in user — redirecting to /sign-in.")
-      router.replace("/sign-in?redirect=/checkout")
+      const campaign = readCampaignParam()
+      router.replace(
+        campaign
+          ? `/sign-in?redirect=${encodeURIComponent(`/checkout?campaign=${campaign}`)}`
+          : "/sign-in?redirect=/checkout"
+      )
       return
     }
 
@@ -1290,7 +1331,8 @@ export function EatinOutCheckoutLive() {
     setEmail(storedEmail)
     setPostcode(sessionStorage.getItem("checkoutPostcode") || undefined)
 
-    const localPriceId = sessionStorage.getItem("selectedPriceId")
+    // Skip the local plan preview for the campaign so £4.99 is never shown as today's charge.
+    const localPriceId = readCampaignParam() ? null : sessionStorage.getItem("selectedPriceId")
     if (localPriceId && KNOWN_PLANS[localPriceId]) setPricing(KNOWN_PLANS[localPriceId])
 
     fetchSubscription(storedEmail)

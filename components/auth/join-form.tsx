@@ -10,12 +10,15 @@ import { MembershipSelector, type BillingOption, type MembershipPlan } from "@/c
 import { passwordByteLength, requestEmailCode } from "@/lib/email-verification-client"
 import { MOBILE_NUMBER_ERROR, normalizeOptionalMobile } from "@/lib/mobile-number"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
+import { ONE_POUND_CAMPAIGN_PARAM, ONE_POUND_CHECKOUT_PATH } from "@/lib/one-pound-campaign"
 
 type JoinFormProps = {
   returnUrl: string
   explicitReturnUrl: string | null
   initialPlan: MembershipPlan | null
   priceId: string | null
+  /** "one-pound" for the £1 first-month campaign; locks the plan to monthly Premium. */
+  campaign?: string | null
   socialPrefill: {
     provider: "google" | "facebook"
     email: string
@@ -71,8 +74,9 @@ const inputClassName =
 
 const cardClassName = "rounded-2xl border border-[#ecdfcb] bg-white p-4 shadow-md shadow-black/5 sm:p-6 md:p-7"
 
-export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, socialPrefill }: JoinFormProps) {
-  const [plan, setPlan] = useState<MembershipPlan>(initialPlan ?? "premium")
+export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, campaign, socialPrefill }: JoinFormProps) {
+  const isOnePoundCampaign = campaign === ONE_POUND_CAMPAIGN_PARAM
+  const [plan, setPlan] = useState<MembershipPlan>(isOnePoundCampaign ? "premium" : initialPlan ?? "premium")
   const [step, setStep] = useState<"details" | "verify">("details")
   const [firstName, setFirstName] = useState(socialPrefill?.firstName ?? "")
   const [lastName, setLastName] = useState(socialPrefill?.lastName ?? "")
@@ -93,7 +97,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const [cooldown, setCooldown] = useState(60)
   const [referral, setReferral] = useState<string | null>(null)
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(
-    initialPlan === "free" ? MONTHLY_PRICE_ID : priceId || MONTHLY_PRICE_ID,
+    initialPlan === "free" || isOnePoundCampaign ? MONTHLY_PRICE_ID : priceId || MONTHLY_PRICE_ID,
   )
   const creatingRef = useRef(false)
 
@@ -205,7 +209,11 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
     const res = await fetch(isPremium ? "/api/auth/register" : "/api/auth/register-free", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(isPremium ? { ...details, selectedPriceId, referral, source: null } : details),
+      body: JSON.stringify(
+        isPremium
+          ? { ...details, selectedPriceId, referral, source: null, ...(isOnePoundCampaign ? { campaign } : {}) }
+          : details,
+      ),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data?.success) {
@@ -227,7 +235,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
         sessionStorage.setItem("checkoutPostcode", zipCode.trim().toUpperCase())
         if (selectedPriceId) sessionStorage.setItem("selectedPriceId", selectedPriceId)
         if (referral) sessionStorage.setItem("checkoutReferral", referral)
-        window.location.assign("/checkout")
+        window.location.assign(isOnePoundCampaign ? ONE_POUND_CHECKOUT_PATH : "/checkout")
         return
       }
 
@@ -247,13 +255,23 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
       {step === "verify" ? (
         <section className={`flex flex-col gap-4 ${cardClassName}`}>
           <p className="w-fit rounded-full bg-[#EAF4EC] px-3 py-1 text-xs font-semibold text-[#1F5A3A]">
-            {isPremium ? "Premium membership · 30-day free trial" : "Free account"}
+            {isOnePoundCampaign
+              ? "Premium membership · £1 first month"
+              : isPremium
+                ? "Premium membership · 30-day free trial"
+                : "Free account"}
           </p>
           <EmailOtpStep
             email={email}
             initialCooldownSeconds={cooldown}
             onVerified={createAccount}
-            submittingLabel={isPremium ? "Setting up your trial..." : "Creating your account..."}
+            submittingLabel={
+              isOnePoundCampaign
+                ? "Creating your account..."
+                : isPremium
+                  ? "Setting up your trial..."
+                  : "Creating your account..."
+            }
             onChangeEmail={() => {
               setStep("details")
               setFormError(null)
@@ -266,15 +284,24 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
             Create your EatinOut account
           </h1>
 
-          <MembershipSelector
-            value={plan}
-            onChange={changePlan}
-            billingOptions={BILLING_OPTIONS}
-            selectedPriceId={selectedPriceId}
-            onPriceChange={changePrice}
-            premiumSummary={getPremiumSummary(selectedPriceId)}
-            disabled={isSending}
-          />
+          {isOnePoundCampaign ? (
+            <section aria-label="Your offer" className={cardClassName}>
+              <p className="text-base font-bold text-[#1A1A1A]">EatinOut Premium · £1 first month</p>
+              <p className="mt-1 text-sm text-[#5F5A55]">
+                Then £4.99/month · Renews automatically · Cancel anytime. For new members only.
+              </p>
+            </section>
+          ) : (
+            <MembershipSelector
+              value={plan}
+              onChange={changePlan}
+              billingOptions={BILLING_OPTIONS}
+              selectedPriceId={selectedPriceId}
+              onPriceChange={changePrice}
+              premiumSummary={getPremiumSummary(selectedPriceId)}
+              disabled={isSending}
+            />
+          )}
 
           <section
             aria-labelledby="join-details-heading"

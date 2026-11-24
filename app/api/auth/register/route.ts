@@ -9,6 +9,11 @@ import Stripe from "stripe";
 import { buildMarketingConsentFields } from "@/lib/marketing-consent";
 import { MOBILE_NUMBER_ERROR, normalizeOptionalMobile } from "@/lib/mobile-number";
 import {
+  ONE_POUND_CAMPAIGN_ID,
+  isOnePoundCampaignParam,
+  isOnePoundCheckoutEnabled,
+} from "@/lib/one-pound-campaign";
+import {
   VerificationUnavailableError,
   consumeRegistrationPass,
   normalizeEmail,
@@ -60,7 +65,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms, marketingEmailConsent } = requestBody;
+    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms, marketingEmailConsent, campaign } = requestBody;
+    // Only written while the campaign is enabled, so ordinary signups never touch the new column.
+    const campaignAttribution =
+      isOnePoundCampaignParam(campaign) && isOnePoundCheckoutEnabled() ? ONE_POUND_CAMPAIGN_ID : null;
 
     // Log referral for debugging
     if (referral) {
@@ -245,6 +253,7 @@ export async function POST(req: NextRequest) {
           rewardful_referral: referral || null,
           source: source || null,
           registration_type: "subscription",
+          ...(campaignAttribution ? { campaign_attribution: campaignAttribution } : {}),
           email_verified_at: consumedPass.verifiedAt,
           ...buildMarketingConsentFields(marketingEmailConsent),
         })

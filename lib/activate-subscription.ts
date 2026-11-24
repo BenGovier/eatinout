@@ -139,6 +139,7 @@ import sendEmail from "@/lib/sendEmail";
 import { render } from "@react-email/render";
 import { SubscriptionConfirmationEmail } from "@/utils/email-templates/subscription-confirmation";
 import { WelcomeEmail } from "@/utils/email-templates/welcome";
+import { ONE_POUND_CAMPAIGN_ID } from "@/lib/one-pound-campaign";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -293,8 +294,15 @@ export async function activateSubscription(subscriptionId: string, expectedCusto
     }
   };
 
+  // The Welcome email is written for the 30-day trial, so £1 campaign members
+  // only get the confirmation (which shows the £1.00 actually paid).
+  const isOnePoundCampaign = subscription.metadata?.campaign === ONE_POUND_CAMPAIGN_ID;
+
   // Both emails go out in parallel to keep the checkout wait short.
-  const [welcomeOk, confirmOk] = await Promise.all([sendWelcome(), sendConfirmation()]);
+  const [welcomeOk, confirmOk] = await Promise.all([
+    isOnePoundCampaign ? Promise.resolve(false) : sendWelcome(),
+    sendConfirmation(),
+  ]);
 
   // If both emails failed, release the claim so a retry (webhook) can resend.
   if (!welcomeOk && !confirmOk) {

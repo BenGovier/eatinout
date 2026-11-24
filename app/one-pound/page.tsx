@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import OnePoundCampaign from "@/components/campaigns/one-pound/OnePoundCampaign"
+import OnePoundCampaignLive from "@/components/campaigns/one-pound/OnePoundCampaignLive"
+import { isOnePoundCheckoutEnabled } from "@/lib/one-pound-campaign"
 
 export const metadata: Metadata = {
   title: "£1 First Month | EatinOut × WTF Giveaways",
@@ -14,5 +16,5 @@ export const viewport: Viewport = {
 }
 
 export default function OnePoundPage() {
-  return <OnePoundCampaign />
+  return isOnePoundCheckoutEnabled() ? <OnePoundCampaignLive /> : <OnePoundCampaign />
 }

@@ -4,7 +4,18 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import supabaseAdmin from "@/lib/supabase/admin";
-import { TRIAL_SETUP_PURPOSE, findConfirmedSubscription, stripeIdOf } from "@/lib/start-trial";
+import {
+  TRIAL_SETUP_PURPOSE,
+  findConfirmedSubscription,
+  listCustomerSubscriptions,
+  stripeIdOf,
+} from "@/lib/start-trial";
+import {
+  ONE_POUND_CAMPAIGN_ID,
+  getOnePoundConfig,
+  isOnePoundCampaignParam,
+} from "@/lib/one-pound-campaign";
+import { startOnePoundCheckout, type OnePoundStripe } from "@/lib/one-pound-checkout";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -160,13 +171,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 });
     }
 
-    let body: { email?: unknown; priceId?: unknown; referral?: unknown; voucherCode?: unknown };
+    let body: { email?: unknown; priceId?: unknown; referral?: unknown; voucherCode?: unknown; campaign?: unknown };
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
-    const { email, priceId, referral, voucherCode } = body ?? {};
+    const { email, priceId, referral, voucherCode, campaign } = body ?? {};
+
+    if (campaign !== undefined && campaign !== null && !isOnePoundCampaignParam(campaign)) {
+      return NextResponse.json({ error: "Invalid campaign" }, { status: 400 });
+    }
+    let onePoundConfig: { couponId: string; priceId: string } | null = null;
+    if (isOnePoundCampaignParam(campaign)) {
+      const config = getOnePoundConfig();
+      if (!config.ok) {
+        console.error("[create-subscription] £1 campaign checkout refused:", config.detail);
+        return NextResponse.json(
+          { error: config.message, code: config.code },
+          { status: config.code === "campaign_unavailable" ? 403 : 503 }
+        );
+      }
+      if (voucherCode) {
+        return NextResponse.json(
+          { error: "Voucher codes can't be used with the £1 first month offer.", code: "campaign_no_vouchers" },
+          { status: 400 }
+        );
+      }
+      onePoundConfig = { couponId: config.couponId, priceId: config.priceId };
+    }
 
     if (priceId !== undefined && priceId !== null && typeof priceId !== "string") {
       return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
@@ -223,8 +256,12 @@ export async function POST(request: Request) {
     const rewardfulReferral = referral || user.rewardfulReferral;
     const defaultPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
 
-    let selectedPriceId: string | undefined;
-    if (priceId) {
+    // The campaign always uses the monthly price from server config; any
+    // client-supplied price is ignored.
+    let selectedPriceId: string | undefined = onePoundConfig?.priceId;
+    if (onePoundConfig) {
+      // already resolved
+    } else if (priceId) {
       if (!(await isAllowedPriceForCustomer(priceId, user.stripeCustomerId))) {
         return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
       }
@@ -286,6 +323,37 @@ export async function POST(request: Request) {
         { error: "You already have an EatinOut membership.", code: "already_subscribed" },
         { status: 409 }
       );
+    }
+
+    // Must run before the trial branch: campaign signups pay £1 now, no trial.
+    if (onePoundConfig) {
+      const result = await startOnePoundCheckout(
+        {
+          stripe: stripe as unknown as OnePoundStripe,
+          listCustomerSubscriptions,
+          saveCheckout: async (userId, details) => {
+            const { error: saveError } = await supabaseAdmin
+              .from("users")
+              .update({
+                selected_price_id: details.priceId,
+                rewardful_referral: details.rewardfulReferral,
+                used_voucher_code: null,
+                campaign_attribution: ONE_POUND_CAMPAIGN_ID,
+              })
+              .eq("id", userId);
+            if (saveError) throw new Error(saveError.message);
+          },
+        },
+        {
+          couponId: onePoundConfig.couponId,
+          priceId: onePoundConfig.priceId,
+          userId: user._id,
+          stripeCustomerId,
+          hasSubscribedBefore,
+          rewardfulReferral,
+        }
+      );
+      return NextResponse.json(result.body, { status: result.status });
     }
 
     if (!hasSubscribedBefore) {
