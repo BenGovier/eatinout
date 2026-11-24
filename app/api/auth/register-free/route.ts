@@ -16,6 +16,7 @@ import {
 } from "@/lib/email-verification";
 import { SOCIAL_SIGNUP_COOKIE } from "@/lib/social-signup";
 import { buildMarketingConsentFields } from "@/lib/marketing-consent";
+import { MOBILE_NUMBER_ERROR, normalizeOptionalMobile } from "@/lib/mobile-number";
 
 const MAX_FIELD_LENGTH = 255;
 const MIN_PASSWORD_LENGTH = 8;
@@ -77,9 +78,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+    const normalizedMobile = normalizeOptionalMobile(mobile);
+    if (normalizedMobile === "invalid") {
       return NextResponse.json(
-        { success: false, message: "Invalid registration details" },
+        { success: false, message: MOBILE_NUMBER_ERROR },
         { status: 400 }
       );
     }
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
     const trimmedZipCode = zipCode.trim();
-    const trimmedMobile = typeof mobile === "string" && mobile.trim() ? mobile.trim() : null;
+    const trimmedMobile = normalizedMobile;
     // Same normalisation as the existing registration endpoint, plus trim
     const normalizedEmail = normalizeEmail(email);
 
@@ -207,6 +209,8 @@ export async function POST(req: NextRequest) {
         email: normalizedEmail,
         password_hash: await bcrypt.hash(password, 10),
         mobile: trimmedMobile,
+        // Only sent when provided, so blank-mobile signups never depend on this column.
+        ...(trimmedMobile ? { mobile_phone: trimmedMobile } : {}),
         zip_code: trimmedZipCode,
         role: "user",
         registration_type: "free",

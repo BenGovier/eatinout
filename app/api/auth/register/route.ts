@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import Stripe from "stripe";
 import { buildMarketingConsentFields } from "@/lib/marketing-consent";
+import { MOBILE_NUMBER_ERROR, normalizeOptionalMobile } from "@/lib/mobile-number";
 import {
   VerificationUnavailableError,
   consumeRegistrationPass,
@@ -91,9 +92,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+    const normalizedMobile = normalizeOptionalMobile(mobile);
+    if (normalizedMobile === "invalid") {
       return NextResponse.json(
-        { success: false, message: "Invalid registration details" },
+        { success: false, message: MOBILE_NUMBER_ERROR },
         { status: 400 }
       );
     }
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
     const trimmedZipCode = zipCode.trim();
-    const trimmedMobile = typeof mobile === "string" && mobile.trim() ? mobile.trim() : null;
+    const trimmedMobile = normalizedMobile;
 
     if (
       trimmedFirstName.length > MAX_FIELD_LENGTH ||
@@ -233,6 +235,8 @@ export async function POST(req: NextRequest) {
           // password was bcrypt-hashed on save by the old User model
           password_hash: await bcrypt.hash(password, 10),
           mobile: trimmedMobile,
+          // Only sent when provided, so blank-mobile signups never depend on this column.
+          ...(trimmedMobile ? { mobile_phone: trimmedMobile } : {}),
           zip_code: trimmedZipCode,
           role: "user",
           // Store selected price ID for reference

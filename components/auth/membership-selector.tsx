@@ -1,6 +1,6 @@
 "use client"
 
-import { Check } from "lucide-react"
+import type React from "react"
 
 export type MembershipPlan = "premium" | "free"
 
@@ -22,8 +22,6 @@ type MembershipSelectorProps = {
   disabled?: boolean
 }
 
-const PREMIUM_FEATURES = ["500+ restaurants", "2,000+ offers", "Save up to 50%", "Member giveaways"]
-
 export function MembershipSelector({
   value,
   onChange,
@@ -36,45 +34,35 @@ export function MembershipSelector({
   const isPremium = value === "premium"
 
   return (
-    <fieldset className="flex flex-col gap-3" disabled={disabled}>
-      <legend className="mb-3 text-lg font-bold text-[#1A1A1A]">Choose how you save</legend>
+    <fieldset className="flex flex-col gap-2" disabled={disabled}>
+      <legend className="mb-2 text-sm font-semibold text-[#1A1A1A]">Choose your membership</legend>
 
       <MembershipOption
         id="plan-premium"
         checked={isPremium}
         onSelect={() => onChange("premium")}
+        featured
         title="Premium membership"
-        badge="30 days free"
-        badgeLabel="30-day free trial"
+        tag="30 days free"
+        tagLabel="30-day free trial"
+        description="Local restaurant discounts and exclusive offers"
+        footnote={premiumSummary}
         extra={
           isPremium && billingOptions.length > 1 ? (
             <BillingChoices options={billingOptions} selectedPriceId={selectedPriceId} onSelect={onPriceChange} />
           ) : null
         }
-      >
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#2B2B2B]">
-          {PREMIUM_FEATURES.map((feature) => (
-            <li key={feature} className="flex items-center gap-1.5">
-              <Check className="h-4 w-4 shrink-0 text-[#1F5A3A]" aria-hidden="true" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-sm text-[#3A3A3A]">{premiumSummary}</p>
-      </MembershipOption>
+      />
 
       <MembershipOption
         id="plan-free"
         checked={value === "free"}
         onSelect={() => onChange("free")}
         title="Free account"
-        badge="£0"
-        badgeLabel="Free"
-      >
-        <p className="text-sm text-[#3A3A3A]">Big-brand deals as they launch. No subscription or card.</p>
-      </MembershipOption>
-
-      <p className="px-1 text-xs text-[#5C5650]">One account. You can upgrade anytime.</p>
+        tag="£0"
+        tagLabel="Free"
+        description="Access national brand offers without a subscription"
+      />
     </fieldset>
   )
 }
@@ -89,9 +77,9 @@ function BillingChoices({
   onSelect: (priceId: string) => void
 }) {
   return (
-    <fieldset className="flex flex-col gap-2 border-t border-[#1F5A3A]/20 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-      <legend className="sr-only">Billing period</legend>
-      <p className="text-sm font-semibold text-[#1A1A1A]" aria-hidden="true">
+    <fieldset className="flex flex-col gap-1.5 border-t border-[#EB221C]/15 px-3 pb-3 pt-2.5">
+      <legend className="sr-only">Billing after your free trial</legend>
+      <p className="text-xs font-semibold text-[#5C5650]" aria-hidden="true">
         Billing after your free trial
       </p>
       {options.map((option) => {
@@ -101,8 +89,8 @@ function BillingChoices({
           <label
             key={option.priceId}
             htmlFor={inputId}
-            className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white px-3 py-2.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1F5A3A] has-[:focus-visible]:ring-offset-1 ${
-              checked ? "border-[#1F5A3A]" : "border-[#DDD6CE] hover:border-[#B9C9BD]"
+            className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border bg-white px-3 py-2 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#EB221C]/40 ${
+              checked ? "border-[#EB221C]" : "border-[#E6DCCF] hover:border-[#D9C7B4]"
             }`}
           >
             <input
@@ -113,28 +101,16 @@ function BillingChoices({
               checked={checked}
               onChange={() => onSelect(option.priceId)}
             />
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                checked ? "border-[#1F5A3A]" : "border-[#1F5A3A]/60"
-              }`}
-              aria-hidden="true"
-            >
-              {checked && <span className="h-2.5 w-2.5 rounded-full bg-[#1F5A3A]" />}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="text-sm font-bold text-[#1A1A1A]">{option.label}</span>
-                {option.saving && (
-                  <span className="rounded-full bg-[#F8E7B0] px-2 py-0.5 text-[11px] font-bold text-[#1F4D2E]">
-                    {option.saving}
-                  </span>
-                )}
-              </span>
-              {option.monthlyEquivalent && (
-                <span className="text-xs text-[#5C5650]">{option.monthlyEquivalent}</span>
+            <RadioDot checked={checked} small />
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-sm font-semibold text-[#1A1A1A]">{option.label}</span>
+              {option.saving && (
+                <span className="rounded-full bg-[#FDECEB] px-1.5 py-0.5 text-[11px] font-semibold text-[#B3150F]">
+                  {option.saving}
+                </span>
               )}
             </span>
-            <span className="shrink-0 text-right text-sm font-semibold text-[#1A1A1A]">{option.price}</span>
+            <span className="shrink-0 text-right text-xs font-semibold text-[#1A1A1A]">{option.price}</span>
           </label>
         )
       })}
@@ -146,23 +122,42 @@ type MembershipOptionProps = {
   id: string
   checked: boolean
   onSelect: () => void
+  featured?: boolean
   title: string
-  badge: string
-  badgeLabel: string
-  children: React.ReactNode
+  tag: string
+  tagLabel: string
+  description: string
+  footnote?: string
   extra?: React.ReactNode
 }
 
-function MembershipOption({ id, checked, onSelect, title, badge, badgeLabel, children, extra }: MembershipOptionProps) {
+function MembershipOption({
+  id,
+  checked,
+  onSelect,
+  featured,
+  title,
+  tag,
+  tagLabel,
+  description,
+  footnote,
+  extra,
+}: MembershipOptionProps) {
+  const descriptionId = `${id}-description`
+
   return (
     <div
-      className={`overflow-hidden rounded-2xl border transition-colors ${
-        checked ? "border-2 border-[#1F5A3A] bg-[#EAF4EC]" : "border-[#DDD6CE] bg-[#FFFCF9] hover:border-[#B9C9BD]"
+      className={`overflow-hidden rounded-xl border-2 transition-colors ${
+        checked
+          ? featured
+            ? "border-[#EB221C] bg-[#FFF5F3]"
+            : "border-[#1A1A1A] bg-white"
+          : "border-[#E6DCCF] bg-white hover:border-[#D9C7B4]"
       }`}
     >
       <label
         htmlFor={id}
-        className="relative flex cursor-pointer items-stretch gap-3 rounded-2xl p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-[#1F5A3A] sm:gap-4 sm:p-5"
+        className="flex cursor-pointer items-start gap-3 px-3.5 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-[#EB221C]/40"
       >
         <input
           type="radio"
@@ -171,31 +166,44 @@ function MembershipOption({ id, checked, onSelect, title, badge, badgeLabel, chi
           className="sr-only"
           checked={checked}
           onChange={onSelect}
+          aria-describedby={descriptionId}
         />
-        <span className="flex items-center" aria-hidden="true">
-          <span
-            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-              checked ? "border-[#1F5A3A]" : "border-[#1F5A3A]/70"
-            }`}
-          >
-            {checked && <span className="h-3 w-3 rounded-full bg-[#1F5A3A]" />}
-          </span>
+        <span className="pt-0.5">
+          <RadioDot checked={checked} accent={featured ? "#EB221C" : "#1A1A1A"} />
         </span>
-        <span className="w-px self-stretch bg-[#1F5A3A]/40" aria-hidden="true" />
-        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="flex items-start justify-between gap-2">
-            <span className="text-base font-bold text-[#1A1A1A] sm:text-lg">{title}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-[15px] font-bold leading-tight text-[#1A1A1A]">{title}</span>
             <span
-              className="shrink-0 rounded-full bg-[#F8E7B0] px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-[#1F4D2E]"
-              aria-label={badgeLabel}
+              aria-label={tagLabel}
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                featured ? "bg-[#EB221C] text-white" : "bg-[#F1EBE3] text-[#1A1A1A]"
+              }`}
             >
-              {badge}
+              {tag}
             </span>
           </span>
-          {children}
+          <span id={descriptionId} className="flex flex-col gap-0.5">
+            <span className="text-[13px] leading-snug text-[#3A3A3A]">{description}</span>
+            {footnote && <span className="text-xs font-medium leading-snug text-[#5C5650]">{footnote}</span>}
+          </span>
         </span>
       </label>
       {extra}
     </div>
+  )
+}
+
+function RadioDot({ checked, accent = "#EB221C", small }: { checked: boolean; accent?: string; small?: boolean }) {
+  const outer = small ? "h-4 w-4" : "h-5 w-5"
+  const inner = small ? "h-2 w-2" : "h-2.5 w-2.5"
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex ${outer} shrink-0 items-center justify-center rounded-full border-2`}
+      style={{ borderColor: checked ? accent : "#BDB3A8" }}
+    >
+      {checked && <span className={`${inner} rounded-full`} style={{ backgroundColor: accent }} />}
+    </span>
   )
 }
