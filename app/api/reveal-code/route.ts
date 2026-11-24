@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkPremiumAccess } from "@/lib/membership";
 import {
   DB,
   type RevealResult,
@@ -8,6 +9,8 @@ import {
   hasWeeklyV2CutoverBegun,
   isWeeklyLimitedOffer,
 } from "@/lib/weekly-vouchers";
+
+export const dynamic = "force-dynamic";
 
 const REVEAL_FAILURES: Record<
   Exclude<RevealResult, "revealed" | "already_revealed">,
@@ -81,6 +84,29 @@ export async function POST(request: Request) {
       );
     }
 
+    const access = await checkPremiumAccess(userId);
+    if (access.status === "unverifiable") {
+      console.error("[reveal-code] Premium entitlement check failed:", access.reason);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "entitlement_unverifiable",
+          message: "We couldn't confirm your membership right now. Please try again shortly.",
+        },
+        { status: 503 }
+      );
+    }
+    if (access.status !== "granted") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "premium_required",
+          message: "This offer is for Premium members. Upgrade to Premium to use this code.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Scoped to the session user, so another customer's wallet is
     // indistinguishable from a wallet that does not exist.
     const { data: walletLookup, error: lookupError } = await supabaseAdmin
@@ -137,6 +163,8 @@ export async function POST(request: Request) {
     // Code expiry set to 2 minutes from now (as in original logic)
     const redeemCodeExpiry = new Date(Date.now() + 2 * 60 * 1000).toISOString();
 
+    // Ownership is enforced in the same statement, so a wallet belonging to
+    // another user is never modified and cannot be distinguished from a missing one.
     const { data: updatedWallet, error } = await supabaseAdmin
       .from("wallets")
       .update({

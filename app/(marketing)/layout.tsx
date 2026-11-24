@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button"
 const ROLE_TO_DASHBOARD: Record<string, string> = {
   admin: "/admin/dashboard",
   restaurant: "/dashboard",
-  user: "/restaurants",
 }
 export default function MarketingLayout({
   children,
@@ -24,22 +23,16 @@ export default function MarketingLayout({
   const router = useRouter()
   const { user, authLoading, isAuthenticated, authError, clearAuthError } = useAuth()
 
+  const staffDashboardRoute =
+    isAuthenticated && user && user.role !== "user" ? (ROLE_TO_DASHBOARD[user.role] ?? "/restaurants") : null
+
   useEffect(() => {
-    if (!authLoading && isAuthenticated && user) {
-      if (user.role === "user" && user.subscriptionStatus === "inactive" && !user.isTrialing) {
-        router.replace("/sign-up")
-      } else {
-        const dashboardRoute = ROLE_TO_DASHBOARD[user.role] ?? "/restaurants"
-        router.replace(dashboardRoute)
-      }
+    if (!authLoading && staffDashboardRoute) {
+      router.replace(staffDashboardRoute)
     }
-  }, [authLoading, isAuthenticated, user, router])
+  }, [authLoading, staffDashboardRoute, router])
 
-  if (authLoading) {
-    return <Spinner />
-  }
-
-  if (isAuthenticated && user) {
+  if (authLoading || staffDashboardRoute) {
     return <Spinner />
   }
 

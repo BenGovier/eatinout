@@ -246,7 +246,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                     size="lg"
                                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold py-5 md:py-6"
                                 >
-                                    <a href="/sign-up">
+                                    <a href="/join?plan=premium">
                                         Start my 30-day free trial
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </a>
@@ -273,7 +273,7 @@ export function StartOnboardingSlider({ path }: StartOnboardingSliderProps) {
                                 )}
                                 {!isLastSlide && (
                                     <a
-                                        href="/sign-up"
+                                        href="/join?plan=free"
                                         className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
                                     >
                                         Skip to free sign up

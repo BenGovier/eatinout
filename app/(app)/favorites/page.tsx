@@ -147,22 +147,12 @@ export default function FavoriteRestaurantsPage() {
                                 onClick={async () => {
                                     if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")) {
                                         try {
-                                            const response = await fetch("/api/payment/create-checkout-session", {
-                                                method: "POST",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ email: user.email }),
-                                            });
-                                            const { url } = await response.json();
-                                            if (response.ok && url) {
-                                                sessionStorage.setItem('redirectUrl', `/restaurant/${rid}`);
-                                                window.location.replace(url);
-                                            } else {
-                                                toast.error("Failed to initiate checkout");
-                                            }
+                                            sessionStorage.setItem('checkoutEmail', user.email);
+                                            sessionStorage.setItem('redirectUrl', `/restaurant/${rid}`);
                                         } catch (error) {
-                                            console.error("Stripe Checkout error:", error);
-                                            toast.error("Failed to redirect to payment.");
+                                            console.error("Unable to save checkout details:", error);
                                         }
+                                        router.push("/checkout");
                                         return;
                                     }
                                     router.push(`/restaurant/${rid}`);
@@ -253,22 +243,12 @@ export default function FavoriteRestaurantsPage() {
                                                                     e.stopPropagation();
                                                                     if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")                                                                    ) {
                                                                         try {
-                                                                            const response = await fetch("/api/payment/create-checkout-session", {
-                                                                                method: "POST",
-                                                                                headers: { "Content-Type": "application/json" },
-                                                                                body: JSON.stringify({ email: user.email }),
-                                                                            });
-                                                                            const { url } = await response.json();
-                                                                            if (response.ok && url) {
-                                                                                sessionStorage.setItem('redirectUrl', `/restaurant/${rid}?offerId=${offer._id}`);
-                                                                                window.location.replace(url);
-                                                                            } else {
-                                                                                toast.error("Failed to initiate checkout");
-                                                                            }
+                                                                            sessionStorage.setItem('checkoutEmail', user.email);
+                                                                            sessionStorage.setItem('redirectUrl', `/restaurant/${rid}?offerId=${offer._id}`);
                                                                         } catch (error) {
-                                                                            console.error("Stripe Checkout error:", error);
-                                                                            toast.error("Failed to redirect to payment.");
+                                                                            console.error("Unable to save checkout details:", error);
                                                                         }
+                                                                        router.push("/checkout");
                                                                         return;
                                                                     }
                                                                     router.push(`/restaurant/${rid}?offerId=${offer._id}`);

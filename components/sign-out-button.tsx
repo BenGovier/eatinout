@@ -14,7 +14,8 @@ export function SignOutButton() {
         method: "POST",
       });
 
-      await nextAuthSignOut({ callbackUrl: "/sign-in" });
+      await nextAuthSignOut({ redirect: false });
+      window.location.assign("/sign-in");
     } catch (error) {
       console.error("Error during sign-out:", error);
     } finally {

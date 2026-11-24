@@ -6,12 +6,36 @@ import { randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import Stripe from "stripe";
+import { buildMarketingConsentFields } from "@/lib/marketing-consent";
+import {
+  VerificationUnavailableError,
+  consumeRegistrationPass,
+  normalizeEmail,
+  releaseRegistrationPass,
+  type ConsumedPass,
+} from "@/lib/email-verification";
 
 dotenv.config();
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const MAX_FIELD_LENGTH = 255;
+const MIN_PASSWORD_LENGTH = 8;
+// bcrypt only uses the first 72 bytes of a password
+const MAX_PASSWORD_BYTES = 72;
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 export async function POST(req: NextRequest) {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    console.error("JWT_SECRET is not configured; refusing registration");
+    return NextResponse.json(
+      { success: false, message: "Registration is temporarily unavailable" },
+      { status: 500 }
+    );
+  }
+
   try {
     console.log("Starting user registration process");
 
@@ -35,7 +59,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source } = requestBody;
+    const { firstName, lastName, email, password, mobile, selectedPriceId, referral, zipCode, source, verificationPass, acceptedTerms, marketingEmailConsent } = requestBody;
 
     // Log referral for debugging
     if (referral) {
@@ -44,8 +68,15 @@ export async function POST(req: NextRequest) {
       console.log('ℹ️ No Rewardful referral in registration request');
     }
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password || !zipCode) {
+    // Validate required fields (same rules as /api/auth/register-free)
+    if (
+      !isNonEmptyString(firstName) ||
+      !isNonEmptyString(lastName) ||
+      !isNonEmptyString(email) ||
+      typeof password !== "string" ||
+      password.length === 0 ||
+      !isNonEmptyString(zipCode)
+    ) {
       console.error("Missing required fields");
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
@@ -53,8 +84,66 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        { success: false, message: "Please agree to the Terms and Privacy Policy." },
+        { status: 400 }
+      );
+    }
+
+    if (mobile !== undefined && mobile !== null && typeof mobile !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    if (marketingEmailConsent !== undefined && typeof marketingEmailConsent !== "boolean") {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedZipCode = zipCode.trim();
+    const trimmedMobile = typeof mobile === "string" && mobile.trim() ? mobile.trim() : null;
+
+    if (
+      trimmedFirstName.length > MAX_FIELD_LENGTH ||
+      trimmedLastName.length > MAX_FIELD_LENGTH ||
+      trimmedZipCode.length > MAX_FIELD_LENGTH ||
+      (trimmedMobile !== null && trimmedMobile.length > MAX_FIELD_LENGTH)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid registration details" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        { success: false, message: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
+      return NextResponse.json(
+        { success: false, message: "Password is too long" },
+        { status: 400 }
+      );
+    }
+
     // Emails were stored lowercase by the old User model (lowercase: true)
-    const normalizedEmail = String(email).toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return NextResponse.json(
+        { success: false, message: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
 
     // Check if user already exists
     try {
@@ -73,16 +162,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (mobile) {
+      if (trimmedMobile) {
         const { data: existingMobile, error: existingMobileError } = await supabaseAdmin
           .from("users")
           .select("id")
-          .eq("mobile", mobile)
+          .eq("mobile", trimmedMobile)
           .limit(1)
           .maybeSingle();
         if (existingMobileError) throw new Error(existingMobileError.message);
         if (existingMobile) {
-          console.log("Mobile number already in use:", mobile);
+          console.log("Mobile number already in use");
           return NextResponse.json(
             { success: false, message: "Mobile number already in use" },
             { status: 400 }
@@ -101,6 +190,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Email OTP verification is mandatory: consume the single-use pass before
+    // creating anything so it cannot be replayed for a second account.
+    let consumedPass: ConsumedPass | null;
+    try {
+      consumedPass = await consumeRegistrationPass(normalizedEmail, verificationPass);
+    } catch (passError: any) {
+      if (passError instanceof VerificationUnavailableError) {
+        return NextResponse.json(
+          { success: false, message: "Registration is temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+      console.error("Error checking verification pass:", passError?.message);
+      return NextResponse.json(
+        { success: false, message: "Registration failed" },
+        { status: 500 }
+      );
+    }
+    if (!consumedPass) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "email_not_verified",
+          message: "Please verify your email address before creating your account",
+        },
+        { status: 403 }
+      );
+    }
+
     // Create new user
     let user;
     try {
@@ -109,23 +227,36 @@ export async function POST(req: NextRequest) {
         .insert({
           // 24-char hex id, same format as the migrated MongoDB ObjectId ids
           id: randomBytes(12).toString("hex"),
-          first_name: firstName,
-          last_name: lastName,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           email: normalizedEmail,
           // password was bcrypt-hashed on save by the old User model
           password_hash: await bcrypt.hash(password, 10),
-          mobile,
-          zip_code: zipCode,
+          mobile: trimmedMobile,
+          zip_code: trimmedZipCode,
           role: "user",
           // Store selected price ID for reference
           selected_price_id: selectedPriceId || null,
           // Store Rewardful referral ID for affiliate tracking
           rewardful_referral: referral || null,
           source: source || null,
+          registration_type: "subscription",
+          email_verified_at: consumedPass.verifiedAt,
+          ...buildMarketingConsentFields(marketingEmailConsent),
         })
         .select("id, first_name, last_name, email, mobile, zip_code, role, stripe_customer_id")
         .single();
-      if (createError) throw new Error(createError.message);
+      if (createError) {
+        // 23505 = unique_violation (concurrent signup with the same email)
+        if (createError.code === "23505") {
+          return NextResponse.json(
+            { success: false, message: "User already exists with this email" },
+            { status: 400 }
+          );
+        }
+        await releaseRegistrationPass(consumedPass);
+        throw new Error(createError.message);
+      }
 
       user = {
         _id: createdUser.id,
@@ -231,6 +362,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       path: "/",
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365, // 365 days
     });
 
