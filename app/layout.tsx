@@ -1,3 +1,4 @@
+// Deployment trigger: 24 November 2026 — weekly voucher release
 // app/layout.tsx (Server Component)
 import { Inter } from "next/font/google"
 import "./globals.css"
