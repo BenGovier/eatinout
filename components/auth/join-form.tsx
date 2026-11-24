@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { EmailOtpStep } from "@/components/auth/email-otp-step"
 import { MembershipSelector, type BillingOption, type MembershipPlan } from "@/components/auth/membership-selector"
 import { passwordByteLength, requestEmailCode } from "@/lib/email-verification-client"
+import { MOBILE_NUMBER_ERROR, normalizeOptionalMobile } from "@/lib/mobile-number"
 import { getSafeReturnUrl } from "@/lib/safe-return-url"
 
 type JoinFormProps = {
@@ -65,9 +66,9 @@ function getPremiumSummary(priceId: string | null) {
 }
 
 const inputClassName =
-  "h-12 w-full rounded-xl border border-[#ecdfcb] bg-[#faf7f1] px-4 text-base text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9A928A] focus:border-[#EB221C]/60 focus:ring-2 focus:ring-[#EB221C]/20 aria-[invalid=true]:border-[#EB221C]"
+  "h-12 w-full rounded-xl border border-[#ecdfcb] bg-[#faf7f1] px-3.5 text-base text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9A928A] focus:border-[#EB221C] focus:bg-white focus:ring-2 focus:ring-[#EB221C]/20 aria-[invalid=true]:border-[#EB221C]"
 
-const cardClassName = "rounded-2xl border border-[#ecdfcb] bg-white p-6 shadow-md shadow-black/5 md:p-7"
+const cardClassName = "rounded-2xl border border-[#ecdfcb] bg-white p-4 shadow-md shadow-black/5 sm:p-6 md:p-7"
 
 export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, socialPrefill }: JoinFormProps) {
   const [plan, setPlan] = useState<MembershipPlan>(initialPlan ?? "premium")
@@ -76,6 +77,12 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const [lastName, setLastName] = useState(socialPrefill?.lastName ?? "")
   const [email, setEmail] = useState(socialPrefill?.email ?? "")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [confirmTouched, setConfirmTouched] = useState(false)
+  const [mobile, setMobile] = useState("")
+  const [mobileTouched, setMobileTouched] = useState(false)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [zipCode, setZipCode] = useState("")
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [marketingEmailConsent, setMarketingEmailConsent] = useState(true)
@@ -94,6 +101,11 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const passwordTooLong = passwordBytes > MAX_PASSWORD_BYTES
   const providerName = socialPrefill?.provider === "facebook" ? "Facebook" : "Google"
   const isPremium = plan === "premium"
+  const passwordsMismatch = confirmPassword.length > 0 && confirmPassword !== password
+  const showMismatch = passwordsMismatch && (confirmTouched || submitAttempted)
+  const showConfirmMissing = submitAttempted && confirmPassword.length === 0
+  const normalizedMobile = normalizeOptionalMobile(mobile)
+  const showMobileError = normalizedMobile === "invalid" && (mobileTouched || submitAttempted)
 
   useEffect(() => {
     let startingPlan = initialPlan
@@ -142,9 +154,10 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
     event.preventDefault()
     if (isSending) return
     setFormError(null)
+    setSubmitAttempted(true)
     const trimmedEmail = email.trim().toLowerCase()
-    if (!firstName.trim() || !lastName.trim() || !trimmedEmail || !password || !zipCode.trim()) {
-      setFormError("Please fill in all fields.")
+    if (!firstName.trim() || !lastName.trim() || !trimmedEmail || !password || !confirmPassword || !zipCode.trim()) {
+      setFormError("Please fill in all required fields.")
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
@@ -157,6 +170,14 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
     }
     if (passwordTooLong) {
       setFormError("Password is too long. Please use a shorter password.")
+      return
+    }
+    if (confirmPassword !== password) {
+      document.getElementById("join-confirm-password")?.focus()
+      return
+    }
+    if (normalizedMobile === "invalid") {
+      document.getElementById("join-mobile")?.focus()
       return
     }
     if (!agreeToTerms) {
@@ -183,6 +204,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
       lastName: lastName.trim(),
       email,
       password,
+      mobile: normalizedMobile === "invalid" ? null : normalizedMobile,
       zipCode: zipCode.trim().toUpperCase(),
       acceptedTerms: agreeToTerms,
       marketingEmailConsent,
@@ -231,7 +253,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl)}`
 
   return (
-    <div className="flex w-full flex-col gap-5">
+    <div className="flex w-full flex-col gap-4">
       {step === "verify" ? (
         <section className={`flex flex-col gap-4 ${cardClassName}`}>
           <p className="w-fit rounded-full bg-[#EAF4EC] px-3 py-1 text-xs font-semibold text-[#1F5A3A]">
@@ -250,12 +272,9 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
         </section>
       ) : (
         <>
-          <div className="flex flex-col gap-1">
-            <h1 className="text-balance text-2xl font-bold tracking-tight text-[#1A1A1A]">Create your EatinOut account</h1>
-            <p className="text-pretty text-sm leading-relaxed text-[#5C5650]">
-              Discover restaurant offers, show them when you visit, and save on your bill.
-            </p>
-          </div>
+          <h1 className="text-balance text-[22px] font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-2xl">
+            Create your EatinOut account
+          </h1>
 
           <MembershipSelector
             value={plan}
@@ -271,17 +290,17 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
             aria-labelledby="join-details-heading"
             className={cardClassName}
           >
-            <h2 id="join-details-heading" className="mb-4 text-lg font-bold text-[#1A1A1A]">
-              {"A few details and you're in"}
+            <h2 id="join-details-heading" className="mb-3 text-base font-bold text-[#1A1A1A] sm:text-lg">
+              Your details
             </h2>
 
             {socialPrefill && (
-              <p className="mb-4 rounded-xl bg-[#EAF4EC] p-3 text-sm text-[#1F4D2E]">
+              <p className="mb-3 rounded-xl bg-[#EAF4EC] p-3 text-sm text-[#1F4D2E]">
                 {`You're signing up with ${providerName}. Set a password and verify your email to finish.`}
               </p>
             )}
 
-            <form onSubmit={handleDetailsSubmit} className="flex flex-col gap-4" noValidate>
+            <form onSubmit={handleDetailsSubmit} className="flex flex-col gap-3.5" noValidate>
               <div className="grid grid-cols-2 gap-3">
                 <Field id="join-first-name" label="First name">
                   <input
@@ -334,14 +353,11 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
                     aria-invalid={passwordTooShort || passwordTooLong}
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#5C5650] hover:text-[#1A1A1A]"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
+                  <VisibilityToggle
+                    visible={showPassword}
+                    onToggle={() => setShowPassword((value) => !value)}
+                    label="password"
+                  />
                 </div>
                 <p
                   id="join-password-hint"
@@ -351,10 +367,61 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
                 </p>
               </Field>
 
+              <Field id="join-confirm-password" label="Confirm password">
+                <div className="relative">
+                  <input
+                    id="join-confirm-password"
+                    name="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => setConfirmTouched(true)}
+                    className={`${inputClassName} pr-12`}
+                    aria-describedby={showMismatch || showConfirmMissing ? "join-confirm-password-error" : undefined}
+                    aria-invalid={showMismatch || showConfirmMissing}
+                    required
+                  />
+                  <VisibilityToggle
+                    visible={showConfirmPassword}
+                    onToggle={() => setShowConfirmPassword((value) => !value)}
+                    label="confirm password"
+                  />
+                </div>
+                {(showMismatch || showConfirmMissing) && (
+                  <p id="join-confirm-password-error" className="text-xs text-[#C41A15]" role="alert">
+                    {showMismatch ? "Passwords don't match" : "Please confirm your password"}
+                  </p>
+                )}
+              </Field>
+
+              <Field id="join-mobile" label="Mobile number (optional)">
+                <input
+                  id="join-mobile"
+                  name="mobile"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  onBlur={() => setMobileTouched(true)}
+                  className={inputClassName}
+                  maxLength={25}
+                  aria-describedby={showMobileError ? "join-mobile-error" : undefined}
+                  aria-invalid={showMobileError}
+                />
+                {showMobileError && (
+                  <p id="join-mobile-error" className="text-xs text-[#C41A15]" role="alert">
+                    {MOBILE_NUMBER_ERROR}
+                  </p>
+                )}
+              </Field>
+
               <Field id="join-postcode" label="Postcode">
                 <input
                   id="join-postcode"
                   autoComplete="postal-code"
+                  autoCapitalize="characters"
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.toUpperCase())}
                   className={inputClassName}
@@ -440,6 +507,20 @@ function clearPremiumPrice() {
   if (!url.searchParams.has("priceId")) return
   url.searchParams.delete("priceId")
   window.history.replaceState(window.history.state, "", url)
+}
+
+function VisibilityToggle({ visible, onToggle, label }: { visible: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-[#5C5650] hover:text-[#1A1A1A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EB221C]/40"
+      aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+      aria-pressed={visible}
+    >
+      {visible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+    </button>
+  )
 }
 
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
