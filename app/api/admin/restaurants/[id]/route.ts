@@ -4,6 +4,7 @@ import { NextRequest } from "next/server"
 import supabaseAdmin from "@/lib/supabase/admin"
 import { verifyAdminToken } from "@/lib/auth-admin"
 import { getStorageUrl, getStorageFileName } from "@/lib/storage-url"
+import { normalizeOfferClassification } from "@/lib/offer-classification"
 
 const RESTAURANT_DOC_SELECT = `
   id, name, slug, description, address, city, zip_code, phone, email, website, user_id, status,
@@ -87,7 +88,7 @@ const OFFER_DOC_SELECT = `
   dine_in, dine_out, discount_percentage, free_item_name, other_offer_description, offer_type, offer_limit,
   associated_id, redeem_count, max_redemption_limit, is_unlimited, is_deactivated, run_until_further,
   booking_requirement, is_pinned, pinned_at, recurring_type, recurring_start_date, current_period_count,
-  last_reset_date, created_at, updated_at,
+  last_reset_date, created_at, updated_at, offer_classification,
   offer_areas(area_id), offer_tags(tag_id)
 `
 
@@ -110,6 +111,7 @@ const mapOfferDoc = (o: any) => ({
   freeItemName: o.free_item_name,
   otherOfferDescription: o.other_offer_description,
   offerType: o.offer_type,
+  offerClassification: normalizeOfferClassification(o.offer_classification),
   offerLimit: o.offer_limit,
   associatedId: o.associated_id,
   redeemCount: o.redeem_count,

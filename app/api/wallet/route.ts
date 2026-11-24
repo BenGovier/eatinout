@@ -15,6 +15,12 @@ import {
   verifyClaimIntent,
 } from "@/lib/weekly-vouchers";
 import { checkPremiumAccess } from "@/lib/membership";
+import {
+  SAVED_OFFER_STATUS,
+  isExistingOffer,
+  isSavedOfferEntry,
+  normalizeOfferClassification,
+} from "@/lib/offer-classification";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +146,76 @@ async function claimWeeklyVoucherV2(
   );
 }
 
+// Informational save for an Existing restaurant offer: no code, no counters,
+// no weekly allocation, and never routed through claim_weekly_voucher.
+async function saveExistingOffer(userId: string, offer: any) {
+  // wallets_weekly_insert_guard rejects direct inserts for weekly-limited
+  // offers, so a reclassified offer that still carries weekly limits is refused
+  // here with a clear message rather than failing inside the database.
+  if (isWeeklyLimitedOffer(offer)) {
+    return NextResponse.json(
+      {
+        error: "Offer unavailable",
+        code: "existing_offer_weekly_limited",
+        message: "This offer can't be saved right now. Please check back later.",
+      },
+      { status: 409 }
+    );
+  }
+  if (offer.is_deactivated || offer.status === "rejected") {
+    return NextResponse.json(
+      { error: "Offer unavailable", code: "offer_unavailable", message: "This offer is no longer available." },
+      { status: 410 }
+    );
+  }
+
+  const savedResponse = (alreadySaved: boolean) =>
+    NextResponse.json(
+      {
+        message: alreadySaved ? "Offer already saved to your wallet" : "Offer saved to your wallet",
+        saved: true,
+        alreadySaved,
+        entryKind: "saved_offer",
+        redeemCode: null,
+      },
+      { status: alreadySaved ? 200 : 201 }
+    );
+
+  const { data: existingEntry, error: lookupError } = await supabaseAdmin
+    .from("wallets")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("offer_id", offer.id)
+    .eq("entry_kind", "saved_offer")
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Error checking saved offer:", lookupError);
+    return NextResponse.json({ error: "Failed to save offer" }, { status: 500 });
+  }
+  if (existingEntry) return savedResponse(true);
+
+  const { error: insertError } = await supabaseAdmin.from("wallets").insert({
+    id: crypto.randomUUID().replace(/-/g, "").substring(0, 24),
+    user_id: userId,
+    offer_id: offer.id,
+    restaurant_id: offer.restaurant_id || null,
+    offer_status: SAVED_OFFER_STATUS,
+    redeem_code: null,
+    redeem_status: false,
+    entry_kind: "saved_offer",
+  });
+
+  if (insertError) {
+    if (insertError.code === "23505") return savedResponse(true);
+    console.error("Error saving existing offer:", insertError);
+    return NextResponse.json({ error: "Failed to save offer" }, { status: 500 });
+  }
+
+  return savedResponse(false);
+}
+
 // POST: Add offer to user's wallet
 export async function POST(req: NextRequest) {
   try {
@@ -174,7 +250,7 @@ export async function POST(req: NextRequest) {
 
     const { offerId, offerStatus, offerRestaurantId, claimToken } = await req.json();
 
-    if (!offerId || (!offerStatus && !claimToken)) {
+    if (!offerId || typeof offerId !== "string") {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -217,6 +293,18 @@ export async function POST(req: NextRequest) {
 
     if (offerError || !offer) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
+    }
+
+    // Classification comes only from the stored offer, never from the request.
+    if (isExistingOffer(offer)) {
+      return saveExistingOffer(decodedToken.userId, offer);
+    }
+
+    if (!offerStatus && !claimToken) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     if (isWeeklyLimitedOffer(offer)) {
@@ -418,7 +506,7 @@ export async function GET(req: Request) {
     // 1. Fetch wallet entries for the user
     const { data: walletEntriesData, error: walletError } = await supabaseAdmin
       .from("wallets")
-      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, period_start, voucher_expires_at, retired_at, created_at, updated_at")
+      .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, period_start, voucher_expires_at, retired_at, entry_kind, created_at, updated_at")
       .eq("user_id", decodedToken.userId)
       .order("created_at", { ascending: false });
 
@@ -567,7 +655,10 @@ export async function GET(req: Request) {
       const isVoucherExpired =
         isWeeklyVoucher && new Date(voucherExpiresAt as string) <= now;
       const retiredAt: string | null = walletEntry.retired_at ?? null;
-      const isWeeklyLimited = isWeeklyLimitedOffer(offer);
+      // The entry's own kind decides how it is shown, so a later change to the
+      // offer's classification never turns a voucher into a saved offer or back.
+      const isSavedOffer = isSavedOfferEntry(walletEntry);
+      const isWeeklyLimited = !isSavedOffer && isWeeklyLimitedOffer(offer);
 
       let voucherState: "active" | "expired" | "retired" | "unavailable" | null = null;
       if (isWeeklyLimited) {
@@ -601,13 +692,17 @@ export async function GET(req: Request) {
         maxRedemptionLimit: offer.max_redemption_limit,
         isUnlimited: offer.is_unlimited,
         bookingRequirement: offer.booking_requirement || "mandatory",
+        terms: offer.terms ?? null,
+        offerClassification: normalizeOfferClassification(offer.offer_classification),
+        entryKind: isSavedOffer ? "saved_offer" : "voucher",
+        isSavedOffer,
         redeemed: true,
-        redeemCode: canSeeCodes ? walletEntry.redeem_code : null,
+        redeemCode: canSeeCodes && !isSavedOffer ? walletEntry.redeem_code : null,
         premiumRequired: !canSeeCodes,
-        redeemStatus: walletEntry.redeem_status,
-        redeemCodeExpiry: walletEntry.redeem_code_expiry,
+        redeemStatus: isSavedOffer ? false : walletEntry.redeem_status,
+        redeemCodeExpiry: isSavedOffer ? null : walletEntry.redeem_code_expiry,
         walletId: walletEntry.id,
-        isRedeemCodeExpired,
+        isRedeemCodeExpired: isSavedOffer ? false : isRedeemCodeExpired,
         isWeeklyVoucher,
         voucherExpiresAt,
         isVoucherExpired,
@@ -626,7 +721,9 @@ export async function GET(req: Request) {
           ? Boolean(isRedeemCodeExpired)
           : voucherState !== "active");
 
-      if (weeklyInHistory || (walletEntry.redeem_status === true && isRedeemCodeExpired)) {
+      if (isSavedOffer) {
+        activeOffersAll.push(offerData);
+      } else if (weeklyInHistory || (walletEntry.redeem_status === true && isRedeemCodeExpired)) {
         redeemedOffersAll.push(offerData);
       } else {
         activeOffersAll.push(offerData);

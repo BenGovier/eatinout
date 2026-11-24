@@ -111,7 +111,7 @@ export async function POST(request: Request) {
     // indistinguishable from a wallet that does not exist.
     const { data: walletLookup, error: lookupError } = await supabaseAdmin
       .from("wallets")
-      .select("id, offer_id, period_start")
+      .select("id, offer_id, period_start, entry_kind")
       .eq("id", walletId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -120,6 +120,25 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, message: "Wallet entry not found" },
         { status: 404 }
+      );
+    }
+
+    if (lookupError) {
+      console.error("Supabase error looking up wallet for reveal:", lookupError);
+      return NextResponse.json(
+        { success: false, message: "Failed to activate redeem code" },
+        { status: 500 }
+      );
+    }
+
+    if (walletLookup && walletLookup.entry_kind !== "voucher") {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "saved_offer",
+          message: "Saved restaurant offers don't have a code. Check with the restaurant for details.",
+        },
+        { status: 409 }
       );
     }
 
@@ -173,6 +192,7 @@ export async function POST(request: Request) {
       })
       .eq("id", walletId)
       .eq("user_id", userId)
+      .eq("entry_kind", "voucher")
       .select("id, redeem_status, redeem_code_expiry")
       .maybeSingle();
 

@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useAuth } from "@/context/auth-context"
-import { OfferAction, parseValidDays, type OfferDeal, type PremiumAccessState } from "@/components/restaurant-deal"
+import { ExistingOfferLabel, ExistingOfferNote, OfferAction, parseValidDays, type OfferDeal, type PremiumAccessState } from "@/components/restaurant-deal"
 
 interface RestaurantOfferDetailSheetProps {
   deal: OfferDeal | null
@@ -76,6 +76,11 @@ export function RestaurantOfferDetailSheet({
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" aria-hidden="true" />
 
         <div className="pr-8">
+          {deal.offerClassification === "existing" && (
+            <div className="mb-2">
+              <ExistingOfferLabel />
+            </div>
+          )}
           {restaurantName && (
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">{restaurantName}</p>
           )}
@@ -93,6 +98,12 @@ export function RestaurantOfferDetailSheet({
           </Description>
         ) : (
           <Description className="sr-only">Offer details for {deal.offerTitle}</Description>
+        )}
+
+        {deal.offerClassification === "existing" && (
+          <div className="mt-4">
+            <ExistingOfferNote />
+          </div>
         )}
 
         <div className="mt-2 divide-y divide-lines/70">

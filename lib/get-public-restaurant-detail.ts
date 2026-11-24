@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateSlug } from "@/lib/utils";
+import { normalizeOfferClassification } from "@/lib/offer-classification";
 
 const weekOrder = [
   "Monday",
@@ -66,7 +67,7 @@ const RESTAURANT_SELECT =
   "*, restaurant_areas(area_id), restaurant_categories(category_id), restaurant_images(image_url, display_order), restaurant_menu_pdfs(pdf_url, display_order)";
 
 const OFFER_SELECT =
-  "id, title, description, valid_days, valid_hours, start_date, expiry_date, status, is_deactivated, restaurant_id, is_pinned, pinned_at, created_at, terms, associated_id, booking_requirement, is_unlimited, max_redemption_limit, redeem_count, current_period_count, recurring_type, recurring_start_date, last_reset_date";
+  "id, title, description, valid_days, valid_hours, start_date, expiry_date, status, is_deactivated, restaurant_id, is_pinned, pinned_at, created_at, terms, associated_id, booking_requirement, is_unlimited, max_redemption_limit, redeem_count, current_period_count, recurring_type, recurring_start_date, last_reset_date, offer_classification";
 
 // Supabase row -> same shape the old Mongoose doc had, so the code below stays unchanged
 // (cuisine / opening_hours / price_range are read only if those columns exist)
@@ -124,6 +125,7 @@ function toLegacyOffer(o: any) {
     recurringType: o.recurring_type,
     recurringStartDate: o.recurring_start_date,
     lastResetDate: o.last_reset_date,
+    offerClassification: normalizeOfferClassification(o.offer_classification),
   };
 }
 
@@ -386,6 +388,7 @@ export async function getPublicRestaurantDetailByRouteParam(
         terms: offer.terms || "",
         associatedId: offer.associatedId || "",
         bookingRequirement: offer.bookingRequirement || "mandatory",
+        offerClassification: normalizeOfferClassification(offer.offerClassification),
       })),
       dineIn: restaurant.dineIn || false,
       dineOut: restaurant.dineOut || false,

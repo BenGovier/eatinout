@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizeOfferClassification } from "@/lib/offer-classification";
 
 export async function GET(
   request: Request,
@@ -40,6 +41,7 @@ export async function GET(
       runUntilFurther: offer.run_until_further,
       maxRedemptionLimit: offer.max_redemption_limit,
       isUnlimited: offer.is_unlimited,
+      offerClassification: normalizeOfferClassification(offer.offer_classification),
       redeemCount: offer.redeem_count,
       bookingRequirement: offer.booking_requirement,
       recurringType: offer.recurring_type,

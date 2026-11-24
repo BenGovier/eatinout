@@ -56,6 +56,7 @@ interface Offer {
   bookingRequirement:string
   voucherExpiresAt?: string | null
   voucherState?: "active" | "expired" | "retired" | "unavailable" | null
+  entryKind?: "voucher" | "saved_offer"
 }
 
 const UNUSABLE_MESSAGES = {
@@ -415,7 +416,22 @@ export function RedeemCode({ offer, onMarkAsUsed, currentTime, showRedeemCode = 
             </div>
           </div>
 
-          {offer.redeemed && (
+          {offer.redeemed && offer.entryKind === "saved_offer" && (
+            <div
+              role="note"
+              className="mt-3 mb-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-left"
+            >
+              <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Store className="h-4 w-4 text-gray-600" aria-hidden="true" />
+                Existing restaurant offer
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-gray-700">
+                This is an existing restaurant offer. Check with the restaurant for more details and availability.
+              </p>
+            </div>
+          )}
+
+          {offer.redeemed && offer.entryKind !== "saved_offer" && (
             <div className="p-2 mt-3 bg-gradient-to-r from-red-50 to-red-50 rounded-xl text-center mb-2">
               <p className="text-sm text-red-600 font-semibold mb-3">Your Code</p>
               <div className="flex items-center justify-center gap-2 flex-col">

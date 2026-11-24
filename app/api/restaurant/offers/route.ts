@@ -6,8 +6,45 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { render } from "@react-email/render";
 import NewOfferSubmissionEmail from "@/utils/email-templates/NewOfferSubmissionEmail";
 import sendEmail from "@/lib/sendEmail";
+import { isWeeklyLimitedOffer } from "@/lib/weekly-vouchers";
+import {
+  type OfferClassification,
+  isExistingOffer,
+  normalizeOfferClassification,
+  parseOfferClassificationInput,
+} from "@/lib/offer-classification";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
+// Existing offers carry no claim allocation. Storing them as unlimited with no
+// weekly recurrence keeps isWeeklyLimitedOffer false, so the weekly voucher
+// guards never apply to them.
+function limitFieldsFor(
+  classification: OfferClassification,
+  input: {
+    maxRedemptionLimit?: unknown;
+    isUnlimited?: unknown;
+    recurringType?: unknown;
+    recurringStartDate?: unknown;
+  }
+) {
+  if (classification === "existing") {
+    return {
+      max_redemption_limit: null,
+      is_unlimited: true,
+      recurring_type: null,
+      recurring_start_date: null,
+    };
+  }
+  return {
+    max_redemption_limit: (input.maxRedemptionLimit as number | null) ?? null,
+    is_unlimited: !!input.isUnlimited,
+    recurring_type: (input.recurringType as string) || null,
+    recurring_start_date: input.recurringStartDate
+      ? new Date(input.recurringStartDate as string).toISOString()
+      : null,
+  };
+}
 
 /**
  * Calculate offer status based on dates and manual deactivation
@@ -183,6 +220,7 @@ export async function GET(request: Request) {
         .from("wallets")
         .select("offer_id")
         .in("offer_id", offerIds)
+        .eq("entry_kind", "voucher")
         .or("redeem_status.eq.true,offer_status.eq.redeemed"),
     ]);
 
@@ -238,6 +276,7 @@ export async function GET(request: Request) {
         associatedId: offer.associated_id,
         maxRedemptionLimit: offer.max_redemption_limit ?? null,
         isUnlimited: offer.is_unlimited ?? false,
+        offerClassification: normalizeOfferClassification(offer.offer_classification),
         redeemCount,
       };
     });
@@ -319,7 +358,20 @@ export async function POST(req: Request) {
       recurringType,
       recurringStartDate,
       tags,
+      offerClassification,
     } = await req.json();
+
+    const classificationInput = parseOfferClassificationInput(offerClassification);
+    if (!classificationInput.ok) {
+      return NextResponse.json({ message: "Invalid offer classification" }, { status: 400 });
+    }
+    const classification = classificationInput.value;
+    const limits = limitFieldsFor(classification, {
+      maxRedemptionLimit,
+      isUnlimited,
+      recurringType,
+      recurringStartDate,
+    });
 
     const targetRestId = reqRestaurantId || restaurantId;
 
@@ -387,11 +439,9 @@ export async function POST(req: Request) {
         status: initialStatus,
         associated_id: userId,
         run_until_further: !!runUntilFurther,
-        max_redemption_limit: maxRedemptionLimit ?? null,
-        is_unlimited: !!isUnlimited,
+        ...limits,
         booking_requirement: bookingRequirement,
-        recurring_type: recurringType || null,
-        recurring_start_date: recurringStartDate ? new Date(recurringStartDate).toISOString() : null,
+        offer_classification: classification,
         current_period_count: 0,
         last_reset_date: null,
         is_deactivated: false,
@@ -465,6 +515,7 @@ export async function POST(req: Request) {
           runUntilFurther: insertedOffer.run_until_further,
           maxRedemptionLimit: insertedOffer.max_redemption_limit,
           isUnlimited: insertedOffer.is_unlimited,
+          offerClassification: normalizeOfferClassification(insertedOffer.offer_classification),
           bookingRequirement: insertedOffer.booking_requirement,
           recurringType: insertedOffer.recurring_type,
           recurringStartDate: insertedOffer.recurring_start_date,
@@ -544,6 +595,7 @@ export async function PUT(req: Request) {
       recurringType,
       recurringStartDate,
       tags,
+      offerClassification,
     } = await req.json();
 
     // Validate required fields
@@ -581,6 +633,41 @@ export async function PUT(req: Request) {
       );
     }
 
+    // Omitting the field keeps the stored classification, so older clients that
+    // don't send it can never flip an offer by accident.
+    const classificationInput =
+      offerClassification === undefined
+        ? { ok: true as const, value: normalizeOfferClassification(currentOffer.offer_classification) }
+        : parseOfferClassificationInput(offerClassification);
+    if (!classificationInput.ok) {
+      return NextResponse.json({ message: "Invalid offer classification" }, { status: 400 });
+    }
+    const classification = classificationInput.value;
+
+    // Reclassifying a weekly-limited Exclusive offer would discard its weekly
+    // settings and strand vouchers already issued, so it is refused instead.
+    if (
+      classification === "existing" &&
+      !isExistingOffer(currentOffer) &&
+      isWeeklyLimitedOffer(currentOffer)
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "This offer has weekly voucher limits, so it can't be changed to an Existing restaurant offer. Create a new Existing offer instead.",
+          code: "weekly_limited_reclassification",
+        },
+        { status: 409 }
+      );
+    }
+
+    const limits = limitFieldsFor(classification, {
+      maxRedemptionLimit,
+      isUnlimited,
+      recurringType,
+      recurringStartDate,
+    });
+
     // Calculate status based on dates and manual deactivation
     // If status is explicitly set to inactive, preserve it by setting deactivated flag
     const isManuallyInactive = status === "inactive" && currentOffer.status === "inactive";
@@ -617,11 +704,9 @@ export async function PUT(req: Request) {
       dine_out: !!dineOut,
       status: calculatedStatus,
       run_until_further: !!runUntilFurther,
-      max_redemption_limit: maxRedemptionLimit ?? null,
-      is_unlimited: !!isUnlimited,
+      ...limits,
       booking_requirement: bookingRequirement,
-      recurring_type: recurringType || null,
-      recurring_start_date: recurringStartDate ? new Date(recurringStartDate).toISOString() : null,
+      offer_classification: classification,
       is_deactivated: finalDeactivated,
       updated_at: new Date().toISOString(),
     };
@@ -668,6 +753,7 @@ export async function PUT(req: Request) {
         bookingRequirement: updatedOffer.booking_requirement,
         maxRedemptionLimit: updatedOffer.max_redemption_limit,
         isUnlimited: updatedOffer.is_unlimited,
+        offerClassification: normalizeOfferClassification(updatedOffer.offer_classification),
         recurringType: updatedOffer.recurring_type,
         recurringStartDate: updatedOffer.recurring_start_date,
       },

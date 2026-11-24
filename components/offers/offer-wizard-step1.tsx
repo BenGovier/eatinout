@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle2, Sparkles } from "lucide-react"
+import { OfferClassificationSelector } from "@/components/offers/offer-classification-selector"
+import type { OfferClassification } from "@/lib/offer-classification"
 
 interface Restaurant {
   _id: string
@@ -27,6 +29,9 @@ interface OfferWizardStep1Props {
   onFreeItemChange: (value: string) => void
   onOtherOfferDescriptionChange: (value: string) => void
   onUpgradeToPaid?: () => void
+  offerClassification?: OfferClassification
+  onOfferClassificationChange?: (value: OfferClassification) => void
+  disableExistingClassification?: boolean
 }
 
 export function OfferWizardStep1({
@@ -43,6 +48,9 @@ export function OfferWizardStep1({
   onFreeItemChange,
   onOtherOfferDescriptionChange,
   onUpgradeToPaid,
+  offerClassification,
+  onOfferClassificationChange,
+  disableExistingClassification = false,
 }: OfferWizardStep1Props) {
   return (
     <div className="space-y-6">
@@ -61,6 +69,15 @@ export function OfferWizardStep1({
           </SelectContent>
         </Select>
       </div>
+
+      {offerClassification && onOfferClassificationChange && (
+        <OfferClassificationSelector
+          value={offerClassification}
+          onChange={onOfferClassificationChange}
+          disabledExisting={disableExistingClassification}
+          disabledExistingReason="This offer has weekly voucher limits, so it can't become an Existing offer. Create a new Existing offer instead."
+        />
+      )}
 
       <div>
         <h3 className="mb-4 text-lg font-semibold">Choose Your Offer Type</h3>

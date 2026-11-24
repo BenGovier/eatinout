@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { OfferClassificationBadge } from "@/components/offers/offer-classification-selector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -55,6 +56,7 @@ export default function RestaurantDetailPage({ params }: any) {
   const router = useRouter();
   const [restaurant, setRestaurant] = useState<any>(null);
   const [offers, setOffers] = useState([]);
+  const [classificationFilter, setClassificationFilter] = useState<"all" | "exclusive" | "existing">("all");
   const [loading, setLoading] = useState(true);
   const [selectedOffer, setSelectedOffer] = useState<any>(null);
   const [error, setError] = useState(null);
@@ -642,7 +644,28 @@ export default function RestaurantDetailPage({ params }: any) {
                           Add Offer
                         </Button>
                       </div>
-                      {offers.map((offer: any) => (
+                      <div role="group" aria-label="Filter offers by classification" className="flex flex-wrap gap-2">
+                        {(["all", "exclusive", "existing"] as const).map((value) => (
+                          <Button
+                            key={value}
+                            type="button"
+                            size="sm"
+                            variant={classificationFilter === value ? "default" : "outline"}
+                            aria-pressed={classificationFilter === value}
+                            className={classificationFilter === value ? "bg-red-600 hover:bg-red-700" : ""}
+                            onClick={() => setClassificationFilter(value)}
+                          >
+                            {value === "all" ? "All" : value === "exclusive" ? "Exclusive" : "Existing"}
+                          </Button>
+                        ))}
+                      </div>
+                      {offers
+                        .filter(
+                          (offer: any) =>
+                            classificationFilter === "all" ||
+                            (offer.offerClassification === "existing" ? "existing" : "exclusive") === classificationFilter,
+                        )
+                        .map((offer: any) => (
                         <Card key={offer._id}>
                           {selectedOffer && selectedOffer._id === offer._id ? (
                             <CardContent className="p-4">
@@ -815,6 +838,7 @@ export default function RestaurantDetailPage({ params }: any) {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <h3 className="font-medium">{offer.title}</h3>
+                                    <OfferClassificationBadge classification={offer.offerClassification} />
                                     {offer.isPinned && (
                                       <Badge
                                         variant="outline"

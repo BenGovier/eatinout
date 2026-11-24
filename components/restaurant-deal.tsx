@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles, Loader2, RefreshCw, Ticket } from "lucide-react"
+import { MapPin, Phone, Clock, CalendarDays, ChevronRight, ChevronDown, Lock, Sparkles, Loader2, RefreshCw, Ticket, Store } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 
@@ -21,6 +21,7 @@ interface Deal {
   validHours?: string
   bookingRequirement: string
   associatedId: string
+  offerClassification?: "exclusive" | "existing"
 }
 
 interface RestaurantDealProps {
@@ -117,8 +118,29 @@ export function OfferAction({
       className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-base rounded-lg shadow-[0_4px_14px_rgba(227,30,36,0.25)] focus:ring-2 focus:ring-primary focus:ring-offset-2"
       disabled={isLoading === deal.id}
     >
-      {isLoading === deal.id ? "Adding..." : !canViewFullTerms ? loggedOutLabel : "Add to wallet"}
+      {isLoading === deal.id
+        ? deal.offerClassification === "existing" ? "Saving..." : "Adding..."
+        : !canViewFullTerms
+          ? loggedOutLabel
+          : deal.offerClassification === "existing" ? "Save to wallet" : "Add to wallet"}
     </Button>
+  )
+}
+
+export function ExistingOfferLabel() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-lines bg-white px-2 py-0.5 text-[11px] font-semibold text-dark-ink/70">
+      <Store className="h-3 w-3" aria-hidden="true" />
+      Existing restaurant offer
+    </span>
+  )
+}
+
+export function ExistingOfferNote() {
+  return (
+    <p className="rounded-xl border border-lines bg-soft-bg/60 p-3 text-sm leading-relaxed text-dark-ink/75">
+      This is a promotion the restaurant already runs, not an exclusive EatinOut discount. Save it to your wallet to keep the details handy. No voucher code is needed.
+    </p>
   )
 }
 
@@ -140,6 +162,7 @@ interface RestaurantOfferCardProps {
 export function RestaurantOfferCard({ deal, onView, premiumAccess, style }: RestaurantOfferCardProps) {
   const daysSummary = summariseValidDays(deal.validDays)
   const isLocked = premiumAccess === "denied"
+  const isExisting = deal.offerClassification === "existing"
 
   return (
     <button
@@ -154,8 +177,9 @@ export function RestaurantOfferCard({ deal, onView, premiumAccess, style }: Rest
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {(deal.isPinned || isLocked) && (
+        {(deal.isPinned || isLocked || isExisting) && (
           <span className="flex flex-wrap items-center gap-1.5">
+            {isExisting && <ExistingOfferLabel />}
             {deal.isPinned && (
               <Badge className="border-0 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10">
                 <Sparkles className="mr-1 h-3 w-3" aria-hidden="true" />

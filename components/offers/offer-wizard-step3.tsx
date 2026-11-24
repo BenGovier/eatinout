@@ -24,6 +24,7 @@ interface OfferWizardStep3Props {
   onStartDateChange: (value: string) => void
   onEndDateChange: (value: string) => void
   onRunUntilFurtherNoticeChange: (checked: boolean) => void
+  offerClassification?: "exclusive" | "existing"
 }
 
 export function OfferWizardStep3({
@@ -40,7 +41,9 @@ export function OfferWizardStep3({
   onStartDateChange,
   onEndDateChange,
   onRunUntilFurtherNoticeChange,
+  offerClassification = "exclusive",
 }: OfferWizardStep3Props) {
+  const isExisting = offerClassification === "existing"
   const TIME_INTERVAL_MINUTES = 1
 
   const roundUpToInterval = (date: Date, minutes: number) => {
@@ -147,7 +150,7 @@ export function OfferWizardStep3({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Redemption Limits & Duration</h3>
+      <h3 className="text-lg font-semibold">{isExisting ? "Offer Duration" : "Redemption Limits & Duration"}</h3>
 
       {isFirstOffer && (
         <Alert className="border-[#E31E24] bg-red-50">
@@ -158,6 +161,15 @@ export function OfferWizardStep3({
         </Alert>
       )}
 
+      {isExisting ? (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Existing restaurant offers don&apos;t use voucher codes or claim limits. Customers save the details to
+            their wallet and check availability with you.
+          </AlertDescription>
+        </Alert>
+      ) : (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Checkbox
@@ -210,6 +222,7 @@ export function OfferWizardStep3({
           </div>
         )}
       </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="start-date">Date Offer Appears On The App *</Label>

@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { OfferClassificationBadge } from "@/components/offers/offer-classification-selector"
 import { Progress } from "@/components/ui/progress"
 import { MoreHorizontal, PlusCircle, Copy, Check, Sparkles, CreditCard, CheckCircle2, Zap, Gift, ArrowLeft, ArrowRight } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "react-toastify"
+import { normalizeOfferClassification, type OfferClassification } from "@/lib/offer-classification"
 import {
   OfferWizardStep1,
   OfferWizardStep2,
@@ -133,6 +135,9 @@ export default function OffersPage() {
   const [rawTags, setRawTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState("")
   const [isUnlimited, setIsUnlimited] = useState(true)
+  const [offerClassification, setOfferClassification] = useState<OfferClassification>("exclusive")
+  const [lockedFromExisting, setLockedFromExisting] = useState(false)
+  const isExistingClassification = offerClassification === "existing"
   const [redemptionLimit, setRedemptionLimit] = useState("")
   const [redemptionResetPeriod, setRedemptionResetPeriod] = useState<"none" | "weekly" | "monthly">("none")
   const [startDate, setStartDate] = useState("")
@@ -248,6 +253,7 @@ export default function OffersPage() {
       const data = await response.json()
 
       const formattedOffers = data.offers.map((offer: any) => ({
+        offerClassification: offer.offerClassification,
         id: offer.id,
         title: offer.title,
         description: offer.description,
@@ -427,6 +433,8 @@ export default function OffersPage() {
     setSelectedTags([])
     setCustomTag("")
     setIsUnlimited(true)
+    setOfferClassification("exclusive")
+    setLockedFromExisting(false)
     setRedemptionLimit("")
     setRedemptionResetPeriod("none")
     setStartDate("")
@@ -521,6 +529,11 @@ export default function OffersPage() {
       }
 
       setIsUnlimited(data.isUnlimited ?? true)
+      const loadedClassification = normalizeOfferClassification(data.offerClassification)
+      setOfferClassification(loadedClassification)
+      setLockedFromExisting(
+        loadedClassification === "exclusive" && !data.isUnlimited && data.recurringType === "weekly"
+      )
       setRedemptionLimit(data.maxRedemptionLimit?.toString() || "")
       setRedemptionResetPeriod((data.recurringType || "none") as "none" | "weekly" | "monthly")
 
@@ -720,8 +733,8 @@ export default function OffersPage() {
   const canProceedStep2 = offerTitle.trim() && offerDescription.trim()
   // For first offer, we don't need end date validation since it's disabled
   const canProceedStep3 = isFirstOffer && wizardMode === "create"
-    ? (isUnlimited || redemptionLimit) && startDate
-    : (isUnlimited || redemptionLimit) && startDate && (runUntilFurtherNotice || endDate)
+    ? (isExistingClassification || isUnlimited || redemptionLimit) && startDate
+    : (isExistingClassification || isUnlimited || redemptionLimit) && startDate && (runUntilFurtherNotice || endDate)
   const canProceedStep4 = (() => {
     const hasValidDays = validAllWeek || Object.values(validDays).some(day => day)
     const hasValidTimes = startTime && endTime && startTime < endTime
@@ -811,6 +824,7 @@ export default function OffersPage() {
         bookingRequirement: bookingType === "not-needed" ? "notNeeded" : bookingType,
         maxRedemptionLimit: isUnlimited ? null : redemptionLimit,
         isUnlimited: isUnlimited,
+        offerClassification,
         recurringType: recurringType,
         recurringStartDate: recurringType ? new Date() : null,
         tags: selectedTags,
@@ -928,6 +942,7 @@ export default function OffersPage() {
                           >
                             {offer.status === "active" ? "Active" : offer.status === "inactive" ? "Inactive" : offer.status === "expired" ? "Expired" : "Inactive"}
                           </Badge>
+                          <OfferClassificationBadge classification={(offer as any).offerClassification} />
                         </div>
 
                         {offer.description && (
@@ -1235,6 +1250,9 @@ export default function OffersPage() {
                   console.log('Other offer description:', value)
                 }}
                 onUpgradeToPaid={handleSubscribe}
+                offerClassification={offerClassification}
+                onOfferClassificationChange={setOfferClassification}
+                disableExistingClassification={lockedFromExisting}
               />
             )}
 
@@ -1257,6 +1275,7 @@ export default function OffersPage() {
             {wizardStep === 3 && (
               <OfferWizardStep3
                 isUnlimited={isUnlimited}
+                offerClassification={offerClassification}
                 redemptionLimit={redemptionLimit}
                 redemptionResetPeriod={redemptionResetPeriod}
                 startDate={startDate}

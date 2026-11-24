@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
         .from("wallets")
         .select("id, user_id, offer_id, restaurant_id, offer_status, redeem_code, redeem_code_expiry, redeem_status, created_at, updated_at")
         .eq("offer_status", query.offerStatus)
+        .eq("entry_kind", "voucher")
         .order("created_at", { ascending: false }) // Sort by createdAt to match restaurant API
         .order("id", { ascending: true })
         .range(from, from + SUPABASE_PAGE_SIZE - 1)

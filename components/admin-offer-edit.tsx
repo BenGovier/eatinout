@@ -28,6 +28,8 @@ import { AlertCircle, X, ChevronDown } from "lucide-react";
 import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
 import { cn } from "@/lib/utils";
+import { OfferClassificationSelector } from "@/components/offers/offer-classification-selector";
+import { normalizeOfferClassification, type OfferClassification } from "@/lib/offer-classification";
 
 const daysOfWeek = [
   { id: "monday", label: "Monday" },
@@ -75,6 +77,7 @@ export default function AdminEditOfferPage({
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<Array<{ _id: string; name: string; slug?: string }>>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [lockedFromExisting, setLockedFromExisting] = useState(false);
   const [isTagsDropdownOpen, setIsTagsDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -99,6 +102,7 @@ export default function AdminEditOfferPage({
     maxRedemptionLimit: "",
     isUnlimited: false,
     recurringType: "never",
+    offerClassification: "exclusive" as OfferClassification,
     discountPercentage: "",
     freeItemName: "",
     otherOfferDescription: "",
@@ -243,11 +247,17 @@ export default function AdminEditOfferPage({
         maxRedemptionLimit: data.maxRedemptionLimit != null ? data.maxRedemptionLimit.toString() : "",
         isUnlimited: data.isUnlimited,
         recurringType: data.recurringType || "never",
+        offerClassification: normalizeOfferClassification(data.offerClassification),
         discountPercentage: data.discountPercentage?.toString() || "",
         freeItemName: data.freeItemName || "",
         otherOfferDescription: data.otherOfferDescription || "",
         tags: tagIds,
       });
+      setLockedFromExisting(
+        normalizeOfferClassification(data.offerClassification) === "exclusive" &&
+          !data.isUnlimited &&
+          data.recurringType === "weekly"
+      );
     } catch (error) {
       console.error("Error loading offer data:", error);
       toast.error("Failed to load offer data. Please try again.");
@@ -426,6 +436,7 @@ export default function AdminEditOfferPage({
         recurringType: formData.isUnlimited ? null : (formData.maxRedemptionLimit ? formData.recurringType : null),
         recurringStartDate: formData.isUnlimited ? null : (formData.maxRedemptionLimit && formData.recurringType !== "never" ? new Date() : null),
         tags: selectedTags,
+        offerClassification: formData.offerClassification,
         discountPercentage: formData.offerType === "percentOff" ? parseInt(formData.discountPercentage) : null,
         freeItemName: formData.offerType === "freeItem" ? formData.freeItemName.trim() : null,
         otherOfferDescription: formData.offerType === "other" ? formData.otherOfferDescription.trim() : null,
@@ -554,6 +565,17 @@ export default function AdminEditOfferPage({
                   {errors.description}
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Offer classification</Label>
+              <OfferClassificationSelector
+                idPrefix="admin-offer"
+                value={formData.offerClassification}
+                onChange={value => setFormData(prev => ({ ...prev, offerClassification: value }))}
+                disabledExisting={lockedFromExisting}
+                disabledExistingReason="This offer has weekly voucher limits. Create a new Existing offer instead so issued vouchers stay valid."
+              />
             </div>
 
             <div className="space-y-2">
@@ -732,7 +754,12 @@ export default function AdminEditOfferPage({
               )}
             </div>
 
-            <div className="space-y-2">
+            {formData.offerClassification === "existing" && (
+              <p className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                Existing restaurant offers have no voucher codes or claim limits. Customers save the details to their wallet.
+              </p>
+            )}
+            <div className={cn("space-y-2", formData.offerClassification === "existing" && "hidden")}>
               <Label>Redemption Limit</Label>
 
               <Input

@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId)
           .eq("offer_id", offerId)
+          .eq("entry_kind", "voucher")
           .is("period_start", null)
           .gte("created_at", periodStart)
           .lt("created_at", periodEnd),

@@ -90,6 +90,7 @@ export async function GET() {
         .from("wallets")
         .select("id", { count: "exact", head: true })
         .in("restaurant_id", targetRestaurantIds)
+        .eq("entry_kind", "voucher")
         .or("redeem_status.eq.true,offer_status.eq.redeemed");
 
       totalRedemptions = totalCount || 0;
@@ -99,6 +100,7 @@ export async function GET() {
         .from("wallets")
         .select("id", { count: "exact", head: true })
         .in("restaurant_id", targetRestaurantIds)
+        .eq("entry_kind", "voucher")
         .or("redeem_status.eq.true,offer_status.eq.redeemed")
         .gte("created_at", startOfMonth);
 
@@ -109,6 +111,7 @@ export async function GET() {
         .from("wallets")
         .select("id, redeem_code, redeem_status, redeem_code_expiry, offer_id, user_id, restaurant_id, created_at")
         .in("restaurant_id", targetRestaurantIds)
+        .eq("entry_kind", "voucher")
         .or("redeem_status.eq.true,offer_status.eq.redeemed")
         .order("created_at", { ascending: false })
         .limit(5);

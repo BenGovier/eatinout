@@ -335,11 +335,16 @@ export function RestaurantPageClient({
       router.push(`/sign-up?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
+    const targetOffer = offers.find((offer: any) => offer.id === offerId);
+    if (targetOffer?.offerClassification === "existing") {
+      legacyClaim(offerId, offerRestaurantId);
+      return;
+    }
     requestClaim(offerId, offerRestaurantId, {
       onLegacyClaim: legacyClaim,
       onClaimed: () => setRedeemState(prev => ({ ...prev, showAnimation: true })),
     });
-  }, [isAuthenticated, router, requestClaim, legacyClaim]);
+  }, [isAuthenticated, router, requestClaim, legacyClaim, offers]);
 
   const handleAnimationComplete = useCallback(() => {
     setRedeemState(prev => ({ ...prev, showAnimation: false, loadingId: null }));

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Sparkles, Gift, ArrowLeft, ArrowRight } from "lucide-react"
 import { toast } from "react-toastify"
+import { normalizeOfferClassification, type OfferClassification } from "@/lib/offer-classification"
 import {
   OfferWizardStep1,
   OfferWizardStep2,
@@ -71,6 +72,9 @@ export default function EditOfferPage() {
   const [rawTags, setRawTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState("")
   const [isUnlimited, setIsUnlimited] = useState(true)
+  const [offerClassification, setOfferClassification] = useState<OfferClassification>("exclusive")
+  const [lockedFromExisting, setLockedFromExisting] = useState(false)
+  const isExistingClassification = offerClassification === "existing"
   const [redemptionLimit, setRedemptionLimit] = useState("")
   const [redemptionResetPeriod, setRedemptionResetPeriod] = useState<"none" | "weekly" | "monthly">("none")
   const [startDate, setStartDate] = useState("")
@@ -192,6 +196,11 @@ export default function EditOfferPage() {
       }
       
       setIsUnlimited(data.isUnlimited ?? true)
+      const loadedClassification = normalizeOfferClassification(data.offerClassification)
+      setOfferClassification(loadedClassification)
+      setLockedFromExisting(
+        loadedClassification === "exclusive" && !data.isUnlimited && data.recurringType === "weekly"
+      )
       setRedemptionLimit(data.maxRedemptionLimit?.toString() || "")
       setRedemptionResetPeriod((data.recurringType || "none") as "none" | "weekly" | "monthly")
       
@@ -383,7 +392,7 @@ export default function EditOfferPage() {
   const canProceedStep1 = restaurantId && offerType && (offerType === "bogo" || (offerType === "discount" && discountPercentage))
   const canProceedStep2 = offerTitle.trim() && offerDescription.trim()
   const canProceedStep3 =
-    (isUnlimited || redemptionLimit) &&
+    (isExistingClassification || isUnlimited || redemptionLimit) &&
     startDate &&
     (runUntilFurtherNotice || endDate)
   const canProceedStep4 = (() => {
@@ -463,6 +472,7 @@ export default function EditOfferPage() {
         bookingRequirement: bookingType === "not-needed" ? "notNeeded" : bookingType,
         maxRedemptionLimit: isUnlimited ? null : redemptionLimit,
         isUnlimited: isUnlimited,
+        offerClassification,
         recurringType: recurringType,
         recurringStartDate: recurringType ? new Date() : null,
         tags: selectedTags,
@@ -553,6 +563,9 @@ export default function EditOfferPage() {
                 onOfferTypeChange={(value) => setOfferType(value as "" | "discount" | "bogo")}
                 onDiscountChange={setDiscountPercentage}
                 onUpgradeToPaid={handleSubscribe}
+                offerClassification={offerClassification}
+                onOfferClassificationChange={setOfferClassification}
+                disableExistingClassification={lockedFromExisting}
               />
             )}
 
@@ -575,6 +588,7 @@ export default function EditOfferPage() {
             {wizardStep === 3 && (
               <OfferWizardStep3
                 isUnlimited={isUnlimited}
+                offerClassification={offerClassification}
                 redemptionLimit={redemptionLimit}
                 redemptionResetPeriod={redemptionResetPeriod}
                 startDate={startDate}
