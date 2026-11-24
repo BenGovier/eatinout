@@ -1,3 +1,4 @@
+// Manual publish marker — weekly voucher release — 24 Nov 2026
 // app/layout.tsx (Server Component)
 import { Inter } from "next/font/google"
 import "./globals.css"
