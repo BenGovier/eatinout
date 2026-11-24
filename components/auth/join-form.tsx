@@ -25,7 +25,8 @@ type JoinFormProps = {
 }
 
 const MAX_PASSWORD_BYTES = 72
-const PLAN_STORAGE_KEY = "eio_join_plan"
+// Previously restored on plain /join and overrode the Premium default; cleared so old values can't linger.
+const LEGACY_PLAN_STORAGE_KEY = "eio_join_plan"
 const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || null
 const IS_STRIPE_TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "").startsWith("pk_test_")
 const TEST_MODE_PRICE = "Test mode"
@@ -108,15 +109,8 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
   const showMobileError = normalizedMobile === "invalid" && (mobileTouched || submitAttempted)
 
   useEffect(() => {
-    let startingPlan = initialPlan
-    if (!initialPlan) {
-      const saved = sessionStorage.getItem(PLAN_STORAGE_KEY)
-      if (saved === "premium" || saved === "free") {
-        setPlan(saved)
-        startingPlan = saved
-      }
-    }
-    if (startingPlan === "free") {
+    sessionStorage.removeItem(LEGACY_PLAN_STORAGE_KEY)
+    if (initialPlan === "free") {
       setSelectedPriceId(MONTHLY_PRICE_ID)
       clearPremiumPrice()
     }
@@ -132,7 +126,6 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
 
   const changePlan = (next: MembershipPlan) => {
     setPlan(next)
-    sessionStorage.setItem(PLAN_STORAGE_KEY, next)
     const url = new URL(window.location.href)
     url.searchParams.set("plan", next)
     if (next === "free") {
@@ -192,7 +185,6 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
       setFormError(result.message)
       return
     }
-    sessionStorage.setItem(PLAN_STORAGE_KEY, plan)
     setEmail(trimmedEmail)
     setCooldown(result.cooldownSeconds)
     setStep("verify")
@@ -228,8 +220,6 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
     try {
       const data = await registerAccount(verificationPass)
       const dataLayer = (window as Window & { dataLayer?: Record<string, unknown>[] }).dataLayer
-      sessionStorage.removeItem(PLAN_STORAGE_KEY)
-
       if (isPremium) {
         dataLayer?.push({ event: "signup_complete" })
         if (explicitReturnUrl) sessionStorage.setItem("redirectUrl", explicitReturnUrl)
@@ -466,7 +456,7 @@ export function JoinForm({ returnUrl, explicitReturnUrl, initialPlan, priceId, s
                 disabled={isSending}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#EB221C] text-lg font-semibold text-white transition-colors hover:bg-[#D11D17] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EB221C] focus-visible:ring-offset-2 disabled:opacity-60"
               >
-                {isSending ? "Sending code..." : isPremium ? "Continue with 30-day trial" : "Create my free account"}
+                {isSending ? "Sending code..." : isPremium ? "Start my 30-day free trial" : "Create my free account"}
                 {!isSending && <ArrowRight className="h-5 w-5" aria-hidden="true" />}
               </button>
 

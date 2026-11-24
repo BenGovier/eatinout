@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import { Check } from "lucide-react"
 
 export type MembershipPlan = "premium" | "free"
 
@@ -22,6 +22,8 @@ type MembershipSelectorProps = {
   disabled?: boolean
 }
 
+const PREMIUM_BENEFITS = ["Up to 50% off", "Local restaurant offers", "Exclusive discounts", "Member giveaways"]
+
 export function MembershipSelector({
   value,
   onChange,
@@ -34,35 +36,89 @@ export function MembershipSelector({
   const isPremium = value === "premium"
 
   return (
-    <fieldset className="flex flex-col gap-2" disabled={disabled}>
+    <fieldset className="flex flex-col gap-2.5" disabled={disabled}>
       <legend className="mb-2 text-sm font-semibold text-[#1A1A1A]">Choose your membership</legend>
 
-      <MembershipOption
-        id="plan-premium"
-        checked={isPremium}
-        onSelect={() => onChange("premium")}
-        featured
-        title="Premium membership"
-        tag="30 days free"
-        tagLabel="30-day free trial"
-        description="Local restaurant discounts and exclusive offers"
-        footnote={premiumSummary}
-        extra={
-          isPremium && billingOptions.length > 1 ? (
-            <BillingChoices options={billingOptions} selectedPriceId={selectedPriceId} onSelect={onPriceChange} />
-          ) : null
-        }
-      />
+      <div
+        className={`overflow-hidden rounded-2xl border-2 transition-all ${
+          isPremium
+            ? "border-[#EB221C] bg-[#FFF5F3] shadow-lg shadow-[#EB221C]/10"
+            : "border-[#EB221C]/35 bg-white hover:border-[#EB221C]/60"
+        }`}
+      >
+        <label
+          htmlFor="plan-premium"
+          className="flex cursor-pointer items-start gap-3 px-4 py-3.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-[#EB221C]/40"
+        >
+          <input
+            type="radio"
+            id="plan-premium"
+            name="membership"
+            className="sr-only"
+            checked={isPremium}
+            onChange={() => onChange("premium")}
+            aria-describedby="plan-premium-description"
+          />
+          <span className="pt-1">
+            <RadioDot checked={isPremium} accent="#EB221C" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-2">
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#B3150F]">Premium membership</span>
+              <span className="shrink-0 rounded-full bg-[#EB221C] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                30 days free
+              </span>
+            </span>
+            <span id="plan-premium-description" className="flex flex-col gap-2">
+              <span className="text-pretty text-[17px] font-bold leading-snug text-[#1A1A1A]">
+                Exclusive savings at local restaurants
+              </span>
+              <span role="list" className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {PREMIUM_BENEFITS.map((benefit) => (
+                  <span key={benefit} role="listitem" className="flex items-start gap-1.5 text-[13px] leading-snug text-[#3A3A3A]">
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#EB221C]" strokeWidth={3} aria-hidden="true" />
+                    {benefit}
+                  </span>
+                ))}
+              </span>
+              <span className="text-[13px] font-semibold leading-snug text-[#1A1A1A]">
+                {"Free for 30 days. "}
+                <span className="font-medium text-[#5C5650]">{premiumSummary}</span>
+              </span>
+            </span>
+          </span>
+        </label>
+        {isPremium && billingOptions.length > 1 && (
+          <BillingChoices options={billingOptions} selectedPriceId={selectedPriceId} onSelect={onPriceChange} />
+        )}
+      </div>
 
-      <MembershipOption
-        id="plan-free"
-        checked={value === "free"}
-        onSelect={() => onChange("free")}
-        title="Free account"
-        tag="£0"
-        tagLabel="Free"
-        description="Access national brand offers without a subscription"
-      />
+      <label
+        htmlFor="plan-free"
+        className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-2.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1A1A1A]/30 ${
+          value === "free" ? "border-[#1A1A1A] bg-white" : "border-[#E6DCCF] bg-white/70 hover:border-[#D9C7B4]"
+        }`}
+      >
+        <input
+          type="radio"
+          id="plan-free"
+          name="membership"
+          className="sr-only"
+          checked={value === "free"}
+          onChange={() => onChange("free")}
+          aria-describedby="plan-free-description"
+        />
+        <RadioDot checked={value === "free"} accent="#1A1A1A" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold text-[#1A1A1A]">Free account</span>
+            <span className="shrink-0 text-sm font-bold text-[#1A1A1A]">£0</span>
+          </span>
+          <span id="plan-free-description" className="text-xs leading-snug text-[#5C5650]">
+            Access national brand offers. No subscription needed.
+          </span>
+        </span>
+      </label>
     </fieldset>
   )
 }
@@ -115,82 +171,6 @@ function BillingChoices({
         )
       })}
     </fieldset>
-  )
-}
-
-type MembershipOptionProps = {
-  id: string
-  checked: boolean
-  onSelect: () => void
-  featured?: boolean
-  title: string
-  tag: string
-  tagLabel: string
-  description: string
-  footnote?: string
-  extra?: React.ReactNode
-}
-
-function MembershipOption({
-  id,
-  checked,
-  onSelect,
-  featured,
-  title,
-  tag,
-  tagLabel,
-  description,
-  footnote,
-  extra,
-}: MembershipOptionProps) {
-  const descriptionId = `${id}-description`
-
-  return (
-    <div
-      className={`overflow-hidden rounded-xl border-2 transition-colors ${
-        checked
-          ? featured
-            ? "border-[#EB221C] bg-[#FFF5F3]"
-            : "border-[#1A1A1A] bg-white"
-          : "border-[#E6DCCF] bg-white hover:border-[#D9C7B4]"
-      }`}
-    >
-      <label
-        htmlFor={id}
-        className="flex cursor-pointer items-start gap-3 px-3.5 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-[#EB221C]/40"
-      >
-        <input
-          type="radio"
-          id={id}
-          name="membership"
-          className="sr-only"
-          checked={checked}
-          onChange={onSelect}
-          aria-describedby={descriptionId}
-        />
-        <span className="pt-0.5">
-          <RadioDot checked={checked} accent={featured ? "#EB221C" : "#1A1A1A"} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-center justify-between gap-2">
-            <span className="text-[15px] font-bold leading-tight text-[#1A1A1A]">{title}</span>
-            <span
-              aria-label={tagLabel}
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
-                featured ? "bg-[#EB221C] text-white" : "bg-[#F1EBE3] text-[#1A1A1A]"
-              }`}
-            >
-              {tag}
-            </span>
-          </span>
-          <span id={descriptionId} className="flex flex-col gap-0.5">
-            <span className="text-[13px] leading-snug text-[#3A3A3A]">{description}</span>
-            {footnote && <span className="text-xs font-medium leading-snug text-[#5C5650]">{footnote}</span>}
-          </span>
-        </span>
-      </label>
-      {extra}
-    </div>
   )
 }
 
