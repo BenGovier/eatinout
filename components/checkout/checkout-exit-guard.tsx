@@ -3,10 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ModalImageWithHotspots, type Hotspot } from "@/components/prototypes/eatinout-exit-demo/image-hotspot"
+import { getSafeReturnUrl } from "@/lib/safe-return-url"
+import { isLeavingCheckout, leaveCheckout as leaveCheckoutHistory, registerCheckoutEntry } from "@/lib/checkout-history"
 
 const ASSET = "/design/checkout-exit-demo/eatinout_checkout_exit_modal_exact.png"
 
-export function CheckoutExitGuard({ active = true }: { active?: boolean }) {
+export function CheckoutExitGuard({
+  active = true,
+  returnUrl = "/restaurants",
+  busy = false,
+}: {
+  active?: boolean
+  returnUrl?: string
+  busy?: boolean
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [entered, setEntered] = useState(false)
@@ -15,13 +25,19 @@ export function CheckoutExitGuard({ active = true }: { active?: boolean }) {
 
   // Push a dummy history entry so the browser Back button triggers a
   // popstate we can intercept, instead of navigating away immediately.
+  const entryRegisteredRef = useRef(false)
+
   useEffect(() => {
     if (!active) return
+    if (!entryRegisteredRef.current) {
+      entryRegisteredRef.current = true
+      registerCheckoutEntry()
+    }
     window.history.pushState({ checkoutGuard: true }, "")
     guardActiveRef.current = true
 
     const handlePopState = () => {
-      if (!guardActiveRef.current) return
+      if (!guardActiveRef.current || isLeavingCheckout()) return
       window.history.pushState({ checkoutGuard: true }, "")
       setOpen(true)
     }
@@ -58,9 +74,13 @@ export function CheckoutExitGuard({ active = true }: { active?: boolean }) {
   }, [])
 
   const leaveCheckout = useCallback(() => {
+    if (busy) {
+      continueCheckout()
+      return
+    }
     guardActiveRef.current = false
-    router.push("/restaurants")
-  }, [router])
+    leaveCheckoutHistory(router, getSafeReturnUrl(returnUrl, "/restaurants"))
+  }, [router, returnUrl, busy, continueCheckout])
 
   useEffect(() => {
     if (!open) return

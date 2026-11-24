@@ -14,6 +14,7 @@ import {
   isWeeklyLimitedOffer,
   verifyClaimIntent,
 } from "@/lib/weekly-vouchers";
+import { checkPremiumAccess } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -152,18 +153,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as {
-      userId: string;
-      email: string;
-      role: string;
-      firstName: string;
-      lastName: string;
-      restaurantId?: string;
-      subscriptionStatus?: string;
-    };
+    let decodedToken: { userId: string; role: string };
+    try {
+      decodedToken = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as { userId: string; role: string };
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid authentication token" },
+        { status: 401 }
+      );
+    }
+    if (!decodedToken?.userId) {
+      return NextResponse.json(
+        { error: "Invalid authentication token" },
+        { status: 401 }
+      );
+    }
 
     const { offerId, offerStatus, offerRestaurantId, claimToken } = await req.json();
 
@@ -176,6 +183,27 @@ export async function POST(req: NextRequest) {
     if (decodedToken.role !== "user") {
       return NextResponse.json(
         { error: "Only users can redeem offers" },
+        { status: 403 }
+      );
+    }
+
+    const access = await checkPremiumAccess(decodedToken.userId);
+    if (access.status === "unverifiable") {
+      console.error("[wallet] Premium entitlement check failed:", access.reason);
+      return NextResponse.json(
+        {
+          error: "entitlement_unverifiable",
+          message: "We couldn't confirm your membership right now. Please try again shortly.",
+        },
+        { status: 503 }
+      );
+    }
+    if (access.status !== "granted") {
+      return NextResponse.json(
+        {
+          error: "premium_required",
+          message: "This offer is for Premium members. Upgrade to Premium to redeem it.",
+        },
         { status: 403 }
       );
     }
@@ -504,6 +532,13 @@ export async function GET(req: Request) {
       });
     });
 
+    // Saved wallet entries must not expose a usable code without current entitlement.
+    const access = await checkPremiumAccess(decodedToken.userId);
+    if (access.status === "unverifiable") {
+      console.error("[wallet] Premium entitlement check failed:", access.reason);
+    }
+    const canSeeCodes = access.status === "granted";
+
     const now = new Date();
     const redeemedOffersAll: any[] = [];
     const activeOffersAll: any[] = [];
@@ -567,7 +602,8 @@ export async function GET(req: Request) {
         isUnlimited: offer.is_unlimited,
         bookingRequirement: offer.booking_requirement || "mandatory",
         redeemed: true,
-        redeemCode: walletEntry.redeem_code,
+        redeemCode: canSeeCodes ? walletEntry.redeem_code : null,
+        premiumRequired: !canSeeCodes,
         redeemStatus: walletEntry.redeem_status,
         redeemCodeExpiry: walletEntry.redeem_code_expiry,
         walletId: walletEntry.id,
@@ -605,6 +641,7 @@ export async function GET(req: Request) {
       {
         redeemed: redeemedOffers,
         active: activeOffers,
+        premiumAccess: access.status,
         pagination: {
           redeemed: {
             total: redeemedOffersAll.length,

@@ -14,6 +14,7 @@ import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 import { checkFirstLoginOnDevice } from "@/lib/deviceLogin";
 import { useAuth } from "@/context/auth-context";
 import { Spinner } from "@/components/ui/spinner";
+import { getSafeReturnUrl } from "@/lib/safe-return-url";
 
 export default function SignInPage() {
   const { setAuthState } = useAuth();
@@ -22,6 +23,11 @@ export default function SignInPage() {
   const searchParams = useSearchParams();
   const fromRestaurants = searchParams.get("fromRestaurants") === "true";
   const redirectUrl = searchParams.get("redirect");
+  // National offers are free to claim, so customers return to them without a membership check.
+  const nationalOfferRedirect = (() => {
+    const safe = getSafeReturnUrl(redirectUrl, "");
+    return /^\/big-brands\/[^/?#]+$/.test(safe.split(/[?#]/)[0]) ? safe : null;
+  })();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility
@@ -55,6 +61,8 @@ export default function SignInPage() {
             router.push("/admin/dashboard");
           } else if (user?.role === "restaurant") {
             router.push("/dashboard");
+          } else if (user?.role === "user" && nationalOfferRedirect) {
+            router.push(nationalOfferRedirect);
           } else if (user?.role === "user") {
             // For users, check subscription access
             try {
@@ -100,6 +108,13 @@ export default function SignInPage() {
   const sessionCheck = async () => {
     setIsLoading(true);
     try {
+      const role = session?.user?.role;
+      if (nationalOfferRedirect && role !== "admin" && role !== "restaurant") {
+        sessionStorage.removeItem('triggeredLogin');
+        router.push(nationalOfferRedirect);
+        return;
+      }
+
       // Priority: Use redirect parameter if provided
       if (redirectUrl) {
         const subscriptionData = await fetchProfileAndSubscription();
@@ -220,51 +235,23 @@ export default function SignInPage() {
         subscriptionStatus: data.subscriptionStatus || "inactive",
         isTrialing: data.isTrialing || false,
       };
-
       setAuthState(userData, true);
 
-      // If redirect URL is provided, handle it with priority (fast path)
-      if (redirectUrl) {
-        // For non-admin and non-restaurant users, check subscription access first
-        if (data?.role !== "restaurant" && data?.role !== "admin") {
-          const subscriptionData = await fetchProfileAndSubscription();
-          console.log("Subscription access check:", subscriptionData);
 
-          if (!subscriptionData.hasAccess) {
-            console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
-            sessionStorage.setItem('triggeredLogin', 'true');
-            const checkoutEmail = data.email || email;
-            if (checkoutEmail) {
-              sessionStorage.setItem('checkoutEmail', checkoutEmail);
-            }
-            sessionStorage.setItem('redirectUrl', redirectUrl);
-            router.push('/checkout');
-            return;
-          }
-        }
-        // User has access or is admin/restaurant - redirect immediately (no delay)
-        router.push(decodeURIComponent(redirectUrl));
+      if (nationalOfferRedirect && data?.role !== "admin" && data?.role !== "restaurant") {
+        router.push(nationalOfferRedirect);
         return;
       }
 
-      // For non-admin and non-restaurant users, check subscription access
-      if (data?.role !== "restaurant" && data?.role !== "admin") {
-        const subscriptionData = await fetchProfileAndSubscription();
-        console.log("Subscription access check:", subscriptionData);
-
-        if (!subscriptionData.hasAccess) {
-          console.log("Access denied, redirecting to checkout:", subscriptionData.accessReason);
-          sessionStorage.setItem('triggeredLogin', 'true');
-          // Store email for checkout and redirect to the checkout page
-          const checkoutEmail = data.email || email;
-          if (checkoutEmail) {
-            sessionStorage.setItem('checkoutEmail', checkoutEmail);
-          }
-          router.push('/checkout');
-          return;
+      // Customers are never sent to checkout on login, whatever their membership;
+      // checkout is only reached when they choose to start or upgrade Premium.
+      if (redirectUrl) {
+        if (data?.role !== "restaurant" && data?.role !== "admin") {
+          router.push(getSafeReturnUrl(redirectUrl, "/restaurants"));
         } else {
-          console.log("Access granted:", subscriptionData.accessReason);
+          router.push(decodeURIComponent(redirectUrl));
         }
+        return;
       }
 
       // Redirect based on fromRestaurants or role (no delay)
@@ -415,22 +402,20 @@ export default function SignInPage() {
     );
   }
 
-  // Build the sign-up CTA href, preserving redirect and restaurantId query intent
-  const goToSignUp = () => {
-    const params = new URLSearchParams();
-    if (redirectUrl) params.set("redirect", redirectUrl);
-    if (restaurantId) params.set("restaurantId", restaurantId);
-    const query = params.toString();
-    router.push(query ? `/sign-up?${query}` : "/sign-up");
+  const goToJoin = (plan: "free" | "premium") => {
+    const params = new URLSearchParams({ plan });
+    const safeReturnUrl = getSafeReturnUrl(redirectUrl, "");
+    if (safeReturnUrl) params.set("returnUrl", safeReturnUrl);
+    router.push(`/join?${params.toString()}`);
   };
 
   const benefits = [
-    "30 days free, then £4.99/month",
-    "Show your voucher when you visit",
-    "Cancel anytime",
+    "Free national Big Brand offers",
+    "Premium discounts at 500+ restaurants, cafés and bars",
+    "Upgrade when you're ready",
   ];
 
-  const trustPills = ["30 days free", "£4.99/month", "Cancel anytime"];
+  const trustPills = benefits;
 
   const foodImage =
     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22.png-FjHsCSsScJT76IHTeq7DFobAck45ur.jpeg";
@@ -529,10 +514,10 @@ export default function SignInPage() {
           <div className="bg-white rounded-2xl border border-[#ecdfcb] shadow-md shadow-black/5 p-6 md:p-7 space-y-5">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Sign in to your membership
+                Welcome back to EatinOut
               </h1>
               <p className="text-sm text-muted-foreground">
-                Welcome back — view your offers and saved restaurants.
+                Sign in to access your offers and account.
               </p>
             </div>
 
@@ -616,17 +601,24 @@ export default function SignInPage() {
           {/* New user card */}
           <div className="rounded-2xl border border-primary/15 bg-primary/[0.05] shadow-sm p-6 md:p-7 space-y-4">
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-foreground">New to Eatinout?</h2>
+              <h2 className="text-lg font-bold text-foreground">New to EatinOut?</h2>
               <p className="text-sm text-muted-foreground text-pretty">
-                Start 30 days free and save up to 50% when you eat out.
+                Join for free to unlock national Big Brand offers, or choose Premium for exclusive local restaurant savings.
               </p>
             </div>
             <Button
-              onClick={goToSignUp}
+              onClick={() => goToJoin("free")}
               className="w-full h-14 text-lg font-semibold rounded-xl text-white hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#C8102E" }}
             >
-              Start my 30-day free trial
+              Create a Free account
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => goToJoin("premium")}
+              className="w-full h-12 text-base font-semibold rounded-xl border-[#C8102E]/30 bg-white text-[#C8102E] hover:bg-white/80 hover:text-[#C8102E]"
+            >
+              Explore Premium
             </Button>
           </div>
 

@@ -110,7 +110,8 @@ export function MainNav({ isAuthenticated }: { isAuthenticated: boolean }) {
 
                       try {
                         await fetch("/api/auth/logout", { method: "POST" });
-                        await signOut({ callbackUrl: "/sign-in" });
+                        await signOut({ redirect: false });
+                        window.location.assign("/sign-in");
                       } catch (error) {
                         console.error("Error signing out:", error);
                       } finally {

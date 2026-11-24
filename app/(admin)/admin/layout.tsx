@@ -123,6 +123,20 @@ export default function AdminLayout({
                     Restaurants
                   </Link>
                   <Link
+                    href="/admin/national/brands"
+                    className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    National Brands
+                  </Link>
+                  <Link
+                    href="/admin/national/performance"
+                    className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    National Performance
+                  </Link>
+                  <Link
                     href="/admin/redeemed-offer"
                     className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -193,6 +207,18 @@ export default function AdminLayout({
                 className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 Restaurants
+              </Link>
+              <Link
+                href="/admin/national/brands"
+                className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                National Brands
+              </Link>
+              <Link
+                href="/admin/national/performance"
+                className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                National Performance
               </Link>
               <Link href="/admin/redeemed-offer" className="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
                 Redeemed Offers

@@ -29,7 +29,8 @@ export function PublicNav({ isAuthenticated }: { isAuthenticated: boolean }) {
     try {
       setIsMenuOpen(false);
       await fetch("/api/auth/logout", { method: "POST" });
-      await signOut({ callbackUrl: "/sign-in" });
+      await signOut({ redirect: false });
+      window.location.assign("/sign-in");
     } catch (error) {
       console.error("Sign-out error:", error);
     } finally {

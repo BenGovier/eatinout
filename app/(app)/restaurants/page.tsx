@@ -10,7 +10,17 @@ import {
   Lock,
   Tag,
   Heart,
+  ChevronDown,
 } from "lucide-react"
+import { BigBrandsHero } from "@/components/home/BigBrandsHero"
+import { BigBrandsCarousel } from "@/components/home/BigBrandsCarousel"
+
+const MOBILE_CUISINE_LABELS: Record<string, string> = {
+  "Indian & South Asian": "Indian",
+  "British & Pubs": "Pubs",
+  "Bar & Drinks": "Bars",
+  "Desserts & Sweet Treats": "Desserts",
+}
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -21,7 +31,6 @@ import { useScrollPreservation } from "@/hooks/use-scroll-preservation"
 import { RestaurantListingCard } from "@/components/RestaurantListingCard"
 import { CategorySection } from "@/components/CategorySection"
 import { CategoryCarousel } from "@/components/CategoryCarousel"
-import { FlavourSection } from "@/components/FlavourSection"
 import { AvailableEverywhereCarousel } from "@/components/AvailableEverywhereCarousel"
 import { AuthCarouselList } from "@/components/AuthCarouselList"
 import { RestaurantCardSkeleton } from "@/components/restaurant-card-skeleton"
@@ -884,23 +893,14 @@ export default function RestaurantsPage() {
   const handleRestaurantNavigate = useCallback(async (restaurantId: string, offerId?: string) => {
     // Check if the user is a normal user without an active subscription
     if (user && user.role === "user" && ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")) {
+      const intendedUrl = offerId ? `/restaurant/${restaurantId}?offerId=${offerId}` : `/restaurant/${restaurantId}`
       try {
-        const response = await fetch("/api/payment/create-checkout-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: user.email }),
-        });
-        const { url } = await response.json();
-        if (response.ok && url) {
-          sessionStorage.setItem('redirectUrl', `/restaurant/${restaurantId}`);
-          window.location.replace(url);
-        } else {
-          toast.error("Failed to initiate checkout");
-        }
+        sessionStorage.setItem('checkoutEmail', user.email);
+        sessionStorage.setItem('redirectUrl', intendedUrl);
       } catch (error) {
-        console.error("Stripe Checkout error:", error);
-        toast.error("Failed to redirect to payment.");
+        console.error("Unable to save checkout details:", error);
       }
+      router.push("/checkout");
       return;
     }
 
@@ -946,6 +946,8 @@ export default function RestaurantsPage() {
   const selectedArea = useMemo(() => {
     return metaState.areas.find(area => area.value === filterState.selectedLocationId)
   }, [metaState.areas, filterState.selectedLocationId])
+
+  const selectedAreaName = selectedArea?.label || filterState.selectedLocation || ""
 
   const sectionTitle = useMemo(() => {
     const locationPart = selectedArea?.label || ''
@@ -1078,61 +1080,36 @@ export default function RestaurantsPage() {
     <>
       {(!initialLoadComplete || !minLoaderTimeElapsed) && <RestaurantsLoader />}
       <main className="min-h-screen bg-[#FFFBF7] pb-20">
-        <section className="sticky top-16 z-30 bg-white border-b border-gray-100 py-8">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#DC3545] w-5 h-5" />
-                  <Input
-                    type="text"
-                    placeholder="Search restaurant/food type"
-                    value={filterState.searchTerm}
-                    onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-6 text-base border-gray-200 rounded-xl focus:ring-2 focus:ring-[#DC3545] focus:border-transparent"
-                  />
-                  {filterState.searchTerm && (
-                    <button
-                      onClick={() => {
-                        setFilterState(prev => ({ ...prev, searchTerm: "" }))
-                        clearFilterState()
-                      }}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
+        <div className="mx-auto max-w-6xl space-y-6 px-4 pt-4">
+          <BigBrandsHero />
+          <BigBrandsCarousel />
+        </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-[#DC3545] transition-colors"
-                >
-                  <SlidersHorizontal className="w-5 h-5 text-[#DC3545]" />
-                  <span className="text-[#DC3545] font-medium">Filters</span>
-                </Button>
-              </div>
+        <section aria-labelledby="local-deals-heading" className="mx-auto max-w-6xl space-y-3 px-4 pt-7">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="local-deals-heading" className="text-xl font-extrabold leading-tight text-gray-900">
+                {selectedAreaName ? `Deals in ${selectedAreaName}` : "Local restaurant deals"}
+              </h2>
+              <p className="text-sm text-gray-600">Explore restaurant offers around you.</p>
+            </div>
 
-              <div className="flex items-center justify-start w-full">
-                <div className="relative z-40" ref={locationDropdownRef}>
+                <div className="relative z-40 shrink-0" ref={locationDropdownRef}>
                   <button
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl text-gray-700 font-medium transition-colors"
+                    type="button"
+                    className="flex min-h-10 max-w-[140px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 shadow-sm transition-colors hover:border-[#DC3545]"
                     onClick={() => setUIState(prev => ({ ...prev, showLocationDropdown: !prev.showLocationDropdown }))}
+                    aria-haspopup="listbox"
+                    aria-expanded={uiState.showLocationDropdown}
+                    aria-label={`Location: ${filterState.selectedLocation || "All locations"}. Change location`}
                   >
-                    <MapPin className="w-4 h-4" />
-                    <span>{filterState.selectedLocation || "Choose location"}</span>
-                    {filterState.selectedLocation && (
-                      <>
-                        <span className="text-gray-400">·</span>
-                        <span className="text-gray-700 underline underline-offset-2">change</span>
-                      </>
-                    )}
+                    <MapPin className="h-4 w-4 shrink-0 text-gray-700" aria-hidden="true" />
+                    <span className="truncate">{filterState.selectedLocation || "All areas"}</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-gray-700" aria-hidden="true" />
                   </button>
 
                   {uiState.showLocationDropdown && !metaState.areasLoading && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-[100] w-full">
+                    <div className="absolute right-0 top-full z-[100] mt-2 max-h-60 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                       {/* ✅ ALL LOCATIONS OPTION - Always at top */}
                       {/* <button
                         onClick={() => {
@@ -1219,7 +1196,90 @@ export default function RestaurantsPage() {
                     </div>
                   )}
                 </div>
-              </div>
+          </div>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#DC3545]" aria-hidden="true" />
+            <Input
+              type="search"
+              placeholder="Search restaurants or offers"
+              aria-label="Search restaurants or offers"
+              value={filterState.searchTerm}
+              onChange={handleSearchChange}
+              className={`h-12 w-full rounded-full border-gray-200 bg-white pl-11 text-base shadow-sm focus-visible:ring-2 focus-visible:ring-[#DC3545] [&::-webkit-search-cancel-button]:hidden ${filterState.searchTerm ? "pr-24" : "pr-16"}`}
+            />
+            <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+              {filterState.searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterState(prev => ({ ...prev, searchTerm: "" }))
+                    clearFilterState()
+                  }}
+                  className="flex h-10 w-10 items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <span className="h-6 w-px bg-gray-200" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => setUIState(prev => ({ ...prev, showFilters: !prev.showFilters }))}
+                className="flex h-10 w-12 items-center justify-center rounded-full text-[#DC3545] transition-colors hover:bg-[#DC3545]/5"
+                aria-label="Filters"
+                aria-expanded={uiState.showFilters}
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="-mx-4 overflow-x-auto px-4 scrollbar-hide" role="group" aria-label="Filter by cuisine">
+            <div className="flex min-w-max gap-2 pb-1">
+              {metaState.cuisineTypesLoading ? (
+                [...Array(5)].map((_, i) => (
+                  <div key={i} className="h-10 w-20 animate-pulse rounded-full bg-gray-200" />
+                ))
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setFilterState(prev => ({ ...prev, selectedCuisineIds: [], selectedCuisines: [] }))}
+                    aria-pressed={filterState.selectedCuisineIds.length === 0}
+                    className={`h-10 rounded-full border px-5 text-sm font-semibold transition-colors ${filterState.selectedCuisineIds.length === 0
+                      ? "border-[#DC3545] bg-[#DC3545] text-white"
+                      : "border-gray-200 bg-white text-gray-800 hover:border-[#DC3545]"
+                      }`}
+                  >
+                    All
+                  </button>
+                  {metaState.cuisineTypes.map((cuisine) => {
+                    const isSelected = filterState.selectedCuisineIds.includes(cuisine.value)
+                    return (
+                      <button
+                        key={cuisine.value}
+                        type="button"
+                        onClick={() => toggleCuisine(cuisine.value, cuisine.label)}
+                        aria-pressed={isSelected}
+                        className={`h-10 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors ${isSelected
+                          ? "border-[#DC3545] bg-[#DC3545] text-white"
+                          : "border-gray-200 bg-white text-gray-800 hover:border-[#DC3545]"
+                          }`}
+                      >
+                        {MOBILE_CUISINE_LABELS[cuisine.label] ? (
+                          <>
+                            <span className="md:hidden">{MOBILE_CUISINE_LABELS[cuisine.label]}</span>
+                            <span className="hidden md:inline">{cuisine.label}</span>
+                          </>
+                        ) : (
+                          cuisine.label
+                        )}
+                      </button>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -1372,13 +1432,6 @@ export default function RestaurantsPage() {
           </div>
         )}
 
-        <FlavourSection
-          cuisineTypes={metaState.cuisineTypes}
-          selectedCuisineIds={filterState.selectedCuisineIds}
-          onCuisineClick={toggleCuisine}
-          isLoading={metaState.cuisineTypesLoading}
-        />
-
         {/* Conditionally render AuthCarouselList */}
         {shouldShowCarousels && (
           <div className="bg-[#FFFBF7] pb-6" id="restaurant-list">
@@ -1399,12 +1452,11 @@ export default function RestaurantsPage() {
         )}
 
 
-        <section className="px-4 py-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{sectionTitle}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section aria-label={sectionTitle} className="mx-auto max-w-6xl px-4 pb-8 pt-4">
+          <div className="grid grid-cols-1 min-[340px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
             {showMainListSkeleton &&
               [1, 2, 3, 4, 5, 6].map((i) => (
-                <RestaurantCardSkeleton key={i} />
+                <RestaurantCardSkeleton key={i} compact />
               ))}
             {!pageState.loadingListReset &&
               visibleRestaurants.map((restaurant) => {
@@ -1422,156 +1474,93 @@ export default function RestaurantsPage() {
                 const isHeroComingSoon = heroOffer && !heroOffer.unlimited &&
                   (typeof heroOffer.remainingCount !== "number" || heroOffer.remainingCount <= 0)
 
+                const restaurantHref = restaurant.slug || restaurant.id
+                const offerCount = offers.length
+                const isFavorite = favorites.has(restaurant.id)
+                const isFavoriteLoading = favoritesLoading.has(restaurant.id)
+
                 return (
-                  <div key={restaurant.id} onClick={() => handleRestaurantNavigate(restaurant.slug || restaurant.id)} className="w-full">
-                    <div className="w-full">
-                      <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 cursor-pointer">
-                        <div className="relative h-[130px] w-full overflow-hidden">
-                          <Image
-                            src={restaurant.imageUrl || "/placeholder.svg"}
-                            alt={restaurant.name}
-                            fill
-                            className="object-cover"
-                            loading="lazy"
-                            quality={75}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          />
-
-                          <div className="absolute top-2 left-0 flex items-stretch">
-                            <div className="bg-[#eb221c] text-white font-semibold text-xs px-2 py-1">
-                              {/* {offers[0].discount} */}
-                              {heroOffer?.discount}
-                            </div>
-                            {/* {!offers[0].unlimited && offers[0].remainingCount && offers[0].remainingCount > 0 && (
-                            <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                              {offers[0].remainingCount} left!
-                            </div>
-                          )} */}
-                            {!heroOffer?.unlimited && (
-                              heroOffer?.remainingCount && heroOffer.remainingCount > 0 ? (
-                                <div className="bg-white text-[#eb221c] font-medium text-xs px-2 py-1">
-                                  {heroOffer.remainingCount} left!
-                                </div>
-                              ) : (
-                                <div className="bg-white text-gray-500 font-medium text-xs px-2 py-1">
-                                  More coming soon
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="p-3 space-y-1.5 relative">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 flex-1 pr-2">{restaurant.name}</h3>
-                            {/* Line ~1119 ke aas paas - Update heart button */}
-                            <button
-                              className={`transition-colors flex-shrink-0 ${favorites.has(restaurant.id)
-                                ? "text-[#eb221c]"
-                                : "text-gray-300 hover:text-[#eb221c]"
-                                }`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleHeartClick(e, restaurant.id, restaurant.name);
-                              }}
-                              disabled={favoritesLoading.has(restaurant.id)} // ✅ Disable during loading
-                              aria-label={favorites.has(restaurant.id) ? "Remove from favourites" : "Add to favourites"}
-                            >
-                              {favoritesLoading.has(restaurant.id) ? (
-                                // ✅ Loading spinner
-                                <svg
-                                  className="animate-spin h-4 w-4 text-[#eb221c]"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  />
-                                </svg>
-                              ) : (
-                                <Heart
-                                  className={`h-4 w-4 ${favorites.has(restaurant.id) ? "fill-[#eb221c]" : ""
-                                    }`}
-                                />
-                              )}
-                            </button>
-                          </div>
-
-                          <p className="text-gray-500 text-xs flex items-center gap-1">
-                            <span className="inline-block w-3 h-3 text-gray-400">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                <circle cx="12" cy="10" r="3" />
-                              </svg>
-                            </span>
-                            {restaurant.city}<span className="text-gray-400">·</span>{restaurant.zipCode}
-                          </p>
-
-                          {/* <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            {offers.map((offer, index) => (
-                              
-                              <div
-                                key={index}
-                                className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">{offer.discount}</span>
-                                {!offer.unlimited && offer.remainingCount && offer.remainingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                    {offer.remainingCount} left
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div> */}
-                          <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-                            <div className="flex items-center gap-1.5">
-                              {offers.map((offer, index) => {
-                                const isComingSoon = !offer.unlimited &&
-                                  (typeof offer.remainingCount !== "number" || offer.remainingCount <= 0)
-
-                                return (
-                                  <div
-                                    key={index}
-                                    className="flex-shrink-0 flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1"
-                                  >
-                                    <Tag className="h-2.5 w-2.5 text-[#eb221c]" />
-                                    <span className="text-[10px] font-medium text-gray-700 whitespace-nowrap">
-                                      {offer.discount}
-                                    </span>
-                                    {!offer.unlimited && (
-                                      offer.remainingCount && offer.remainingCount > 0 ? (
-                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                                          {offer.remainingCount} left
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-orange-500 whitespace-nowrap">
-                                          More coming soon
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  <article
+                    key={restaurant.id}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`View ${restaurant.name}`}
+                    onClick={() => handleRestaurantNavigate(restaurantHref)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        handleRestaurantNavigate(restaurantHref)
+                      }
+                    }}
+                    className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eb221c] focus-visible:ring-offset-2"
+                  >
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                      <Image
+                        src={restaurant.imageUrl || "/placeholder.svg"}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        loading="lazy"
+                        quality={75}
+                        sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                      />
+                      <button
+                        type="button"
+                        className={`absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors ${isFavorite ? "text-[#eb221c]" : "text-gray-500 hover:text-[#eb221c]"}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleHeartClick(e, restaurant.id, restaurant.name)
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        disabled={isFavoriteLoading}
+                        aria-pressed={isFavorite}
+                        aria-label={isFavorite ? `Remove ${restaurant.name} from favourites` : `Add ${restaurant.name} to favourites`}
+                      >
+                        {isFavoriteLoading ? (
+                          <svg
+                            className="h-4 w-4 animate-spin text-[#eb221c]"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : (
+                          <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#eb221c]" : ""}`} aria-hidden="true" />
+                        )}
+                      </button>
                     </div>
-                  </div>
+
+                    <div className="flex flex-1 flex-col gap-1 p-2.5">
+                      <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900 sm:text-sm">
+                        {restaurant.name}
+                      </h3>
+                      {restaurant.city && (
+                        <p className="flex min-w-0 items-center gap-1 text-[11px] text-gray-500 sm:text-xs">
+                          <MapPin className="h-3 w-3 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{restaurant.city}</span>
+                        </p>
+                      )}
+                      {heroOffer?.discount && (
+                        <p className="mt-auto line-clamp-1 pt-0.5 text-[12px] font-semibold leading-snug text-[#eb221c] sm:text-[13px]">
+                          {heroOffer.discount}
+                        </p>
+                      )}
+                      {offerCount > 0 && (
+                        <p className={`text-[11px] font-medium text-gray-500 ${heroOffer?.discount ? "" : "mt-auto"}`}>
+                          {offerCount} {offerCount === 1 ? "offer" : "offers"} available
+                        </p>
+                      )}
+                    </div>
+                  </article>
                 )
               })}
             {!pageState.loading &&
@@ -1619,9 +1608,9 @@ export default function RestaurantsPage() {
           {pageState.loading &&
             pageState.restaurants.length > 0 &&
             !pageState.loadingListReset && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 min-[340px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 mt-4">
                 {[1, 2, 3].map((i) => (
-                  <RestaurantCardSkeleton key={i} />
+                  <RestaurantCardSkeleton key={i} compact />
                 ))}
               </div>
             )}

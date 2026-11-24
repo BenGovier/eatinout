@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Lock, Check, ShieldCheck, ArrowRight, Loader2, CreditCard, ChevronDown } from "lucide-react"
+import { Lock, Check, ShieldCheck, ArrowRight, ArrowLeft, Tag, Loader2, CreditCard, ChevronDown } from "lucide-react"
 import { loadStripe, type StripeCardNumberElementChangeEvent, type StripeCardExpiryElementChangeEvent, type StripeCardCvcElementChangeEvent } from "@stripe/stripe-js"
 import {
   Elements,
@@ -16,7 +16,11 @@ import {
 } from "@stripe/react-stripe-js"
 import { ViewReveal } from "@/components/prototypes/eatinout-checkout/motion"
 import { CheckoutExitGuard } from "./checkout-exit-guard"
+import { leaveCheckout } from "@/lib/checkout-history"
 import { useAuth } from "@/context/auth-context"
+import { getSafeReturnUrl } from "@/lib/safe-return-url"
+
+const OFFERS_FALLBACK_URL = "/restaurants"
 
 // ── DEBUG: confirm the publishable key actually made it into the bundle ──
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -117,7 +121,69 @@ function CheckoutHeader() {
   )
 }
 
-/* ── INTRO ──────────────────────────────────────────────────────────────── */
+/* ── BACK LINK ──────────────────────────────────────────────────────────── */
+function BackToOffers({ returnUrl, disabled }: { returnUrl: string; disabled: boolean }) {
+  const router = useRouter()
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!disabled) leaveCheckout(router, returnUrl)
+      }}
+      disabled={disabled}
+      aria-disabled={disabled}
+      className="inline-flex min-h-11 items-center gap-1.5 self-start rounded-full px-1 text-[14px] font-semibold text-[var(--p-ink)] underline-offset-4 transition-colors hover:text-[var(--p-red)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-red)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-[var(--p-ink)] disabled:hover:no-underline"
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Back to restaurant offers
+    </button>
+  )
+}
+
+/* ── PREMIUM OFFER CONTEXT ──────────────────────────────────────────────── */
+// Shown only to signed-in Free customers who arrived from a restaurant page.
+// The price line uses the live Stripe price so the currency always matches the charge.
+function PremiumOfferContext({ isTrial, priceText }: { isTrial: boolean | null; priceText: string | null }) {
+  return (
+    <section
+      aria-labelledby="premium-offer-title"
+      className="rounded-[22px] p-5"
+      style={{ backgroundImage: "linear-gradient(135deg, #FFF8F3 0%, #FFF0F3 100%)", border: "1px solid var(--p-blush-strong)" }}
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--p-red)] text-white" aria-hidden="true">
+          <Tag className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <h2 id="premium-offer-title" className="text-balance text-[18px] font-extrabold leading-snug text-[var(--p-ink)]" style={{ letterSpacing: "-0.02em" }}>
+            Unlock this restaurant offer with EatinOut Premium
+          </h2>
+          <p className="mt-1 text-pretty text-[14px] leading-relaxed text-[var(--p-body)]">
+            Local restaurant discounts are exclusive to Premium members.
+          </p>
+        </div>
+      </div>
+      <ul className="mt-4 flex flex-col gap-2.5">
+        <PremiumBenefit>Access exclusive offers at 500+ restaurants, cafés and bars.</PremiumBenefit>
+        {isTrial !== false && <PremiumBenefit>Enjoy your first 30 days free if eligible.</PremiumBenefit>}
+        <PremiumBenefit>{priceText ? `Just ${priceText} afterwards. Cancel anytime.` : "Cancel anytime."}</PremiumBenefit>
+      </ul>
+    </section>
+  )
+}
+
+function PremiumBenefit({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 text-[14px] leading-snug text-[var(--p-ink)]" style={{ fontWeight: 550 }}>
+      <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full" style={{ background: "var(--p-sage-bg)" }} aria-hidden="true">
+        <Check className="h-3 w-3 text-[var(--p-sage)]" />
+      </span>
+      <span className="min-w-0">{children}</span>
+    </li>
+  )
+}
+
+/* ── INTRO ──────────────���───────────────────────────────────────────────── */
 // `isTrial` is null until create-subscription responds, so returning
 // customers (mode "payment") never see free-trial wording.
 function CheckoutIntro({ isTrial }: { isTrial: boolean | null }) {
@@ -634,6 +700,9 @@ function WalletButtons({
               }))
               setEceSupport({ applePay, googlePay })
             }}
+            // Required by ExpressCheckoutElementProps. This element is hidden and
+            // used only for wallet detection; payments go through paymentRequest.
+            onConfirm={() => {}}
             onLoadError={(event: any) => {
               console.error("[checkout][debug][ECE] onLoadError — ECE treats both wallets as unsupported:", event)
               const error = { type: event?.error?.type ?? null, message: event?.error?.message ?? null }
@@ -802,6 +871,7 @@ function LiveCheckoutCardInner({
   pricing,
   onSuccess,
   onReapply,
+  onBusyChange,
 }: {
   clientSecret: string | null
   mode: "setup" | "payment"
@@ -809,6 +879,7 @@ function LiveCheckoutCardInner({
   pricing: Pricing | null
   onSuccess: () => Promise<void>
   onReapply: (voucherCode: string) => Promise<void>
+  onBusyChange?: (busy: boolean) => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -819,6 +890,11 @@ function LiveCheckoutCardInner({
   const [isVoucherOpen, setIsVoucherOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Read-only report so the page can block leaving mid-payment.
+  useEffect(() => {
+    onBusyChange?.(isSubmitting)
+  }, [isSubmitting, onBusyChange])
 
   useEffect(() => {
     console.log("[checkout][debug][button-state]", {
@@ -1094,6 +1170,7 @@ function LiveCheckoutCard({
   pricing,
   onSuccess,
   onReapply,
+  onBusyChange,
 }: {
   clientSecret: string | null
   mode: "setup" | "payment"
@@ -1101,6 +1178,7 @@ function LiveCheckoutCard({
   pricing: Pricing | null
   onSuccess: () => Promise<void>
   onReapply: (voucherCode: string) => Promise<void>
+  onBusyChange?: (busy: boolean) => void
 }) {
   // Elements receives `options` with mode/amount/currency. This is required
   // for <ExpressCheckoutElement> (used inside WalletButtons for detection)
@@ -1131,6 +1209,7 @@ function LiveCheckoutCard({
           pricing={pricing}
           onSuccess={onSuccess}
           onReapply={onReapply}
+          onBusyChange={onBusyChange}
         />
       </Elements>
     </ViewReveal>
@@ -1143,12 +1222,35 @@ export function EatinOutCheckoutLive() {
   const { user, authLoading } = useAuth()
   const [checkoutData, setCheckoutData] = useState<{ clientSecret: string; mode: "setup" | "payment" } | null>(null)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
+  const [setupIntentId, setSetupIntentId] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [postcode, setPostcode] = useState<string | undefined>(undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [paymentDone, setPaymentDone] = useState(false)
+  const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false)
+  const [returnUrl, setReturnUrl] = useState(OFFERS_FALLBACK_URL)
   const initStartedRef = useRef(false)
+
+  useEffect(() => {
+    try {
+      setReturnUrl(getSafeReturnUrl(sessionStorage.getItem("redirectUrl"), OFFERS_FALLBACK_URL))
+    } catch {
+      setReturnUrl(OFFERS_FALLBACK_URL)
+    }
+  }, [])
+
+  const paymentBusy = isPaymentSubmitting || paymentDone
+  const cameFromRestaurant = returnUrl.startsWith("/restaurant/")
+  const isFreeCustomer =
+    !!user &&
+    user.role === "user" &&
+    ((user.subscriptionStatus === "inactive" && !user.isTrialing) || user.subscriptionStatus === "cancelled")
+  const showPremiumContext = cameFromRestaurant && isFreeCustomer
+  const livePriceText =
+    checkoutData && pricing
+      ? `${formatMoney(pricing.discountedAmount ?? pricing.baseAmount, pricing.currency)}/${intervalWord(pricing)}`
+      : null
 
   const fetchSubscription = async (userEmail: string, voucherCode?: string) => {
     const priceId = sessionStorage.getItem("selectedPriceId") || undefined
@@ -1201,6 +1303,7 @@ export function EatinOutCheckoutLive() {
         })
         setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
         setSubscriptionId(data.subscriptionId ?? null)
+        setSetupIntentId(data.setupIntentId ?? null)
         setPricing(data.pricing ?? null)
       })
       .catch((err) => {
@@ -1215,6 +1318,7 @@ export function EatinOutCheckoutLive() {
     const data = await fetchSubscription(email, voucherCode)
     setCheckoutData({ clientSecret: data.clientSecret, mode: data.mode })
     setSubscriptionId(data.subscriptionId ?? null)
+    setSetupIntentId(data.setupIntentId ?? null)
     setPricing(data.pricing ?? null)
   }
 
@@ -1226,7 +1330,7 @@ export function EatinOutCheckoutLive() {
       await fetch("/api/payment/verify-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriptionId }),
+        body: JSON.stringify(setupIntentId ? { setupIntentId } : { subscriptionId }),
         signal: controller.signal,
       })
     } catch (err) {
@@ -1239,13 +1343,19 @@ export function EatinOutCheckoutLive() {
 
   return (
     <div className="min-h-dvh text-[var(--p-ink)]" style={{ ...palette, background: "var(--p-bg)" }}>
-      <CheckoutExitGuard active={!paymentDone} />
+      <CheckoutExitGuard active={!paymentDone} returnUrl={returnUrl} busy={paymentBusy} />
 
       <CheckoutHeader />
 
       <main className="mx-auto max-w-[480px] px-4 py-4 sm:px-5 sm:py-8">
         <div className="flex flex-col">
           <div className="flex flex-col gap-4">
+            <BackToOffers returnUrl={returnUrl} disabled={paymentBusy} />
+
+            {showPremiumContext && (
+              <PremiumOfferContext isTrial={checkoutData ? checkoutData.mode === "setup" : null} priceText={livePriceText} />
+            )}
+
             <CheckoutIntro isTrial={checkoutData ? checkoutData.mode === "setup" : null} />
 
             {loadError ? (
@@ -1260,6 +1370,7 @@ export function EatinOutCheckoutLive() {
                 pricing={pricing}
                 onSuccess={handleSuccess}
                 onReapply={handleReapply}
+                onBusyChange={setIsPaymentSubmitting}
               />
             )}
           </div>
