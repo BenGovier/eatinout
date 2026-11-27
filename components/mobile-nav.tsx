@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Search, Wallet, User, Grid2X2, MapIcon } from "lucide-react"
+import { Search, Wallet, User, MapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useWallet } from "@/context/wallet-context"
 
@@ -12,7 +12,7 @@ export function MobileNav() {
 
   return (
     <div className="fixed bottom-0 left-0 z-[10000] w-full h-16 bg-red-600 border-t border-red-700 md:hidden pb-safe">
-      <div className="grid h-full max-w-lg grid-cols-5 mx-auto">
+      <div className="grid h-full max-w-lg grid-cols-4 mx-auto">
         <Link
           href="/restaurants"
           className={cn(
@@ -34,16 +34,6 @@ export function MobileNav() {
           <span className="text-[10px]">Map</span>
         </Link>
         <Link
-          href="/categories"
-          className={cn(
-            "inline-flex flex-col items-center justify-center px-2 text-white hover:bg-red-700",
-            pathname === "/categories" && "text-white font-medium",
-          )}
-        >
-          <Grid2X2 className="w-5 h-5 mb-1" />
-          <span className="text-[10px]">Categories</span>
-        </Link>
-        <Link
           href="/wallet"
           className={cn(
             "inline-flex flex-col items-center justify-center px-2 text-white hover:bg-red-700 relative",
@@ -52,7 +42,7 @@ export function MobileNav() {
         >
           <Wallet className="w-5 h-5 mb-1" />
           {redeemedOffers.length > 0 && (
-            <span className="absolute top-0 right-3 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
+            <span className="absolute top-0 left-1/2 ml-1 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
               {redeemedOffers.length}
             </span>
           )}

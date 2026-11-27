@@ -13,6 +13,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
+  // Customer Categories pages were removed; send old links to Restaurants
+  if (url.pathname === "/categories" || url.pathname.startsWith("/categories/")) {
+    return NextResponse.redirect(new URL("/restaurants", request.url));
+  }
+
   return NextResponse.next();
 }
 
